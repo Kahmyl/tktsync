@@ -6,10 +6,13 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
+	"github.com/tktsync/tktsync/backend/internal/outbox"
 	"github.com/tktsync/tktsync/backend/internal/platform/bootstrap"
 	platformworker "github.com/tktsync/tktsync/backend/internal/platform/worker"
 	"github.com/tktsync/tktsync/backend/internal/reservation"
+	"github.com/tktsync/tktsync/backend/internal/webhook"
 )
 
 func main() {
@@ -48,12 +51,25 @@ func main() {
 			100,
 		)
 
+	jobs := []platformworker.Job{
+		reservationMaterializer,
+		outbox.NewDispatcher(resources.Transactions, 100),
+	}
+	if resources.Config.Webhook.Enabled {
+		box, boxErr := webhook.NewSecretBox(resources.Config.Webhook.EncryptionKey)
+		if boxErr != nil || box == nil || resources.Config.Webhook.EncryptionKeyVersion <= 0 {
+			resources.Logger.Error("webhook worker configuration failed", "operation", "webhook.worker.configure", "error", boxErr)
+			os.Exit(1)
+		}
+		jobs = append(jobs, webhook.NewDeliveryWorker(resources.Transactions, box, resources.Config.Environment != "production", 50, 8, 5*time.Second))
+	}
+
 	runner := platformworker.New(
 		resources.Logger,
 		resources.Database,
 		resources.Config.Worker.PollInterval,
 		resources.Config.Worker.ShutdownTimeout,
-		reservationMaterializer,
+		jobs...,
 	)
 
 	if err := runner.Run(ctx); err != nil {

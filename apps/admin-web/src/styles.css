@@ -1,1 +1,122 @@
 @import '@tktsync/ui/styles.css';
+.admin-nav {
+  display: flex;
+  gap: 28px;
+  padding: 13px clamp(20px, 4vw, 58px);
+  background: #17251f;
+  color: #fff;
+  overflow-x: auto;
+}
+.admin-nav > div {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  white-space: nowrap;
+}
+.admin-nav span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #9db1a7;
+  margin-right: 5px;
+}
+.admin-nav button {
+  background: transparent;
+  border: 0;
+  color: #dbe4df;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.admin-nav button.active {
+  background: #2d4137;
+  color: #fff;
+}
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 22px;
+}
+.metrics .metric {
+  background: #fff;
+  padding: 18px 20px;
+}
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(320px, 0.85fr);
+  gap: 20px;
+}
+.form-stack {
+  display: grid;
+  gap: 18px;
+}
+.method-path {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  align-items: end;
+  gap: 12px;
+}
+.method-path > strong {
+  height: 39px;
+  display: grid;
+  place-items: center;
+  background: var(--mint);
+  color: var(--green-dark);
+  border-radius: 9px;
+  font-size: 12px;
+}
+.response {
+  background: #17251f;
+  color: #d9e7df;
+  border-radius: 12px;
+  padding: 16px;
+  min-height: 310px;
+  max-height: 540px;
+  overflow: auto;
+  font:
+    12px/1.6 ui-monospace,
+    monospace;
+}
+.empty-state {
+  min-height: 310px;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  color: var(--muted);
+}
+.empty-state span {
+  font-size: 36px;
+  color: var(--green);
+}
+.empty-state strong {
+  color: var(--ink);
+  margin: 10px;
+}
+.empty-state p {
+  margin: 0;
+}
+@media (max-width: 920px) {
+  .metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+  .admin-nav > div {
+    display: contents;
+  }
+  .admin-nav span {
+    display: none;
+  }
+}

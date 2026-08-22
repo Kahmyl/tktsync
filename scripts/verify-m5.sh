@@ -48,10 +48,5 @@ if find "$ROOT/backend/internal/ticketing" -type f ! -name '.gitkeep' | grep -q 
   exit 1
 fi
 
-if find "$ROOT/backend/internal/admission" -type f ! -name '.gitkeep' | grep -q .; then
-  echo "M5 unexpectedly implemented Admission-domain files."
-  exit 1
-fi
-
 echo
 echo "M5 verification COMPLETE."

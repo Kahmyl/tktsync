@@ -23,12 +23,15 @@ type partnerMutationResponse struct {
 	Body                    json.RawMessage
 	EntityID                *uuid.UUID
 	RecoverReservationToken bool
+	RecoverSelectionURL     bool
+	EntityType              string
 }
 
 type persistedPartnerResponse struct {
 	Status                  int             `json:"status"`
 	Body                    json.RawMessage `json:"body"`
 	RecoverReservationToken bool            `json:"recover_reservation_token,omitempty"`
+	RecoverSelectionURL     bool            `json:"recover_selection_url,omitempty"`
 }
 
 type persistedPartnerFailure struct {
@@ -345,6 +348,24 @@ func (h *Handler) runPartnerMutation(
 						return err
 					}
 				}
+				if stored.RecoverSelectionURL {
+					if claim.Replay.EntityID == nil || h.selection == nil {
+						return errors.New("Selection session replay identity is missing")
+					}
+					recovered, recoverErr := h.selection.Recover(r.Context(), *claim.Replay.EntityID, principal.PartnerID)
+					if recoverErr != nil {
+						return recoverErr
+					}
+					var decoded map[string]any
+					if err := json.Unmarshal(body, &decoded); err != nil {
+						return err
+					}
+					decoded["selection_url"] = recovered.SelectionURL
+					body, err = json.Marshal(decoded)
+					if err != nil {
+						return err
+					}
+				}
 
 				finalResponse =
 					partnerMutationResponse{
@@ -354,6 +375,7 @@ func (h *Handler) runPartnerMutation(
 							Replay.EntityID,
 						RecoverReservationToken: stored.
 							RecoverReservationToken,
+						RecoverSelectionURL: stored.RecoverSelectionURL,
 					}
 
 				return nil
@@ -453,11 +475,25 @@ func (h *Handler) runPartnerMutation(
 					Body:   storedBody,
 					RecoverReservationToken: result.
 						RecoverReservationToken,
+					RecoverSelectionURL: result.RecoverSelectionURL,
 				}
+			if result.RecoverSelectionURL {
+				var decoded map[string]any
+				if err := json.Unmarshal(stored.Body, &decoded); err != nil {
+					return err
+				}
+				delete(decoded, "selection_url")
+				stored.Body, err = json.Marshal(decoded)
+				if err != nil {
+					return err
+				}
+			}
 
-			entityType := ""
+			entityType := result.EntityType
 			if result.EntityID != nil {
-				entityType = "RESERVATION"
+				if entityType == "" {
+					entityType = "RESERVATION"
+				}
 			}
 
 			if err := store.CompleteSuccess(
@@ -494,8 +530,7 @@ func (h *Handler) runPartnerMutation(
 		return
 	}
 
-	if finalResponse.
-		RecoverReservationToken {
+	if finalResponse.RecoverReservationToken || finalResponse.RecoverSelectionURL {
 		w.Header().Set(
 			"Cache-Control",
 			"no-store",

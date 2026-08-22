@@ -17,6 +17,7 @@ import (
 	"github.com/tktsync/tktsync/backend/internal/platform/httpserver"
 	"github.com/tktsync/tktsync/backend/internal/platform/publicid"
 	"github.com/tktsync/tktsync/backend/internal/reservation"
+	"github.com/tktsync/tktsync/backend/internal/selection"
 )
 
 type Dependencies struct {
@@ -25,6 +26,7 @@ type Dependencies struct {
 	Availability *inventory.Service
 	Transactions *database.Runner
 	Reservation  *reservation.Service
+	Selection    *selection.Service
 }
 
 type Handler struct {
@@ -33,6 +35,7 @@ type Handler struct {
 	availability *inventory.Service
 	transactions *database.Runner
 	reservation  *reservation.Service
+	selection    *selection.Service
 	mux          *http.ServeMux
 }
 
@@ -60,6 +63,7 @@ func New(
 		availability: deps.Availability,
 		transactions: deps.Transactions,
 		reservation:  deps.Reservation,
+		selection:    deps.Selection,
 		mux:          http.NewServeMux(),
 	}
 
@@ -92,6 +96,9 @@ func (h *Handler) registerRoutes() {
 	)
 
 	if h.reservation != nil {
+		if h.selection != nil {
+			h.mux.HandleFunc("POST /api/v1/partner/selection-sessions", h.createSelectionSession)
+		}
 		h.mux.HandleFunc(
 			"POST /api/v1/partner/reservations",
 			h.createReservation,
@@ -135,6 +142,11 @@ func (h *Handler) registerRoutes() {
 		h.mux.HandleFunc(
 			"POST /api/v1/partner/tickets/{ticket_id}/credentials/reissue",
 			h.reissueTicketCredential,
+		)
+
+		h.mux.HandleFunc(
+			"POST /api/v1/partner/tickets/{ticket_id}/inventory/re-release",
+			h.reReleaseTicketInventory,
 		)
 	}
 }

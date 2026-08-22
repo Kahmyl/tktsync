@@ -493,3 +493,51 @@ func (h *Handler) reissueTicketCredential(
 		},
 	)
 }
+
+type releasePartnerTicketInventoryRequest struct {
+	DestinationKind         string `json:"destination_kind"`
+	DestinationAllocationID string `json:"destination_allocation_id,omitempty"`
+	Reason                  string `json:"reason"`
+}
+
+func (h *Handler) reReleaseTicketInventory(w http.ResponseWriter, r *http.Request) {
+	ticketID, err := parseTicketID(r.PathValue("ticket_id"))
+	if err != nil {
+		httpserver.WriteError(w, r, err)
+		return
+	}
+	var request releasePartnerTicketInventoryRequest
+	if err = decodePartnerJSON(r, &request); err != nil {
+		httpserver.WriteError(w, r, err)
+		return
+	}
+	request.DestinationKind = strings.ToUpper(strings.TrimSpace(request.DestinationKind))
+	request.DestinationAllocationID = strings.TrimSpace(request.DestinationAllocationID)
+	request.Reason = strings.TrimSpace(request.Reason)
+	var destinationAllocationID *uuid.UUID
+	if request.DestinationAllocationID != "" {
+		id, parseErr := publicid.Parse(request.DestinationAllocationID, publicid.Allocation)
+		if parseErr != nil {
+			httpserver.WriteError(w, r, apierror.New(apierror.CodeValidation, "destination_allocation_id is invalid"))
+			return
+		}
+		destinationAllocationID = &id
+		request.DestinationAllocationID = publicid.Encode(publicid.Allocation, id)
+	}
+	canonical, err := canonicalPartnerMutation("PARTNER_RERELEASE_TICKET_INVENTORY", publicid.Encode(publicid.Ticket, ticketID), request, "")
+	if err != nil {
+		httpserver.WriteError(w, r, err)
+		return
+	}
+	h.runPartnerMutation(w, r, "PARTNER_RERELEASE_TICKET_INVENTORY", canonical, func(ctx context.Context, principal auth.PartnerPrincipal) (partnerMutationResponse, error) {
+		result, releaseErr := h.reservation.ReReleasePartnerTicketInventory(ctx, principal.PartnerID, ticketID, reservation.InventoryReleaseInput{DestinationKind: request.DestinationKind, DestinationAllocationID: destinationAllocationID, Reason: request.Reason})
+		if releaseErr != nil {
+			return partnerMutationResponse{}, releaseErr
+		}
+		body := map[string]any{"ticket_id": publicid.Encode(publicid.Ticket, result.TicketID), "released_at": result.ReleasedAt, "destination_kind": result.DestinationKind, "reason": result.Reason}
+		if result.DestinationAllocationID != nil {
+			body["destination_allocation_id"] = publicid.Encode(publicid.Allocation, *result.DestinationAllocationID)
+		}
+		return partnerJSONResponse(http.StatusOK, body, nil, false)
+	})
+}

@@ -26,7 +26,9 @@ import (
 
 type fixture struct {
 	pool           *pgxpool.Pool
+	runner         *database.Runner
 	userID         uuid.UUID
+	userSubject    string
 	eventID        uuid.UUID
 	partnerID      uuid.UUID
 	otherPartnerID uuid.UUID
@@ -1702,7 +1704,9 @@ func newFixture(
 
 	return fixture{
 		pool:           pool,
+		runner:         runner,
 		userID:         userID,
+		userSubject:    subject,
 		eventID:        eventID,
 		partnerID:      partnerID,
 		otherPartnerID: otherPartnerID,

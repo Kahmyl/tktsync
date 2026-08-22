@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	admissionsvc "github.com/tktsync/tktsync/backend/internal/admission"
 	allocsvc "github.com/tktsync/tktsync/backend/internal/allocation"
 	"github.com/tktsync/tktsync/backend/internal/auth"
 	eventsvc "github.com/tktsync/tktsync/backend/internal/event"
@@ -22,6 +23,7 @@ import (
 	"github.com/tktsync/tktsync/backend/internal/platform/publicid"
 	"github.com/tktsync/tktsync/backend/internal/reservation"
 	venuesvc "github.com/tktsync/tktsync/backend/internal/venue"
+	webhooksvc "github.com/tktsync/tktsync/backend/internal/webhook"
 )
 
 const maxRequestBodyBytes = 1 << 20
@@ -40,6 +42,8 @@ type Dependencies struct {
 	PartnerService     *partnersvc.Service
 	AllocationService  *allocsvc.Service
 	ReservationService *reservation.Service
+	AdmissionService   *admissionsvc.Service
+	WebhookService     *webhooksvc.Service
 	ReplayProtector    *ReplayProtector
 }
 
@@ -52,6 +56,8 @@ type Handler struct {
 	partner         *partnersvc.Service
 	allocation      *allocsvc.Service
 	reservation     *reservation.Service
+	admission       *admissionsvc.Service
+	webhook         *webhooksvc.Service
 	replayProtector *ReplayProtector
 	idempotency     idempotency.Store
 	mux             *http.ServeMux
@@ -79,6 +85,8 @@ func New(
 		partner:         deps.PartnerService,
 		allocation:      deps.AllocationService,
 		reservation:     deps.ReservationService,
+		admission:       deps.AdmissionService,
+		webhook:         deps.WebhookService,
 		replayProtector: deps.ReplayProtector,
 		mux:             http.NewServeMux(),
 	}
@@ -201,6 +209,9 @@ func (h *Handler) registerRoutes() {
 
 	h.registerM4Routes()
 	h.registerM6Routes()
+	h.registerM7Routes()
+	h.registerM8Routes()
+	h.registerM9Routes()
 }
 
 func (h *Handler) authenticate(

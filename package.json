@@ -14,7 +14,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "api:generate": "pnpm --filter @tktsync/api-client generate",
-    "api:check": "pnpm --filter @tktsync/api-client check:generated"
+    "api:check": "pnpm --filter @tktsync/api-client check:generated",
+    "api:routes": "node scripts/check-route-parity.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",

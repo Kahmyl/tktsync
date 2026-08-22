@@ -2918,6 +2918,1279 @@
           }
         }
       }
+    },
+    "/api/v1/partner/reservations/{reservation_id}/confirm": {
+      "post": {
+        "operationId": "partnerConfirmReservation",
+        "security": [
+          {
+            "PartnerBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ReservationID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/ReservationToken"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmReservationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reservation confirmed atomically into one Sale and its Tickets.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/XRequestID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmReservationResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/partner/tickets/{ticket_id}/credential": {
+      "get": {
+        "operationId": "partnerGetTicketCredential",
+        "security": [
+          {
+            "PartnerBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TicketID"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deterministically recovered current active credential.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/XRequestID"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketCredentialResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/partner/tickets/{ticket_id}/void": {
+      "post": {
+        "operationId": "partnerVoidTicket",
+        "security": [
+          {
+            "PartnerBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TicketID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoidTicketRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/VoidTicketResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/partner/tickets/{ticket_id}/credentials/reissue": {
+      "post": {
+        "operationId": "partnerReissueTicketCredential",
+        "security": [
+          {
+            "PartnerBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TicketID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyObject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ReissueCredentialResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/partner/tickets/{ticket_id}/inventory/re-release": {
+      "post": {
+        "operationId": "partnerReReleaseTicketInventory",
+        "security": [
+          {
+            "PartnerBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TicketID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReReleaseTicketInventoryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ReReleaseTicketInventoryResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/allocations/{allocation_id}/issuances": {
+      "post": {
+        "operationId": "adminIssueNonPublicAllocation",
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AllocationID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueNonPublicRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/IssueNonPublicResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tickets/{ticket_id}/credential": {
+      "get": {
+        "operationId": "adminGetTicketCredential",
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TicketID"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deterministically recovered current active credential.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/XRequestID"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketCredentialResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tickets/{ticket_id}/void": {
+      "post": {
+        "operationId": "adminVoidTicket",
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TicketID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoidTicketRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/VoidTicketResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tickets/{ticket_id}/credentials/reissue": {
+      "post": {
+        "operationId": "adminReissueTicketCredential",
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TicketID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyObject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ReissueCredentialResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tickets/{ticket_id}/inventory/re-release": {
+      "post": {
+        "operationId": "adminReReleaseTicketInventory",
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TicketID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReReleaseTicketInventoryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ReReleaseTicketInventoryResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/admission/scans": {
+      "post": {
+        "operationId": "admissionValidateAndAdmit",
+        "security": [
+          {
+            "ScannerBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdmissionScanRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authoritative admission decision. Rejections are persisted ScanAttempt results.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/XRequestID"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdmissionScanResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/admissions/{admission_id}/reverse": {
+      "post": {
+        "operationId": "adminReverseAdmission",
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AdmissionID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReverseAdmissionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Active Admission reversed without deleting history.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/XRequestID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReverseAdmissionResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/admissions/manual-override": {
+      "post": {
+        "operationId": "adminManualAdmissionOverride",
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualAdmissionOverrideRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Explicit privileged manual admission with mandatory reason.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/XRequestID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdmissionScanResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/realtime/stream": {
+      "get": {
+        "operationId": "realtimeStream",
+        "security": [
+          {
+            "ScannerBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^evt_"
+            }
+          },
+          {
+            "name": "audience",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["admin", "scanner"]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Best-effort post-commit invalidation stream; clients must refetch authoritative state.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/XRequestID"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlNoStore"
+              }
+            },
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/partners/{partner_id}/webhook-endpoints": {
+      "post": {
+        "operationId": "adminCreateWebhookEndpoint",
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PartnerID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWebhookEndpointRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Endpoint created; signing_secret is returned only in this protected response/replay.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/XRequestID"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateWebhookEndpointResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      },
+      "get": {
+        "operationId": "adminListWebhookEndpoints",
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PartnerID"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Webhook endpoints without secret material.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/XRequestID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListWebhookEndpointsResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/webhook-endpoints/{endpoint_id}/secret/rotate": {
+      "post": {
+        "operationId": "adminRotateWebhookSecret",
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WebhookEndpointID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyObject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "New signing secret returned once with bounded overlap for the retiring secret.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/XRequestID"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RotateWebhookSecretResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/webhook-endpoints/{endpoint_id}/disable": {
+      "post": {
+        "operationId": "adminDisableWebhookEndpoint",
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WebhookEndpointID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisableWebhookEndpointRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Endpoint disabled without affecting business authority.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/XRequestID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisableWebhookEndpointResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/webhook-endpoints/{endpoint_id}/subscriptions": {
+      "put": {
+        "operationId": "adminReplaceWebhookSubscriptions",
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WebhookEndpointID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookSubscriptionsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Endpoint subscriptions replaced and audited.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/XRequestID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookSubscriptionsResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/partner/selection-sessions": {
+      "post": {
+        "operationId": "partnerCreateSelectionSession",
+        "security": [
+          {
+            "PartnerBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSelectionSessionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Selection session and opaque bootstrap URL created.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSelectionSessionResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/selection/session": {
+      "get": {
+        "operationId": "selectionGetSession",
+        "security": [
+          {
+            "SelectionBearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelectionSession"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/selection/event": {
+      "get": {
+        "operationId": "selectionGetEvent",
+        "security": [
+          {
+            "SelectionBearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerEvent"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/selection/layout": {
+      "get": {
+        "operationId": "selectionGetLayout",
+        "security": [
+          {
+            "SelectionBearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenericObject"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/selection/availability": {
+      "get": {
+        "operationId": "selectionGetAvailability",
+        "security": [
+          {
+            "SelectionBearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerAvailability"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/selection/reservations": {
+      "post": {
+        "operationId": "selectionCreateReservation",
+        "security": [
+          {
+            "SelectionBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectionReservationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Authoritative buyer-scoped hold created.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelectionReservation"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/selection/reservations/{reservation_id}": {
+      "get": {
+        "operationId": "selectionGetReservation",
+        "security": [
+          {
+            "SelectionBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ReservationID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelectionReservation"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "selectionModifyReservation",
+        "security": [
+          {
+            "SelectionBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ReservationID"
+          },
+          {
+            "$ref": "#/components/parameters/ReservationToken"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModifyReservationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelectionReservation"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/selection/reservations/{reservation_id}/release": {
+      "post": {
+        "operationId": "selectionReleaseReservation",
+        "security": [
+          {
+            "SelectionBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ReservationID"
+          },
+          {
+            "$ref": "#/components/parameters/ReservationToken"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyObject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseReservationResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/partners/{partner_id}/allowed-return-urls": {
+      "put": {
+        "operationId": "adminSetPartnerAllowedReturnURLs",
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PartnerID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllowedReturnURLsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllowedReturnURLsResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2930,6 +4203,179 @@
       "PartnerBearer": {
         "type": "http",
         "scheme": "bearer"
+      },
+      "ScannerBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "SelectionBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Opaque, time-bounded BuyerSelectionSession capability."
+      }
+    },
+    "parameters": {
+      "XRequestID": {
+        "name": "X-Request-ID",
+        "in": "header",
+        "required": false,
+        "description": "Optional client request/correlation UUID.",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "description": "Durable idempotency key scoped to the authenticated actor and operation.",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "ReservationToken": {
+        "name": "X-TktSync-Reservation-Token",
+        "in": "header",
+        "required": true,
+        "description": "Opaque Reservation continuation capability. Never place this value in a URL.",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "ReservationID": {
+        "name": "reservation_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^res_"
+        }
+      },
+      "TicketID": {
+        "name": "ticket_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^tkt_"
+        }
+      },
+      "AllocationID": {
+        "name": "allocation_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^alc_"
+        }
+      },
+      "AdmissionID": {
+        "name": "admission_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^adm_"
+        }
+      },
+      "PartnerID": {
+        "name": "partner_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^ptr_"
+        }
+      },
+      "WebhookEndpointID": {
+        "name": "endpoint_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^wh_"
+        }
+      }
+    },
+    "responses": {
+      "ErrorResponse": {
+        "description": "Machine-readable error response.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/XRequestID"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "VoidTicketResponse": {
+        "description": "Ticket voided; credential revoked and inventory remains consumed.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/XRequestID"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/VoidTicketResponse"
+            }
+          }
+        }
+      },
+      "ReissueCredentialResponse": {
+        "description": "Credential rotated without changing Ticket identity; raw payload is not returned.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/XRequestID"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ReissueCredentialResponse"
+            }
+          }
+        }
+      },
+      "ReReleaseTicketInventoryResponse": {
+        "description": "Voided Ticket capacity explicitly released to the requested safe destination.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/XRequestID"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ReReleaseTicketInventoryResponse"
+            }
+          }
+        }
+      },
+      "IssueNonPublicResponse": {
+        "description": "NON_PUBLIC issuance created without a Sale.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/XRequestID"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/IssueNonPublicResponse"
+            }
+          }
+        }
       }
     },
     "schemas": {
@@ -4037,6 +5483,722 @@
           "server_time": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "EmptyObject": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "TicketSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "credential_id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^tkt_"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["ACTIVE", "VOIDED"]
+          },
+          "credential_id": {
+            "type": "string",
+            "pattern": "^cred_"
+          }
+        }
+      },
+      "ConfirmReservationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["checkout_attempt_id"],
+        "properties": {
+          "checkout_attempt_id": {
+            "type": "string",
+            "pattern": "^chk_"
+          },
+          "partner_order_ref": {
+            "type": "string"
+          },
+          "partner_payment_ref": {
+            "type": "string"
+          }
+        }
+      },
+      "ConfirmReservationResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["reservation_id", "status", "sale", "tickets"],
+        "properties": {
+          "reservation_id": {
+            "type": "string",
+            "pattern": "^res_"
+          },
+          "status": {
+            "type": "string",
+            "const": "CONFIRMED"
+          },
+          "sale": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "confirmed_at", "partner_order_ref", "partner_payment_ref"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^sale_"
+              },
+              "confirmed_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "partner_order_ref": {
+                "type": "string"
+              },
+              "partner_payment_ref": {
+                "type": "string"
+              }
+            }
+          },
+          "tickets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TicketSummary"
+            }
+          }
+        }
+      },
+      "TicketCredentialResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ticket_id", "credential_id", "status", "qr_payload"],
+        "properties": {
+          "ticket_id": {
+            "type": "string",
+            "pattern": "^tkt_"
+          },
+          "credential_id": {
+            "type": "string",
+            "pattern": "^cred_"
+          },
+          "status": {
+            "type": "string",
+            "const": "ACTIVE"
+          },
+          "qr_payload": {
+            "type": "string",
+            "pattern": "^qr1\\."
+          }
+        }
+      },
+      "VoidTicketRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "VoidTicketResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ticket_id", "status", "voided_at", "void_reason"],
+        "properties": {
+          "ticket_id": {
+            "type": "string",
+            "pattern": "^tkt_"
+          },
+          "status": {
+            "type": "string",
+            "const": "VOIDED"
+          },
+          "voided_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "void_reason": {
+            "type": "string"
+          }
+        }
+      },
+      "ReissueCredentialResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ticket_id", "credential_id", "status", "issued_at"],
+        "properties": {
+          "ticket_id": {
+            "type": "string",
+            "pattern": "^tkt_"
+          },
+          "credential_id": {
+            "type": "string",
+            "pattern": "^cred_"
+          },
+          "status": {
+            "type": "string",
+            "const": "ACTIVE"
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ReReleaseTicketInventoryRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["destination_kind", "reason"],
+        "properties": {
+          "destination_kind": {
+            "type": "string",
+            "enum": ["SHARED", "ALLOCATION"]
+          },
+          "destination_allocation_id": {
+            "type": "string",
+            "pattern": "^alc_"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "ReReleaseTicketInventoryResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ticket_id", "released_at", "destination_kind", "reason"],
+        "properties": {
+          "ticket_id": {
+            "type": "string",
+            "pattern": "^tkt_"
+          },
+          "released_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "destination_kind": {
+            "type": "string",
+            "enum": ["SHARED", "ALLOCATION"]
+          },
+          "destination_allocation_id": {
+            "type": "string",
+            "pattern": "^alc_"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "IssueNonPublicRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "recipient_ref": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "reserved_inventory_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^rinv_"
+            }
+          },
+          "ga_targets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GARestrictionTargetRequest"
+            }
+          }
+        }
+      },
+      "IssueNonPublicResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["issuance_id", "event_id", "allocation_id", "issued_at", "tickets"],
+        "properties": {
+          "issuance_id": {
+            "type": "string",
+            "pattern": "^iss_"
+          },
+          "event_id": {
+            "type": "string",
+            "pattern": "^evt_"
+          },
+          "allocation_id": {
+            "type": "string",
+            "pattern": "^alc_"
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "tickets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TicketSummary"
+            }
+          }
+        }
+      },
+      "AdmissionScanRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["event_id", "credential"],
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "pattern": "^evt_"
+          },
+          "credential": {
+            "type": "string",
+            "minLength": 1,
+            "writeOnly": true
+          },
+          "gate_reference": {
+            "type": "string"
+          }
+        }
+      },
+      "TicketDisplay": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "section": {
+            "type": "string"
+          },
+          "row": {
+            "type": "string"
+          },
+          "seat": {
+            "type": "string"
+          }
+        }
+      },
+      "AdmissionScanResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["result", "scan_attempt_id"],
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "ADMITTED",
+              "TICKET_ALREADY_ADMITTED",
+              "TICKET_INVALID",
+              "TICKET_VOID",
+              "CREDENTIAL_REVOKED",
+              "CREDENTIAL_SUPERSEDED",
+              "WRONG_EVENT",
+              "EVENT_CANCELLED",
+              "ADMISSION_NOT_OPEN",
+              "MANUAL_OVERRIDE_ADMITTED"
+            ]
+          },
+          "scan_attempt_id": {
+            "type": "string",
+            "pattern": "^scan_"
+          },
+          "admission_id": {
+            "type": "string",
+            "pattern": "^adm_"
+          },
+          "ticket": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "display"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^tkt_"
+              },
+              "display": {
+                "$ref": "#/components/schemas/TicketDisplay"
+              }
+            }
+          },
+          "admitted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "previous_admission": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["admitted_at", "gate_reference"],
+            "properties": {
+              "admitted_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "gate_reference": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ReverseAdmissionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["reason"],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "ReverseAdmissionResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["admission_id", "ticket_id", "status", "reversed_at", "reason"],
+        "properties": {
+          "admission_id": {
+            "type": "string",
+            "pattern": "^adm_"
+          },
+          "ticket_id": {
+            "type": "string",
+            "pattern": "^tkt_"
+          },
+          "status": {
+            "type": "string",
+            "const": "REVERSED"
+          },
+          "reversed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "ManualAdmissionOverrideRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["event_id", "ticket_id", "reason"],
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "pattern": "^evt_"
+          },
+          "ticket_id": {
+            "type": "string",
+            "pattern": "^tkt_"
+          },
+          "gate_reference": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "WebhookEndpoint": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "partner_id", "url", "state", "subscriptions", "created_at"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^wh_"
+          },
+          "partner_id": {
+            "type": "string",
+            "pattern": "^ptr_"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["ACTIVE", "DISABLED"]
+          },
+          "subscriptions": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateWebhookEndpointRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["url", "subscriptions"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "subscriptions": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "CreateWebhookEndpointResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WebhookEndpoint"
+          },
+          {
+            "type": "object",
+            "required": ["signing_secret"],
+            "properties": {
+              "signing_secret": {
+                "type": "string",
+                "minLength": 32,
+                "writeOnly": true
+              }
+            }
+          }
+        ]
+      },
+      "ListWebhookEndpointsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WebhookEndpoint"
+            }
+          }
+        }
+      },
+      "RotateWebhookSecretResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["endpoint_id", "signing_secret", "activated_at"],
+        "properties": {
+          "endpoint_id": {
+            "type": "string",
+            "pattern": "^wh_"
+          },
+          "signing_secret": {
+            "type": "string",
+            "minLength": 32,
+            "writeOnly": true
+          },
+          "activated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DisableWebhookEndpointRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "DisableWebhookEndpointResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["endpoint_id", "state"],
+        "properties": {
+          "endpoint_id": {
+            "type": "string",
+            "pattern": "^wh_"
+          },
+          "state": {
+            "type": "string",
+            "const": "DISABLED"
+          }
+        }
+      },
+      "WebhookSubscriptionsRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["subscriptions"],
+        "properties": {
+          "subscriptions": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "WebhookSubscriptionsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["endpoint_id", "subscriptions"],
+        "properties": {
+          "endpoint_id": {
+            "type": "string",
+            "pattern": "^wh_"
+          },
+          "subscriptions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CreateSelectionSessionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["event_id", "return_url"],
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "pattern": "^evt_"
+          },
+          "buyer_session_ref": {
+            "type": "string"
+          },
+          "return_url": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "CreateSelectionSessionResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["selection_session_id", "selection_url", "expires_at"],
+        "properties": {
+          "selection_session_id": {
+            "type": "string",
+            "pattern": "^sel_"
+          },
+          "selection_url": {
+            "type": "string",
+            "format": "uri",
+            "writeOnly": true
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SelectionSession": {
+        "type": "object",
+        "required": ["id", "event_id", "return_url", "state", "expires_at"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^sel_"
+          },
+          "event_id": {
+            "type": "string",
+            "pattern": "^evt_"
+          },
+          "buyer_session_ref": {
+            "type": "string"
+          },
+          "return_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["ACTIVE", "REVOKED", "EXPIRED"]
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "server_time": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SelectionReservationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/CreateReservationItemRequest"
+            }
+          }
+        }
+      },
+      "SelectionReservation": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Reservation"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "reservation_token": {
+                "type": "string",
+                "writeOnly": true
+              },
+              "return_url": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          }
+        ]
+      },
+      "AllowedReturnURLsRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["urls"],
+        "properties": {
+          "urls": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
+            "uniqueItems": true
+          }
+        }
+      },
+      "AllowedReturnURLsResponse": {
+        "type": "object",
+        "required": ["partner_id", "urls"],
+        "properties": {
+          "partner_id": {
+            "type": "string",
+            "pattern": "^ptr_"
+          },
+          "urls": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
           }
         }
       }

@@ -9,6 +9,8 @@ import (
 	"syscall"
 
 	"github.com/tktsync/tktsync/backend/internal/adminapi"
+	"github.com/tktsync/tktsync/backend/internal/admission"
+	"github.com/tktsync/tktsync/backend/internal/admissionapi"
 	allocsvc "github.com/tktsync/tktsync/backend/internal/allocation"
 	"github.com/tktsync/tktsync/backend/internal/auth"
 	eventsvc "github.com/tktsync/tktsync/backend/internal/event"
@@ -17,8 +19,12 @@ import (
 	"github.com/tktsync/tktsync/backend/internal/partnerapi"
 	"github.com/tktsync/tktsync/backend/internal/platform/bootstrap"
 	"github.com/tktsync/tktsync/backend/internal/platform/httpserver"
+	"github.com/tktsync/tktsync/backend/internal/realtimeapi"
 	"github.com/tktsync/tktsync/backend/internal/reservation"
+	"github.com/tktsync/tktsync/backend/internal/selection"
+	"github.com/tktsync/tktsync/backend/internal/selectionapi"
 	venuesvc "github.com/tktsync/tktsync/backend/internal/venue"
+	"github.com/tktsync/tktsync/backend/internal/webhook"
 )
 
 func main() {
@@ -86,6 +92,19 @@ func main() {
 			resources.ReservationKeys,
 			resources.QRKeys,
 		)
+	selectionService := selection.NewService(resources.Database, resources.Transactions, resources.SelectionKeys, resources.Config.SelectorBaseURL)
+
+	admissionService := admission.NewService(
+		resources.Transactions,
+		resources.QRKeys,
+	)
+
+	webhookBox, err := webhook.NewSecretBox(resources.Config.Webhook.EncryptionKey)
+	if err != nil {
+		resources.Logger.Error("webhook encryption configuration failed", "operation", "webhook.configure", "error", err)
+		os.Exit(1)
+	}
+	webhookService := webhook.NewService(resources.Transactions, webhookBox, resources.Config.Webhook.EncryptionKeyVersion, resources.Config.Environment != "production")
 
 	adminHandler, err := adminapi.New(
 		adminapi.Dependencies{
@@ -103,6 +122,8 @@ func main() {
 			),
 			AllocationService:  allocationService,
 			ReservationService: reservationService,
+			AdmissionService:   admissionService,
+			WebhookService:     webhookService,
 			ReplayProtector:    replayProtector,
 		},
 	)
@@ -117,6 +138,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	admissionHandler, err := admissionapi.New(
+		admissionapi.Dependencies{
+			Database:     resources.Database,
+			Transactions: resources.Transactions,
+			HumanAuth:    admissionapi.HumanAuthenticator(humanAuth),
+			Admission:    admissionService,
+		},
+	)
+	if err != nil {
+		resources.Logger.Error("admission API configuration failed", "operation", "admissionapi.configure", "error", err)
+		os.Exit(1)
+	}
+
 	partnerHandler, err := partnerapi.New(
 		partnerapi.Dependencies{
 			Database:    resources.Database,
@@ -126,6 +160,7 @@ func main() {
 			),
 			Transactions: resources.Transactions,
 			Reservation:  reservationService,
+			Selection:    selectionService,
 		},
 	)
 	if err != nil {
@@ -136,6 +171,12 @@ func main() {
 			"error",
 			err,
 		)
+		os.Exit(1)
+	}
+
+	selectionHandler, err := selectionapi.New(selectionapi.Dependencies{Database: resources.Database, Transactions: resources.Transactions, Selection: selectionService, Reservation: reservationService, Availability: inventory.NewService(resources.Database)})
+	if err != nil {
+		resources.Logger.Error("Selection API configuration failed", "operation", "selectionapi.configure", "error", err)
 		os.Exit(1)
 	}
 
@@ -150,11 +191,22 @@ func main() {
 		"/api/v1/partner/",
 		partnerHandler,
 	)
+	apiMux.Handle("/api/v1/selection/", selectionHandler)
+
+	apiMux.Handle(
+		"/api/v1/admission/",
+		admissionHandler,
+	)
+
+	apiMux.Handle(
+		"GET /api/v1/realtime/stream",
+		realtimeapi.New(resources.Database, realtimeapi.HumanAuthenticator(humanAuth)),
+	)
 
 	handler := httpserver.Handler(
 		resources.Logger,
 		resources.Database,
-		apiMux,
+		httpserver.CORS(apiMux, resources.Config.BrowserOrigins),
 	)
 
 	server := httpserver.New(

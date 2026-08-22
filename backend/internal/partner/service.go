@@ -2,7 +2,10 @@ package partner
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -14,10 +17,49 @@ import (
 	"github.com/tktsync/tktsync/backend/internal/platform/database"
 )
 
+func mustJSON(value any) []byte { raw, _ := json.Marshal(value); return raw }
+
 type Service struct {
 	transactions *database.Runner
 	audit        audit.Store
 	outbox       outbox.Store
+}
+
+func (s *Service) SetAllowedReturnURLs(ctx context.Context, actorID, partnerID uuid.UUID, values []string) ([]string, error) {
+	if actorID == uuid.Nil || partnerID == uuid.Nil {
+		return nil, validation("actor and Partner are required")
+	}
+	unique := map[string]struct{}{}
+	for _, raw := range values {
+		parsed, err := url.Parse(strings.TrimSpace(raw))
+		if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || parsed.Fragment != "" {
+			return nil, validation("allowed return URLs must be absolute HTTPS URLs without credentials or fragments")
+		}
+		unique[parsed.String()] = struct{}{}
+	}
+	normalized := make([]string, 0, len(unique))
+	for value := range unique {
+		normalized = append(normalized, value)
+	}
+	sort.Strings(normalized)
+	err := s.transactions.Run(ctx, func(tx pgx.Tx) error {
+		var state string
+		if err := tx.QueryRow(ctx, `SELECT state FROM partners WHERE id=$1 FOR UPDATE`, partnerID).Scan(&state); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return notFound("Partner")
+			}
+			return err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE partners SET metadata=jsonb_set(metadata,'{allowed_return_urls}',$2::jsonb,true) WHERE id=$1`, partnerID, mustJSON(normalized)); err != nil {
+			return err
+		}
+		if _, err := s.audit.Append(ctx, tx, audit.Event{PartnerID: &partnerID, ActorKind: audit.ActorUser, ActorUserID: &actorID, Operation: "PARTNER_RETURN_URLS_UPDATED", EntityType: "PARTNER", EntityID: &partnerID, NewState: map[string]any{"allowed_return_urls": normalized}}); err != nil {
+			return err
+		}
+		_, err := s.outbox.Append(ctx, tx, outbox.Fact{FactType: "partner.return_urls_updated", AggregateType: "PARTNER", AggregateID: &partnerID, Payload: map[string]any{"allowed_return_urls": normalized}})
+		return err
+	})
+	return normalized, err
 }
 
 func NewService(transactions *database.Runner) *Service {

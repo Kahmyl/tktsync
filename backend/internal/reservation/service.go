@@ -120,6 +120,8 @@ func (s *Service) Create(
 						WHERE id = $1
 						  AND partner_id = $2
 						  AND event_id = $3
+						  AND state = 'ACTIVE'
+						  AND expires_at > clock_timestamp()
 						FOR UPDATE
 					`,
 					*input.

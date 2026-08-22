@@ -184,6 +184,7 @@ func (h *Handler) executeMutation(
 				ctx,
 				businessTx,
 			)
+			businessCtx = idempotency.WithOperationID(businessCtx, claim.ID)
 
 			result, err := mutate(
 				businessCtx,

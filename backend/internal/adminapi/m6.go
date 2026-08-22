@@ -11,6 +11,7 @@ import (
 	"github.com/tktsync/tktsync/backend/internal/platform/apierror"
 	"github.com/tktsync/tktsync/backend/internal/platform/httpserver"
 	"github.com/tktsync/tktsync/backend/internal/platform/publicid"
+	"github.com/tktsync/tktsync/backend/internal/reservation"
 )
 
 type issueNonPublicRequest struct {
@@ -30,6 +31,11 @@ func (h *Handler) registerM6Routes() {
 
 	if h.reservation != nil {
 		h.mux.HandleFunc(
+			"GET /api/v1/admin/tickets/{ticket_id}/credential",
+			h.getTicketCredential,
+		)
+
+		h.mux.HandleFunc(
 			"POST /api/v1/admin/tickets/{ticket_id}/void",
 			h.voidTicket,
 		)
@@ -38,7 +44,36 @@ func (h *Handler) registerM6Routes() {
 			"POST /api/v1/admin/tickets/{ticket_id}/credentials/reissue",
 			h.reissueTicketCredential,
 		)
+
+		h.mux.HandleFunc(
+			"POST /api/v1/admin/tickets/{ticket_id}/inventory/re-release",
+			h.reReleaseTicketInventory,
+		)
 	}
+}
+
+func (h *Handler) getTicketCredential(w http.ResponseWriter, r *http.Request) {
+	ticketID, err := parsePublicID(r.PathValue("ticket_id"), publicid.Ticket, "ticket_id")
+	if err != nil {
+		httpserver.WriteError(w, r, err)
+		return
+	}
+	if _, err = h.authorizeRead(r, platformAdminAuthorization); err != nil {
+		httpserver.WriteError(w, r, err)
+		return
+	}
+	credential, err := h.reservation.RecoverActiveCredentialAdmin(r.Context(), ticketID)
+	if err != nil {
+		httpserver.WriteError(w, r, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpserver.WriteJSON(w, http.StatusOK, map[string]any{
+		"ticket_id":     publicid.Encode(publicid.Ticket, credential.TicketID),
+		"credential_id": publicid.Encode(publicid.Credential, credential.CredentialID),
+		"status":        credential.State,
+		"qr_payload":    credential.QRPayload,
+	})
 }
 
 func (h *Handler) issueNonPublic(
@@ -443,4 +478,48 @@ func (h *Handler) reissueTicketCredential(
 			)
 		},
 	)
+}
+
+type releaseTicketInventoryRequest struct {
+	DestinationKind         string `json:"destination_kind"`
+	DestinationAllocationID string `json:"destination_allocation_id,omitempty"`
+	Reason                  string `json:"reason"`
+}
+
+func (h *Handler) reReleaseTicketInventory(w http.ResponseWriter, r *http.Request) {
+	ticketID, err := parsePublicID(r.PathValue("ticket_id"), publicid.Ticket, "ticket_id")
+	if err != nil {
+		httpserver.WriteError(w, r, err)
+		return
+	}
+	var request releaseTicketInventoryRequest
+	if err = decodeJSON(r, &request); err != nil {
+		httpserver.WriteError(w, r, err)
+		return
+	}
+	request.DestinationKind = strings.ToUpper(strings.TrimSpace(request.DestinationKind))
+	request.DestinationAllocationID = strings.TrimSpace(request.DestinationAllocationID)
+	request.Reason = strings.TrimSpace(request.Reason)
+	var destinationAllocationID *uuid.UUID
+	if request.DestinationAllocationID != "" {
+		id, parseErr := parsePublicID(request.DestinationAllocationID, publicid.Allocation, "destination_allocation_id")
+		if parseErr != nil {
+			httpserver.WriteError(w, r, parseErr)
+			return
+		}
+		destinationAllocationID = &id
+		request.DestinationAllocationID = publicid.Encode(publicid.Allocation, id)
+	}
+
+	h.runMutation(w, r, "ADMIN_RERELEASE_TICKET_INVENTORY", ticketID.String(), request, platformAdminAuthorization, false, func(ctx context.Context, userID uuid.UUID) (response, error) {
+		result, releaseErr := h.reservation.ReReleaseAdminTicketInventory(ctx, userID, ticketID, reservation.InventoryReleaseInput{DestinationKind: request.DestinationKind, DestinationAllocationID: destinationAllocationID, Reason: request.Reason})
+		if releaseErr != nil {
+			return response{}, releaseErr
+		}
+		body := map[string]any{"ticket_id": publicid.Encode(publicid.Ticket, result.TicketID), "released_at": result.ReleasedAt, "destination_kind": result.DestinationKind, "reason": result.Reason}
+		if result.DestinationAllocationID != nil {
+			body["destination_allocation_id"] = publicid.Encode(publicid.Allocation, *result.DestinationAllocationID)
+		}
+		return jsonResponse(http.StatusOK, body)
+	})
 }

@@ -5,7 +5,7 @@ DATABASE_URL ?= postgres://tktsync:tktsync@localhost:$${POSTGRES_PORT:-5432}/tkt
 MIGRATE_IMAGE ?= migrate/migrate:v4.18.3
 LOAD_ENV = set -a; [ ! -f "$(CURDIR)/.env" ] || . "$(CURDIR)/.env"; set +a;
 
-.PHONY: setup dev dev-api dev-worker dev-admin dev-selector dev-scanner build test lint typecheck format-check db-up db-down db-migrate db-reset verify-m2 verify-m3 verify-m4 verify-m4c
+.PHONY: setup dev dev-api dev-worker dev-admin dev-selector dev-scanner build test lint typecheck format-check db-up db-down db-migrate db-reset verify-m2 verify-m3 verify-m4 verify-m4c verify-m5 verify-m6 verify-m7 verify-m8 verify-m9
 
 setup:
 	pnpm install --frozen-lockfile
@@ -76,6 +76,17 @@ verify-m4:
 verify-m4c:
 	./scripts/verify-m4c.sh
 
-.PHONY: verify-m5
 verify-m5:
 	./scripts/verify-m5.sh
+
+verify-m6:
+	./scripts/verify-m6.sh
+
+verify-m7:
+	./scripts/verify-m7.sh
+
+verify-m8:
+	./scripts/verify-m8.sh
+
+verify-m9:
+	./scripts/verify-m9.sh

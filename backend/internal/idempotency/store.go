@@ -33,6 +33,17 @@ type QueryRower interface {
 
 type Store struct{}
 
+type operationIDContextKey struct{}
+
+func WithOperationID(ctx context.Context, id uuid.UUID) context.Context {
+	return context.WithValue(ctx, operationIDContextKey{}, id)
+}
+
+func OperationIDFromContext(ctx context.Context) (uuid.UUID, bool) {
+	id, ok := ctx.Value(operationIDContextKey{}).(uuid.UUID)
+	return id, ok && id != uuid.Nil
+}
+
 type Claim struct {
 	ID     uuid.UUID
 	Owner  bool

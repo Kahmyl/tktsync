@@ -280,3 +280,56 @@ func (s *Service) RecoverActiveCredential(
 
 	return result, nil
 }
+
+// RecoverActiveCredentialAdmin reconstructs the current credential for any
+// Ticket without changing credential identity or state. Authorization remains
+// the responsibility of the Admin HTTP command boundary.
+func (s *Service) RecoverActiveCredentialAdmin(ctx context.Context, ticketID uuid.UUID) (ActiveCredential, error) {
+	if ticketID == uuid.Nil {
+		return ActiveCredential{}, apierror.New(apierror.CodeValidation, "Ticket is required")
+	}
+	if s.qrKeys == nil {
+		return ActiveCredential{}, apierror.New(apierror.CodeAuthorityTemporarilyUnavailable, "QR credential authority is not configured")
+	}
+	var result ActiveCredential
+	err := s.transactions.Run(ctx, func(tx pgx.Tx) error {
+		var eventID uuid.UUID
+		var ticketState string
+		if err := tx.QueryRow(ctx, `SELECT event_id,status FROM ticket_entitlements WHERE id=$1`, ticketID).Scan(&eventID, &ticketState); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return apierror.New(apierror.CodeResourceNotFound, "Ticket not found")
+			}
+			return err
+		}
+		if ticketState == "VOIDED" {
+			return apierror.New(apierror.CodeTicketVoid, "Ticket is void")
+		}
+		if ticketState != "ACTIVE" {
+			return apierror.New(apierror.CodeTicketInvalid, "Ticket is not active")
+		}
+		var credentialID uuid.UUID
+		var credentialState string
+		var version int
+		var storedHash []byte
+		if err := tx.QueryRow(ctx, `SELECT id,status,token_key_version,token_hash FROM qr_credentials WHERE ticket_entitlement_id=$1 AND status='ACTIVE' ORDER BY issued_at DESC,id DESC LIMIT 1`, ticketID).Scan(&credentialID, &credentialState, &version, &storedHash); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ticketCredentialStateError(ctx, tx, ticketID)
+			}
+			return err
+		}
+		payload, err := s.buildQRPayload(credentialID, ticketID, eventID, version)
+		if err != nil {
+			return apierror.New(apierror.CodeAuthorityTemporarilyUnavailable, "QR credential could not be recovered")
+		}
+		recoveredHash := auth.TokenHash(payload)
+		if len(storedHash) != len(recoveredHash) || subtle.ConstantTimeCompare(storedHash, recoveredHash[:]) != 1 {
+			return apierror.New(apierror.CodeAuthorityTemporarilyUnavailable, "QR credential integrity verification failed")
+		}
+		result = ActiveCredential{TicketID: ticketID, CredentialID: credentialID, State: credentialState, QRPayload: payload}
+		return nil
+	})
+	if err != nil {
+		return ActiveCredential{}, err
+	}
+	return result, nil
+}

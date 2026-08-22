@@ -548,6 +548,438 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/partner/reservations/{reservation_id}/confirm': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['partnerConfirmReservation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/partner/tickets/{ticket_id}/credential': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['partnerGetTicketCredential'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/partner/tickets/{ticket_id}/void': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['partnerVoidTicket'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/partner/tickets/{ticket_id}/credentials/reissue': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['partnerReissueTicketCredential'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/partner/tickets/{ticket_id}/inventory/re-release': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['partnerReReleaseTicketInventory'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/allocations/{allocation_id}/issuances': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['adminIssueNonPublicAllocation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/tickets/{ticket_id}/credential': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['adminGetTicketCredential'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/tickets/{ticket_id}/void': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['adminVoidTicket'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/tickets/{ticket_id}/credentials/reissue': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['adminReissueTicketCredential'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/tickets/{ticket_id}/inventory/re-release': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['adminReReleaseTicketInventory'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admission/scans': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['admissionValidateAndAdmit'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/admissions/{admission_id}/reverse': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['adminReverseAdmission'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/admissions/manual-override': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['adminManualAdmissionOverride'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/realtime/stream': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['realtimeStream'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/partners/{partner_id}/webhook-endpoints': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['adminListWebhookEndpoints'];
+    put?: never;
+    post: operations['adminCreateWebhookEndpoint'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/webhook-endpoints/{endpoint_id}/secret/rotate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['adminRotateWebhookSecret'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/webhook-endpoints/{endpoint_id}/disable': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['adminDisableWebhookEndpoint'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/webhook-endpoints/{endpoint_id}/subscriptions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations['adminReplaceWebhookSubscriptions'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/partner/selection-sessions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['partnerCreateSelectionSession'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/selection/session': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['selectionGetSession'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/selection/event': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['selectionGetEvent'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/selection/layout': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['selectionGetLayout'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/selection/availability': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['selectionGetAvailability'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/selection/reservations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['selectionCreateReservation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/selection/reservations/{reservation_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['selectionGetReservation'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch: operations['selectionModifyReservation'];
+    trace?: never;
+  };
+  '/api/v1/selection/reservations/{reservation_id}/release': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['selectionReleaseReservation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/partners/{partner_id}/allowed-return-urls': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations['adminSetPartnerAllowedReturnURLs'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -897,9 +1329,292 @@ export interface components {
       /** Format: date-time */
       server_time: string;
     };
+    EmptyObject: Record<string, never>;
+    TicketSummary: {
+      id: string;
+      /** @enum {string} */
+      status: 'ACTIVE' | 'VOIDED';
+      credential_id: string;
+    };
+    ConfirmReservationRequest: {
+      checkout_attempt_id: string;
+      partner_order_ref?: string;
+      partner_payment_ref?: string;
+    };
+    ConfirmReservationResponse: {
+      reservation_id: string;
+      /** @constant */
+      status: 'CONFIRMED';
+      sale: {
+        id: string;
+        /** Format: date-time */
+        confirmed_at: string;
+        partner_order_ref: string;
+        partner_payment_ref: string;
+      };
+      tickets: components['schemas']['TicketSummary'][];
+    };
+    TicketCredentialResponse: {
+      ticket_id: string;
+      credential_id: string;
+      /** @constant */
+      status: 'ACTIVE';
+      qr_payload: string;
+    };
+    VoidTicketRequest: {
+      reason?: string;
+    };
+    VoidTicketResponse: {
+      ticket_id: string;
+      /** @constant */
+      status: 'VOIDED';
+      /** Format: date-time */
+      voided_at: string;
+      void_reason: string;
+    };
+    ReissueCredentialResponse: {
+      ticket_id: string;
+      credential_id: string;
+      /** @constant */
+      status: 'ACTIVE';
+      /** Format: date-time */
+      issued_at: string;
+    };
+    ReReleaseTicketInventoryRequest: {
+      /** @enum {string} */
+      destination_kind: 'SHARED' | 'ALLOCATION';
+      destination_allocation_id?: string;
+      reason: string;
+    };
+    ReReleaseTicketInventoryResponse: {
+      ticket_id: string;
+      /** Format: date-time */
+      released_at: string;
+      /** @enum {string} */
+      destination_kind: 'SHARED' | 'ALLOCATION';
+      destination_allocation_id?: string;
+      reason: string;
+    };
+    IssueNonPublicRequest: {
+      recipient_ref?: string;
+      reason?: string;
+      reserved_inventory_ids?: string[];
+      ga_targets?: components['schemas']['GARestrictionTargetRequest'][];
+    };
+    IssueNonPublicResponse: {
+      issuance_id: string;
+      event_id: string;
+      allocation_id: string;
+      /** Format: date-time */
+      issued_at: string;
+      tickets: components['schemas']['TicketSummary'][];
+    };
+    AdmissionScanRequest: {
+      event_id: string;
+      credential: string;
+      gate_reference?: string;
+    };
+    TicketDisplay: {
+      section?: string;
+      row?: string;
+      seat?: string;
+    };
+    AdmissionScanResponse: {
+      /** @enum {string} */
+      result:
+        | 'ADMITTED'
+        | 'TICKET_ALREADY_ADMITTED'
+        | 'TICKET_INVALID'
+        | 'TICKET_VOID'
+        | 'CREDENTIAL_REVOKED'
+        | 'CREDENTIAL_SUPERSEDED'
+        | 'WRONG_EVENT'
+        | 'EVENT_CANCELLED'
+        | 'ADMISSION_NOT_OPEN'
+        | 'MANUAL_OVERRIDE_ADMITTED';
+      scan_attempt_id: string;
+      admission_id?: string;
+      ticket?: {
+        id: string;
+        display: components['schemas']['TicketDisplay'];
+      };
+      /** Format: date-time */
+      admitted_at?: string;
+      previous_admission?: {
+        /** Format: date-time */
+        admitted_at: string;
+        gate_reference: string;
+      };
+    };
+    ReverseAdmissionRequest: {
+      reason: string;
+    };
+    ReverseAdmissionResponse: {
+      admission_id: string;
+      ticket_id: string;
+      /** @constant */
+      status: 'REVERSED';
+      /** Format: date-time */
+      reversed_at: string;
+      reason: string;
+    };
+    ManualAdmissionOverrideRequest: {
+      event_id: string;
+      ticket_id: string;
+      gate_reference?: string;
+      reason: string;
+    };
+    WebhookEndpoint: {
+      id: string;
+      partner_id: string;
+      /** Format: uri */
+      url: string;
+      /** @enum {string} */
+      state: 'ACTIVE' | 'DISABLED';
+      subscriptions: string[];
+      /** Format: date-time */
+      created_at: string;
+    };
+    CreateWebhookEndpointRequest: {
+      /** Format: uri */
+      url: string;
+      subscriptions: string[];
+    };
+    CreateWebhookEndpointResponse: components['schemas']['WebhookEndpoint'] & {
+      signing_secret: string;
+    };
+    ListWebhookEndpointsResponse: {
+      items: components['schemas']['WebhookEndpoint'][];
+    };
+    RotateWebhookSecretResponse: {
+      endpoint_id: string;
+      signing_secret: string;
+      /** Format: date-time */
+      activated_at: string;
+    };
+    DisableWebhookEndpointRequest: {
+      reason?: string;
+    };
+    DisableWebhookEndpointResponse: {
+      endpoint_id: string;
+      /** @constant */
+      state: 'DISABLED';
+    };
+    WebhookSubscriptionsRequest: {
+      subscriptions: string[];
+    };
+    WebhookSubscriptionsResponse: {
+      endpoint_id: string;
+      subscriptions: string[];
+    };
+    CreateSelectionSessionRequest: {
+      event_id: string;
+      buyer_session_ref?: string;
+      /** Format: uri */
+      return_url: string;
+    };
+    CreateSelectionSessionResponse: {
+      selection_session_id: string;
+      /** Format: uri */
+      selection_url: string;
+      /** Format: date-time */
+      expires_at: string;
+    };
+    SelectionSession: {
+      id: string;
+      event_id: string;
+      buyer_session_ref?: string;
+      /** Format: uri */
+      return_url: string;
+      /** @enum {string} */
+      state: 'ACTIVE' | 'REVOKED' | 'EXPIRED';
+      /** Format: date-time */
+      expires_at: string;
+      /** Format: date-time */
+      server_time?: string;
+    };
+    SelectionReservationRequest: {
+      items: components['schemas']['CreateReservationItemRequest'][];
+    };
+    SelectionReservation: components['schemas']['Reservation'] & {
+      reservation_token?: string;
+      /** Format: uri */
+      return_url?: string;
+    };
+    AllowedReturnURLsRequest: {
+      urls: string[];
+    };
+    AllowedReturnURLsResponse: {
+      partner_id: string;
+      urls: string[];
+    };
   };
-  responses: never;
-  parameters: never;
+  responses: {
+    /** @description Machine-readable error response. */
+    ErrorResponse: {
+      headers: {
+        'X-Request-ID': components['headers']['XRequestID'];
+        [name: string]: unknown;
+      };
+      content: {
+        'application/json': components['schemas']['ErrorResponse'];
+      };
+    };
+    /** @description Ticket voided; credential revoked and inventory remains consumed. */
+    VoidTicketResponse: {
+      headers: {
+        'X-Request-ID': components['headers']['XRequestID'];
+        [name: string]: unknown;
+      };
+      content: {
+        'application/json': components['schemas']['VoidTicketResponse'];
+      };
+    };
+    /** @description Credential rotated without changing Ticket identity; raw payload is not returned. */
+    ReissueCredentialResponse: {
+      headers: {
+        'X-Request-ID': components['headers']['XRequestID'];
+        [name: string]: unknown;
+      };
+      content: {
+        'application/json': components['schemas']['ReissueCredentialResponse'];
+      };
+    };
+    /** @description Voided Ticket capacity explicitly released to the requested safe destination. */
+    ReReleaseTicketInventoryResponse: {
+      headers: {
+        'X-Request-ID': components['headers']['XRequestID'];
+        [name: string]: unknown;
+      };
+      content: {
+        'application/json': components['schemas']['ReReleaseTicketInventoryResponse'];
+      };
+    };
+    /** @description NON_PUBLIC issuance created without a Sale. */
+    IssueNonPublicResponse: {
+      headers: {
+        'X-Request-ID': components['headers']['XRequestID'];
+        [name: string]: unknown;
+      };
+      content: {
+        'application/json': components['schemas']['IssueNonPublicResponse'];
+      };
+    };
+  };
+  parameters: {
+    /** @description Optional client request/correlation UUID. */
+    XRequestID: string;
+    /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+    IdempotencyKey: string;
+    /** @description Opaque Reservation continuation capability. Never place this value in a URL. */
+    ReservationToken: string;
+    ReservationID: string;
+    TicketID: string;
+    AllocationID: string;
+    AdmissionID: string;
+    PartnerID: string;
+    WebhookEndpointID: string;
+  };
   requestBodies: never;
   headers: {
     /** @description Request/correlation identifier generated or normalized by TktSync. */
@@ -2418,6 +3133,828 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
+    };
+  };
+  partnerConfirmReservation: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Opaque Reservation continuation capability. Never place this value in a URL. */
+        'X-TktSync-Reservation-Token': components['parameters']['ReservationToken'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        reservation_id: components['parameters']['ReservationID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ConfirmReservationRequest'];
+      };
+    };
+    responses: {
+      /** @description Reservation confirmed atomically into one Sale and its Tickets. */
+      200: {
+        headers: {
+          'X-Request-ID': components['headers']['XRequestID'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ConfirmReservationResponse'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  partnerGetTicketCredential: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        ticket_id: components['parameters']['TicketID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Deterministically recovered current active credential. */
+      200: {
+        headers: {
+          'X-Request-ID': components['headers']['XRequestID'];
+          'Cache-Control': components['headers']['CacheControlNoStore'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TicketCredentialResponse'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  partnerVoidTicket: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        ticket_id: components['parameters']['TicketID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['VoidTicketRequest'];
+      };
+    };
+    responses: {
+      200: components['responses']['VoidTicketResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  partnerReissueTicketCredential: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        ticket_id: components['parameters']['TicketID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['EmptyObject'];
+      };
+    };
+    responses: {
+      200: components['responses']['ReissueCredentialResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  partnerReReleaseTicketInventory: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        ticket_id: components['parameters']['TicketID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ReReleaseTicketInventoryRequest'];
+      };
+    };
+    responses: {
+      200: components['responses']['ReReleaseTicketInventoryResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminIssueNonPublicAllocation: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        allocation_id: components['parameters']['AllocationID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['IssueNonPublicRequest'];
+      };
+    };
+    responses: {
+      201: components['responses']['IssueNonPublicResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminGetTicketCredential: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        ticket_id: components['parameters']['TicketID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Deterministically recovered current active credential. */
+      200: {
+        headers: {
+          'X-Request-ID': components['headers']['XRequestID'];
+          'Cache-Control': components['headers']['CacheControlNoStore'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TicketCredentialResponse'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminVoidTicket: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        ticket_id: components['parameters']['TicketID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['VoidTicketRequest'];
+      };
+    };
+    responses: {
+      200: components['responses']['VoidTicketResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminReissueTicketCredential: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        ticket_id: components['parameters']['TicketID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EmptyObject'];
+      };
+    };
+    responses: {
+      200: components['responses']['ReissueCredentialResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminReReleaseTicketInventory: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        ticket_id: components['parameters']['TicketID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ReReleaseTicketInventoryRequest'];
+      };
+    };
+    responses: {
+      200: components['responses']['ReReleaseTicketInventoryResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  admissionValidateAndAdmit: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdmissionScanRequest'];
+      };
+    };
+    responses: {
+      /** @description Authoritative admission decision. Rejections are persisted ScanAttempt results. */
+      200: {
+        headers: {
+          'X-Request-ID': components['headers']['XRequestID'];
+          'Cache-Control': components['headers']['CacheControlNoStore'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AdmissionScanResponse'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminReverseAdmission: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        admission_id: components['parameters']['AdmissionID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ReverseAdmissionRequest'];
+      };
+    };
+    responses: {
+      /** @description Active Admission reversed without deleting history. */
+      200: {
+        headers: {
+          'X-Request-ID': components['headers']['XRequestID'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReverseAdmissionResponse'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminManualAdmissionOverride: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ManualAdmissionOverrideRequest'];
+      };
+    };
+    responses: {
+      /** @description Explicit privileged manual admission with mandatory reason. */
+      200: {
+        headers: {
+          'X-Request-ID': components['headers']['XRequestID'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AdmissionScanResponse'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  realtimeStream: {
+    parameters: {
+      query: {
+        event_id: string;
+        audience: 'admin' | 'scanner';
+      };
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Best-effort post-commit invalidation stream; clients must refetch authoritative state. */
+      200: {
+        headers: {
+          'X-Request-ID': components['headers']['XRequestID'];
+          'Cache-Control': components['headers']['CacheControlNoStore'];
+          [name: string]: unknown;
+        };
+        content: {
+          'text/event-stream': string;
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminListWebhookEndpoints: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        partner_id: components['parameters']['PartnerID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Webhook endpoints without secret material. */
+      200: {
+        headers: {
+          'X-Request-ID': components['headers']['XRequestID'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListWebhookEndpointsResponse'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminCreateWebhookEndpoint: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        partner_id: components['parameters']['PartnerID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateWebhookEndpointRequest'];
+      };
+    };
+    responses: {
+      /** @description Endpoint created; signing_secret is returned only in this protected response/replay. */
+      201: {
+        headers: {
+          'X-Request-ID': components['headers']['XRequestID'];
+          'Cache-Control': components['headers']['CacheControlNoStore'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreateWebhookEndpointResponse'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminRotateWebhookSecret: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        endpoint_id: components['parameters']['WebhookEndpointID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EmptyObject'];
+      };
+    };
+    responses: {
+      /** @description New signing secret returned once with bounded overlap for the retiring secret. */
+      200: {
+        headers: {
+          'X-Request-ID': components['headers']['XRequestID'];
+          'Cache-Control': components['headers']['CacheControlNoStore'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RotateWebhookSecretResponse'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminDisableWebhookEndpoint: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        endpoint_id: components['parameters']['WebhookEndpointID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DisableWebhookEndpointRequest'];
+      };
+    };
+    responses: {
+      /** @description Endpoint disabled without affecting business authority. */
+      200: {
+        headers: {
+          'X-Request-ID': components['headers']['XRequestID'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DisableWebhookEndpointResponse'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminReplaceWebhookSubscriptions: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        endpoint_id: components['parameters']['WebhookEndpointID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WebhookSubscriptionsRequest'];
+      };
+    };
+    responses: {
+      /** @description Endpoint subscriptions replaced and audited. */
+      200: {
+        headers: {
+          'X-Request-ID': components['headers']['XRequestID'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WebhookSubscriptionsResponse'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  partnerCreateSelectionSession: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateSelectionSessionRequest'];
+      };
+    };
+    responses: {
+      /** @description Selection session and opaque bootstrap URL created. */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['CacheControlNoStore'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreateSelectionSessionResponse'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  selectionGetSession: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful response. */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['CacheControlNoStore'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SelectionSession'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  selectionGetEvent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful response. */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['CacheControlNoStore'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PartnerEvent'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  selectionGetLayout: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful response. */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['CacheControlNoStore'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GenericObject'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  selectionGetAvailability: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful response. */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['CacheControlNoStore'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PartnerAvailability'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  selectionCreateReservation: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SelectionReservationRequest'];
+      };
+    };
+    responses: {
+      /** @description Authoritative buyer-scoped hold created. */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['CacheControlNoStore'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SelectionReservation'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  selectionGetReservation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        reservation_id: components['parameters']['ReservationID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful response. */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['CacheControlNoStore'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SelectionReservation'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  selectionModifyReservation: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Opaque Reservation continuation capability. Never place this value in a URL. */
+        'X-TktSync-Reservation-Token': components['parameters']['ReservationToken'];
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        reservation_id: components['parameters']['ReservationID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ModifyReservationRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful response. */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['CacheControlNoStore'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SelectionReservation'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  selectionReleaseReservation: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Opaque Reservation continuation capability. Never place this value in a URL. */
+        'X-TktSync-Reservation-Token': components['parameters']['ReservationToken'];
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        reservation_id: components['parameters']['ReservationID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EmptyObject'];
+      };
+    };
+    responses: {
+      /** @description Successful response. */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['CacheControlNoStore'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReleaseReservationResponse'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminSetPartnerAllowedReturnURLs: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        partner_id: components['parameters']['PartnerID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AllowedReturnURLsRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful response. */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['CacheControlNoStore'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AllowedReturnURLsResponse'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
     };
   };
 }

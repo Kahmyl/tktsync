@@ -1,1 +1,147 @@
 @import '@tktsync/ui/styles.css';
+body {
+  background: #edf1ee;
+}
+.device {
+  font:
+    12px ui-monospace,
+    monospace;
+  color: var(--muted);
+}
+.scanner-layout {
+  display: grid;
+  grid-template-columns: minmax(360px, 1.3fr) minmax(300px, 0.7fr);
+  gap: 20px;
+}
+.scanner-panel {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 20px;
+}
+.result-stage {
+  min-height: 260px;
+  border-radius: 16px;
+  background: #edf1ee;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  padding: 24px;
+  color: #53615a;
+}
+.result-stage.success {
+  background: #167348;
+  color: #fff;
+}
+.result-stage.warning {
+  background: #d49222;
+  color: #fff;
+}
+.result-stage.danger {
+  background: #9c392e;
+  color: #fff;
+}
+.result-icon {
+  width: 76px;
+  height: 76px;
+  margin: auto;
+  border: 4px solid currentColor;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font: 800 42px Manrope;
+}
+.result-stage p {
+  font: 800 22px Manrope;
+  margin: 15px 0 4px;
+}
+.result-stage strong {
+  font-size: 13px;
+}
+.result-stage small {
+  max-width: 250px;
+  line-height: 1.4;
+  margin: 5px auto;
+}
+.camera-frame {
+  position: relative;
+  min-height: 260px;
+  background: #122019;
+  border-radius: 16px;
+  overflow: hidden;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  color: #a5b9af;
+}
+.camera-frame video {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  inset: 0;
+}
+.camera-frame span {
+  font-size: 46px;
+}
+.camera-frame i {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-color: #6ee5a8;
+}
+.camera-frame i:nth-of-type(1) {
+  left: 18px;
+  top: 18px;
+  border-left: 3px solid;
+  border-top: 3px solid;
+}
+.camera-frame i:nth-of-type(2) {
+  right: 18px;
+  top: 18px;
+  border-right: 3px solid;
+  border-top: 3px solid;
+}
+.camera-frame i:nth-of-type(3) {
+  right: 18px;
+  bottom: 18px;
+  border-right: 3px solid;
+  border-bottom: 3px solid;
+}
+.camera-frame i:nth-of-type(4) {
+  left: 18px;
+  bottom: 18px;
+  border-left: 3px solid;
+  border-bottom: 3px solid;
+}
+.scan-actions {
+  grid-column: 1/-1;
+  display: flex;
+  justify-content: center;
+}
+.scan-actions .button {
+  min-width: 220px;
+}
+.side-stack,
+.form-stack {
+  display: grid;
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .scanner-layout {
+    grid-template-columns: 1fr;
+  }
+  .scanner-panel {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 620px) {
+  .scanner-panel {
+    grid-template-columns: 1fr;
+  }
+  .scan-actions {
+    grid-column: auto;
+  }
+  .device {
+    display: none;
+  }
+}
