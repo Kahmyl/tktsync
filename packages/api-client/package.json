@@ -1,0 +1,21 @@
+{
+  "name": "@tktsync/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --passWithNoTests",
+    "lint": "eslint .",
+    "typecheck": "tsc -b --pretty false",
+    "generate": "openapi-typescript ../../openapi/tktsync.v1.json -o src/generated/schema.ts && prettier --write src/generated/schema.ts",
+    "check:generated": "../../scripts/check-api-client-generated.sh"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.14.1"
+  }
+}
