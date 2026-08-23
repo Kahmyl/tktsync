@@ -3,7 +3,7 @@ SHELL := /bin/sh
 
 LOAD_ENV = set -a; [ ! -f "$(CURDIR)/.env" ] || . "$(CURDIR)/.env"; set +a;
 
-.PHONY: setup dev dev-api dev-worker dev-admin dev-selector dev-scanner build test lint typecheck format-check benchmark-runtime local-up local-down local-logs local-ps local-reset db-up db-down db-migrate db-reset verify-schema verify-platform-foundation verify-event-configuration verify-inventory-allocation verify-api-contract verify-reservations verify-ticketing verify-admissions verify-async-delivery verify-selection verify-reporting verify-fresh-database certify-partner-integration verify-release
+.PHONY: setup dev dev-api dev-worker dev-admin dev-selector dev-scanner build test lint typecheck format-check benchmark-runtime local-up local-down local-logs local-ps local-seed local-reset db-up db-down db-migrate db-reset verify-schema verify-platform-foundation verify-event-configuration verify-inventory-allocation verify-api-contract verify-reservations verify-ticketing verify-admissions verify-async-delivery verify-selection verify-reporting verify-fresh-database certify-partner-integration verify-release
 
 setup:
 	pnpm install --frozen-lockfile
@@ -62,7 +62,10 @@ local-logs:
 	docker compose logs -f --tail=100
 
 local-ps:
-	docker compose ps
+	docker compose ps --all
+
+local-seed:
+	docker compose run --rm seed
 
 local-reset:
 	@echo "WARNING: removing the TktSync local Compose database volume and all local data"

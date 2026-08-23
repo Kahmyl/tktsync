@@ -78,6 +78,22 @@ services:
     volumes:
       - ./migrations:/migrations:ro
 
+  seed:
+    image: postgres:17-alpine
+    command: [sh, /scripts/seed-local.sh]
+    environment:
+      DATABASE_URL: postgres://tktsync:tktsync@postgres:5432/tktsync?sslmode=disable
+      LOCAL_OPERATOR_AUTH_SUBJECT: ${LOCAL_OPERATOR_AUTH_SUBJECT:-}
+      LOCAL_OPERATOR_DISPLAY_NAME: ${LOCAL_OPERATOR_DISPLAY_NAME:-Local Platform Admin}
+      LOCAL_OPERATOR_PLATFORM_ADMIN: ${LOCAL_OPERATOR_PLATFORM_ADMIN:-true}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: no
+    volumes:
+      - ./seeds:/seeds:ro
+      - ./scripts/seed-local.sh:/scripts/seed-local.sh:ro
+
   api:
     build:
       context: .
@@ -87,7 +103,7 @@ services:
       API_HOST: 0.0.0.0
       API_PORT: 8080
     depends_on:
-      migrate:
+      seed:
         condition: service_completed_successfully
     ports:
       - ${API_HOST_PORT:-58480}:8080
@@ -110,7 +126,7 @@ services:
       WORKER_POLL_INTERVAL: ${WORKER_POLL_INTERVAL:-5s}
       WORKER_SHUTDOWN_TIMEOUT: ${WORKER_SHUTDOWN_TIMEOUT:-10s}
     depends_on:
-      migrate:
+      seed:
         condition: service_completed_successfully
     stop_grace_period: 15s
     restart: no

@@ -4,7 +4,7 @@ TktSync is a pnpm monorepo with three React/Vite applications and a Go backend t
 
 ## Local product stack
 
-Docker Compose runs PostgreSQL, automatic migrations, the API, worker, Admin, Selector, and Scanner together. Docker with Compose is the only prerequisite for this path.
+Docker Compose runs PostgreSQL, automatic migrations and application seeds, the API, worker, Admin, Selector, and Scanner together. Docker with Compose is the only prerequisite for this path.
 
 ```sh
 cp .env.example .env
@@ -20,18 +20,23 @@ With the default ports, open:
 - Scanner: http://localhost:54472
 - PostgreSQL: `localhost:55439`
 
-Migrations run automatically after PostgreSQL becomes healthy; the API and worker start only after they succeed. A normal cached startup should complete within 60 seconds, while a first image pull/build can take longer.
+Migrations run after PostgreSQL becomes healthy, then the idempotent seed runs; the API and worker start only after both succeed. A normal cached startup should complete within 60 seconds, while a first image pull/build can take longer.
 
 ```sh
 make local-ps
 make local-logs
 make local-down
+make local-seed   # rerun application defaults after changing operator settings
 make local-reset  # WARNING: destroys the local Compose database volume
 ```
 
 Override any published port in `.env` or for one command without editing Compose, for example `API_HOST_PORT=58481 make local-up`. The frontend API address is compiled from `API_HOST_PORT` during the image build.
 
-Admin and Scanner operator login use an external Supabase Auth/OIDC project. Set matching `SUPABASE_JWT_ISSUER`, `SUPABASE_JWKS_URL`, and browser-safe `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` values. An anon key is public client configuration; never put a service-role key, JWT signing secret, or other private credential in a `VITE_*` variable. The stack starts without external auth, but authenticated operator workflows will remain unavailable.
+Admin and Scanner operator login use an external Supabase Auth/OIDC project. Set matching `SUPABASE_JWT_ISSUER`, `SUPABASE_JWKS_URL`, and browser-safe `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` values. An anon key is public client configuration; never put a service-role key, JWT signing secret, or other private credential in a `VITE_*` variable.
+
+To authorize one local platform administrator, create a normal test user under Supabase Authentication, copy its User ID, and add it to `.env` as `LOCAL_OPERATOR_AUTH_SUBJECT`. The User ID is the JWT `sub`; it is not the user's email or access token. `LOCAL_OPERATOR_DISPLAY_NAME` controls the TktSync display name, and `LOCAL_OPERATOR_PLATFORM_ADMIN=true` adds the platform role. Run `make local-seed` or `make local-up`, then sign in through Admin or Scanner using that Supabase user's email and password. Supabase retains the password; the seed never receives or stores it. With no subject configured, seeding skips cleanly and the stack still starts.
+
+Normal seeds contain only application defaults: the optional `app_users` identity mapping and platform role. They do not create Supabase users or any venue, event, partner, inventory, reservation, sale, ticket, admission, webhook, audit, or demo data.
 
 See the [local smoke checklist](docs/operations/local-smoke-checklist.md) for the short manual product check.
 
