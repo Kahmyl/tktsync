@@ -40,6 +40,8 @@ func (m *Materializer) RunOnce(
 				r.id,
 				r.event_id
 			FROM reservations r
+			JOIN events e
+			  ON e.id = r.event_id
 			LEFT JOIN checkout_attempts ca
 			  ON ca.reservation_id = r.id
 			 AND ca.state = 'ACTIVE'
@@ -68,6 +70,14 @@ func (m *Materializer) RunOnce(
 			    r.state = 'COMMITTING'
 			    AND ca.protection_expires_at <=
 			        clock_timestamp()
+			)
+			OR (
+			    e.state = 'CANCELLED'
+			    AND r.state IN (
+			        'HELD',
+			        'PAYMENT_RETRY',
+			        'COMMITTING'
+			    )
 			)
 			ORDER BY r.event_id, r.id
 			LIMIT $1

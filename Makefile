@@ -5,7 +5,7 @@ DATABASE_URL ?= postgres://tktsync:tktsync@localhost:$${POSTGRES_PORT:-5432}/tkt
 MIGRATE_IMAGE ?= migrate/migrate:v4.18.3
 LOAD_ENV = set -a; [ ! -f "$(CURDIR)/.env" ] || . "$(CURDIR)/.env"; set +a;
 
-.PHONY: setup dev dev-api dev-worker dev-admin dev-selector dev-scanner build test lint typecheck format-check db-up db-down db-migrate db-reset verify-m2 verify-m3 verify-m4 verify-m4c verify-m5 verify-m6 verify-m7 verify-m8 verify-m9
+.PHONY: setup dev dev-api dev-worker dev-admin dev-selector dev-scanner build test lint typecheck format-check db-up db-down db-migrate db-reset verify-schema verify-platform-foundation verify-event-configuration verify-inventory-allocation verify-api-contract verify-reservations verify-ticketing verify-admissions verify-async-delivery verify-selection verify-reporting verify-fresh-database certify-partner-integration verify-release
 
 setup:
 	pnpm install --frozen-lockfile
@@ -64,29 +64,44 @@ db-reset:
 	docker compose up -d --wait postgres
 	$(MAKE) db-migrate
 
-verify-m2:
-	./scripts/verify-m2.sh
+verify-schema:
+	./scripts/verify-schema.sh
 
-verify-m3:
-	./scripts/verify-m3.sh
+verify-platform-foundation:
+	./scripts/verify-platform-foundation.sh
 
-verify-m4:
-	./scripts/verify-m4.sh
+verify-event-configuration:
+	./scripts/verify-event-configuration.sh
 
-verify-m4c:
-	./scripts/verify-m4c.sh
+verify-inventory-allocation:
+	./scripts/verify-inventory-allocation.sh
 
-verify-m5:
-	./scripts/verify-m5.sh
+verify-api-contract:
+	./scripts/verify-api-contract.sh
 
-verify-m6:
-	./scripts/verify-m6.sh
+verify-reservations:
+	./scripts/verify-reservations.sh
 
-verify-m7:
-	./scripts/verify-m7.sh
+verify-ticketing:
+	./scripts/verify-ticketing.sh
 
-verify-m8:
-	./scripts/verify-m8.sh
+verify-admissions:
+	./scripts/verify-admissions.sh
 
-verify-m9:
-	./scripts/verify-m9.sh
+verify-async-delivery:
+	./scripts/verify-async-delivery.sh
+
+verify-selection:
+	./scripts/verify-selection.sh
+
+verify-reporting:
+	./scripts/verify-reporting.sh
+
+verify-fresh-database:
+	./scripts/verify-fresh-database.sh
+
+certify-partner-integration:
+	./scripts/certify-partner-integration.sh
+
+verify-release:
+	./scripts/verify-release.sh

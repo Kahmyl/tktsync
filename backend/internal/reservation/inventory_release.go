@@ -3,6 +3,7 @@ package reservation
 import (
 	"context"
 	"errors"
+	"sort"
 	"strings"
 	"time"
 
@@ -125,10 +126,23 @@ func (s *Service) reReleaseTicketInventory(ctx context.Context, ticketID uuid.UU
 			return apierror.New(apierror.CodeInventoryUnavailable, "Ticket inventory has already been re-released")
 		}
 
-		if input.DestinationAllocationID != nil {
-			if err = validateReleaseDestinationAllocation(ctx, tx, eventID, *input.DestinationAllocationID, actor.partnerID); err != nil {
-				return err
-			}
+		if err = ensureNoReplacementEntitlement(ctx, tx, ticketID); err != nil {
+			return err
+		}
+
+		if err = lockReleaseAllocationAggregates(
+			ctx,
+			tx,
+			eventID,
+			ticket.SourceAllocationID,
+			input.DestinationAllocationID,
+			actor.partnerID,
+		); err != nil {
+			return err
+		}
+
+		if err = lockReleaseInventoryIdentity(ctx, tx, ticket, eventID); err != nil {
+			return err
 		}
 
 		now, err := ticketClock(ctx, tx)
@@ -201,25 +215,194 @@ func lockReleasableTicket(ctx context.Context, tx pgx.Tx, ticketID, eventID uuid
 	return t, err
 }
 
-func validateReleaseDestinationAllocation(ctx context.Context, tx pgx.Tx, eventID, allocationID uuid.UUID, partnerID *uuid.UUID) error {
-	var mode string
-	var owner *uuid.UUID
-	err := tx.QueryRow(ctx, `
-		SELECT a.mode, a.partner_id
-		FROM allocations a
-		JOIN inventory_restrictions ir ON ir.id = a.restriction_id
-		WHERE a.restriction_id = $1 AND ir.event_id = $2 AND ir.state = 'ACTIVE'
-		FOR KEY SHARE OF ir
-	`, allocationID, eventID).Scan(&mode, &owner)
+func ensureNoReplacementEntitlement(
+	ctx context.Context,
+	tx pgx.Tx,
+	ticketID uuid.UUID,
+) error {
+	var childID uuid.UUID
+	err := tx.QueryRow(
+		ctx,
+		`
+			SELECT id
+			FROM ticket_entitlements
+			WHERE replaces_ticket_entitlement_id = $1
+			LIMIT 1
+			FOR KEY SHARE
+		`,
+		ticketID,
+	).Scan(&childID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return apierror.New(apierror.CodeInventoryUnavailable, "Destination Allocation is not active for this Event")
+		return nil
 	}
 	if err != nil {
 		return err
 	}
-	if partnerID != nil && (mode != "CHANNEL" || owner == nil || *owner != *partnerID) {
-		return apierror.New(apierror.CodeNotAuthorized, "Partner cannot re-release inventory to this Allocation")
+	return apierror.New(
+		apierror.CodeInventoryUnavailable,
+		"Ticket has replacement lineage and is not the current releasable entitlement",
+	)
+}
+
+func lockReleaseAllocationAggregates(
+	ctx context.Context,
+	tx pgx.Tx,
+	eventID uuid.UUID,
+	sourceAllocationID *uuid.UUID,
+	destinationAllocationID *uuid.UUID,
+	partnerID *uuid.UUID,
+) error {
+	ids := make([]uuid.UUID, 0, 2)
+
+	add := func(id *uuid.UUID) {
+		if id == nil || *id == uuid.Nil {
+			return
+		}
+		for _, existing := range ids {
+			if existing == *id {
+				return
+			}
+		}
+		ids = append(ids, *id)
 	}
+
+	add(sourceAllocationID)
+	add(destinationAllocationID)
+
+	sort.Slice(ids, func(i, j int) bool {
+		return ids[i].String() < ids[j].String()
+	})
+
+	for _, allocationID := range ids {
+		var state string
+		var mode string
+		var owner *uuid.UUID
+
+		err := tx.QueryRow(
+			ctx,
+			`
+				SELECT ir.state, a.mode, a.partner_id
+				FROM inventory_restrictions ir
+				JOIN allocations a
+				  ON a.restriction_id = ir.id
+				WHERE ir.id = $1
+				  AND ir.event_id = $2
+				FOR KEY SHARE OF ir, a
+			`,
+			allocationID,
+			eventID,
+		).Scan(
+			&state,
+			&mode,
+			&owner,
+		)
+		if errors.Is(err, pgx.ErrNoRows) {
+			if destinationAllocationID != nil &&
+				allocationID == *destinationAllocationID {
+				return apierror.New(
+					apierror.CodeInventoryUnavailable,
+					"Destination Allocation does not belong to this Event",
+				)
+			}
+			return apierror.New(
+				apierror.CodeInternal,
+				"Ticket source Allocation is unavailable",
+			)
+		}
+		if err != nil {
+			return err
+		}
+
+		if destinationAllocationID == nil ||
+			allocationID != *destinationAllocationID {
+			continue
+		}
+
+		if state != "ACTIVE" {
+			return apierror.New(
+				apierror.CodeInventoryUnavailable,
+				"Destination Allocation is not active for this Event",
+			)
+		}
+
+		if partnerID != nil &&
+			(mode != "CHANNEL" ||
+				owner == nil ||
+				*owner != *partnerID) {
+			return apierror.New(
+				apierror.CodeNotAuthorized,
+				"Partner cannot re-release inventory to this Allocation",
+			)
+		}
+	}
+
+	return nil
+}
+
+func lockReleaseInventoryIdentity(
+	ctx context.Context,
+	tx pgx.Tx,
+	ticket releasableTicket,
+	eventID uuid.UUID,
+) error {
+	switch ticket.InventoryKind {
+	case InventoryReserved:
+		if ticket.ReservedInventoryUnitID == nil {
+			return apierror.New(
+				apierror.CodeInternal,
+				"Reserved Ticket has no inventory identity",
+			)
+		}
+
+		var id uuid.UUID
+		err := tx.QueryRow(
+			ctx,
+			`
+				SELECT id
+				FROM reserved_inventory_units
+				WHERE id = $1
+				  AND event_id = $2
+				FOR UPDATE
+			`,
+			*ticket.ReservedInventoryUnitID,
+			eventID,
+		).Scan(&id)
+		if err != nil {
+			return err
+		}
+
+	case InventoryGA:
+		if ticket.GAPoolID == nil {
+			return apierror.New(
+				apierror.CodeInternal,
+				"GA Ticket has no pool identity",
+			)
+		}
+
+		var id uuid.UUID
+		err := tx.QueryRow(
+			ctx,
+			`
+				SELECT id
+				FROM ga_inventory_pools
+				WHERE id = $1
+				  AND event_id = $2
+				FOR UPDATE
+			`,
+			*ticket.GAPoolID,
+			eventID,
+		).Scan(&id)
+		if err != nil {
+			return err
+		}
+
+	default:
+		return apierror.New(
+			apierror.CodeInternal,
+			"Ticket has unsupported inventory kind",
+		)
+	}
+
 	return nil
 }
 

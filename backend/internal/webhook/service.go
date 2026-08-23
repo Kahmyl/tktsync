@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"net"
+	"net/netip"
 	"net/url"
 	"sort"
 	"strings"
@@ -73,8 +74,44 @@ func validateDestination(raw string, allowPrivate bool) (string, error) {
 	return parsed.String(), nil
 }
 
+var blockedWebhookPrefixes = []netip.Prefix{
+	netip.MustParsePrefix("0.0.0.0/8"),
+	netip.MustParsePrefix("100.64.0.0/10"),
+	netip.MustParsePrefix("192.0.0.0/24"),
+	netip.MustParsePrefix("192.0.2.0/24"),
+	netip.MustParsePrefix("198.18.0.0/15"),
+	netip.MustParsePrefix("198.51.100.0/24"),
+	netip.MustParsePrefix("203.0.113.0/24"),
+	netip.MustParsePrefix("240.0.0.0/4"),
+	netip.MustParsePrefix("2001:db8::/32"),
+}
+
 func unsafeIP(ip net.IP) bool {
-	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsMulticast() || ip.IsUnspecified()
+	addr, ok := netip.AddrFromSlice(ip)
+	if !ok {
+		return true
+	}
+
+	addr = addr.Unmap()
+
+	if !addr.IsValid() ||
+		addr.IsUnspecified() ||
+		addr.IsLoopback() ||
+		addr.IsPrivate() ||
+		addr.IsLinkLocalUnicast() ||
+		addr.IsLinkLocalMulticast() ||
+		addr.IsInterfaceLocalMulticast() ||
+		addr.IsMulticast() {
+		return true
+	}
+
+	for _, prefix := range blockedWebhookPrefixes {
+		if prefix.Contains(addr) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (s *Service) CreateEndpoint(ctx context.Context, actorID, partnerID uuid.UUID, rawURL string, subscriptions []string) (Endpoint, error) {
@@ -96,7 +133,7 @@ func (s *Service) CreateEndpoint(ctx context.Context, actorID, partnerID uuid.UU
 	if _, err = rand.Read(rawSecret); err != nil {
 		return Endpoint{}, err
 	}
-	ciphertext, err := s.box.Seal(rawSecret)
+	ciphertext, err := s.box.SealVersion(s.keyVersion, rawSecret)
 	if err != nil {
 		return Endpoint{}, err
 	}
@@ -149,7 +186,7 @@ func (s *Service) RotateSecret(ctx context.Context, actorID, endpointID uuid.UUI
 	if _, err := rand.Read(raw); err != nil {
 		return "", time.Time{}, err
 	}
-	ciphertext, err := s.box.Seal(raw)
+	ciphertext, err := s.box.SealVersion(s.keyVersion, raw)
 	if err != nil {
 		return "", time.Time{}, err
 	}

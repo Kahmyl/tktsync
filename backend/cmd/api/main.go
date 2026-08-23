@@ -20,6 +20,7 @@ import (
 	"github.com/tktsync/tktsync/backend/internal/platform/bootstrap"
 	"github.com/tktsync/tktsync/backend/internal/platform/httpserver"
 	"github.com/tktsync/tktsync/backend/internal/realtimeapi"
+	"github.com/tktsync/tktsync/backend/internal/reporting"
 	"github.com/tktsync/tktsync/backend/internal/reservation"
 	"github.com/tktsync/tktsync/backend/internal/selection"
 	"github.com/tktsync/tktsync/backend/internal/selectionapi"
@@ -99,12 +100,14 @@ func main() {
 		resources.QRKeys,
 	)
 
-	webhookBox, err := webhook.NewSecretBox(resources.Config.Webhook.EncryptionKey)
+	webhookBox, err := webhook.NewVersionedSecretBox(resources.Config.Webhook.EncryptionKeyVersion, resources.Config.Webhook.EncryptionKey, resources.Config.Webhook.EncryptionKeyring)
 	if err != nil {
 		resources.Logger.Error("webhook encryption configuration failed", "operation", "webhook.configure", "error", err)
 		os.Exit(1)
 	}
 	webhookService := webhook.NewService(resources.Transactions, webhookBox, resources.Config.Webhook.EncryptionKeyVersion, resources.Config.Environment != "production")
+	reportingService := reporting.NewService(resources.Database)
+	metricsObserver := reporting.NewObserver()
 
 	adminHandler, err := adminapi.New(
 		adminapi.Dependencies{
@@ -125,6 +128,8 @@ func main() {
 			AdmissionService:   admissionService,
 			WebhookService:     webhookService,
 			ReplayProtector:    replayProtector,
+			ReportingService:   reportingService,
+			MetricsObserver:    metricsObserver,
 		},
 	)
 	if err != nil {
@@ -161,6 +166,7 @@ func main() {
 			Transactions: resources.Transactions,
 			Reservation:  reservationService,
 			Selection:    selectionService,
+			Reporting:    reportingService,
 		},
 	)
 	if err != nil {
@@ -200,13 +206,17 @@ func main() {
 
 	apiMux.Handle(
 		"GET /api/v1/realtime/stream",
-		realtimeapi.New(resources.Database, realtimeapi.HumanAuthenticator(humanAuth)),
+		realtimeapi.New(
+			resources.Database,
+			realtimeapi.HumanAuthenticator(humanAuth),
+			resources.Config.Realtime.Enabled,
+		),
 	)
 
 	handler := httpserver.Handler(
 		resources.Logger,
 		resources.Database,
-		httpserver.CORS(apiMux, resources.Config.BrowserOrigins),
+		httpserver.CORS(metricsObserver.Middleware(apiMux), resources.Config.BrowserOrigins),
 	)
 
 	server := httpserver.New(

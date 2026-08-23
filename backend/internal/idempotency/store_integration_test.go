@@ -43,7 +43,7 @@ func TestConcurrentClaimExecutesOnce(t *testing.T) {
 	}
 
 	if !schemaExists {
-		t.Fatal("M1 schema is not applied")
+		t.Fatal("authoritative schema is not applied")
 	}
 
 	partnerID := uuid.New()
@@ -55,7 +55,7 @@ func TestConcurrentClaimExecutesOnce(t *testing.T) {
 			VALUES ($1, $2, 'ACTIVE')
 		`,
 		partnerID,
-		"M2 Idempotency Integration",
+		"Platform Idempotency Integration",
 	); err != nil {
 		t.Fatalf("create Partner fixture: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestConcurrentClaimExecutesOnce(t *testing.T) {
 		ID:   partnerID,
 	}
 
-	key := "m2-" + uuid.NewString()
+	key := "platform-" + uuid.NewString()
 	hash := Fingerprint(
 		[]byte(`{"operation":"concurrent-idempotency-test","value":1}`),
 	)
@@ -112,7 +112,7 @@ func TestConcurrentClaimExecutesOnce(t *testing.T) {
 					ctx,
 					tx,
 					scope,
-					"M2_CONCURRENCY_TEST",
+					"PLATFORM_CONCURRENCY_TEST",
 					key,
 					hash,
 				)
@@ -130,7 +130,7 @@ func TestConcurrentClaimExecutesOnce(t *testing.T) {
 						tx,
 						claim.ID,
 						"OK",
-						"M2_TEST",
+						"PLATFORM_TEST",
 						nil,
 						map[string]any{
 							"ok": true,
@@ -183,7 +183,7 @@ func TestConcurrentClaimExecutesOnce(t *testing.T) {
 			SELECT COUNT(*)
 			FROM idempotency_operations
 			WHERE partner_id = $1
-			  AND operation_type = 'M2_CONCURRENCY_TEST'
+			  AND operation_type = 'PLATFORM_CONCURRENCY_TEST'
 			  AND idempotency_key = $2
 		`,
 		partnerID,
@@ -205,7 +205,7 @@ func TestConcurrentClaimExecutesOnce(t *testing.T) {
 			ctx,
 			tx,
 			scope,
-			"M2_CONCURRENCY_TEST",
+			"PLATFORM_CONCURRENCY_TEST",
 			key,
 			conflictHash,
 		)
@@ -249,7 +249,7 @@ func TestClaimRollbackDoesNotPersistInProgress(t *testing.T) {
 			VALUES ($1, $2, 'ACTIVE')
 		`,
 		partnerID,
-		"M2 Rollback Integration",
+		"Platform Rollback Integration",
 	); err != nil {
 		t.Fatalf("create Partner fixture: %v", err)
 	}
@@ -287,7 +287,7 @@ func TestClaimRollbackDoesNotPersistInProgress(t *testing.T) {
 		ID:   partnerID,
 	}
 
-	key := "m2-rollback-" + uuid.NewString()
+	key := "platform-rollback-" + uuid.NewString()
 	hash := Fingerprint(
 		[]byte(`{"operation":"rollback-test"}`),
 	)
@@ -301,7 +301,7 @@ func TestClaimRollbackDoesNotPersistInProgress(t *testing.T) {
 				ctx,
 				tx,
 				scope,
-				"M2_ROLLBACK_TEST",
+				"PLATFORM_ROLLBACK_TEST",
 				key,
 				hash,
 			)
@@ -329,7 +329,7 @@ func TestClaimRollbackDoesNotPersistInProgress(t *testing.T) {
 			SELECT COUNT(*)
 			FROM idempotency_operations
 			WHERE partner_id = $1
-			  AND operation_type = 'M2_ROLLBACK_TEST'
+			  AND operation_type = 'PLATFORM_ROLLBACK_TEST'
 			  AND idempotency_key = $2
 		`,
 		partnerID,

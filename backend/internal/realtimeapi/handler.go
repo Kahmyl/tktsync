@@ -21,10 +21,25 @@ type Handler struct {
 	db        *pgxpool.Pool
 	humanAuth HumanAuthenticator
 	heartbeat time.Duration
+	enabled   bool
 }
 
-func New(db *pgxpool.Pool, humanAuth HumanAuthenticator) *Handler {
-	return &Handler{db: db, humanAuth: humanAuth, heartbeat: 15 * time.Second}
+func New(
+	db *pgxpool.Pool,
+	humanAuth HumanAuthenticator,
+	enabled ...bool,
+) *Handler {
+	isEnabled := true
+	if len(enabled) > 0 {
+		isEnabled = enabled[0]
+	}
+
+	return &Handler{
+		db:        db,
+		humanAuth: humanAuth,
+		heartbeat: 15 * time.Second,
+		enabled:   isEnabled,
+	}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -36,6 +51,18 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) stream(w http.ResponseWriter, r *http.Request) {
+	if !h.enabled {
+		httpserver.WriteError(
+			w,
+			r,
+			apierror.New(
+				apierror.CodeAuthorityTemporarilyUnavailable,
+				"realtime streaming is disabled",
+			),
+		)
+		return
+	}
+
 	if h.humanAuth == nil {
 		httpserver.WriteError(w, r, apierror.New(apierror.CodeAuthorityTemporarilyUnavailable, "human authentication is not configured"))
 		return

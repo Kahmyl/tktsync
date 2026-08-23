@@ -97,6 +97,46 @@ export const workflows: Workflow[] = [
   },
   {
     group: 'Live event',
+    title: 'Pause sales',
+    description: 'Stop new acquisition while existing protected transactions resolve.',
+    method: 'POST',
+    path: '/api/v1/admin/events/{event_id}/pause-sales',
+    body: '{}',
+  },
+  {
+    group: 'Live event',
+    title: 'Resume sales',
+    description: 'Resume acquisition from an explicitly paused event.',
+    method: 'POST',
+    path: '/api/v1/admin/events/{event_id}/resume-sales',
+    body: '{}',
+  },
+  {
+    group: 'Live event',
+    title: 'Close sales',
+    description: 'Close acquisition without erasing existing commercial history.',
+    method: 'POST',
+    path: '/api/v1/admin/events/{event_id}/close-sales',
+    body: '{}',
+  },
+  {
+    group: 'Live event',
+    title: 'Cancel event',
+    description: 'Cancel with an explicit auditable operational reason.',
+    method: 'POST',
+    path: '/api/v1/admin/events/{event_id}/cancel',
+    body: '{"reason":"Event cancelled by promoter"}',
+  },
+  {
+    group: 'Live event',
+    title: 'Complete event',
+    description: 'Mark closed event operations complete while retaining all history.',
+    method: 'POST',
+    path: '/api/v1/admin/events/{event_id}/complete',
+    body: '{}',
+  },
+  {
+    group: 'Live event',
     title: 'Ticket operations',
     description: 'Void, rotate credentials, or explicitly release capacity.',
     method: 'POST',
@@ -110,6 +150,55 @@ export const workflows: Workflow[] = [
     method: 'POST',
     path: '/api/v1/admin/admissions/manual-override',
     body: '{"event_id":"evt_…","ticket_id":"tkt_…","reason":"Accessibility desk verification","supervisor_user_id":"usr_…"}',
+  },
+  {
+    group: 'Operations',
+    title: 'Inventory reporting',
+    description: 'Reconcile current inventory obligations separately from historical sales.',
+    method: 'GET',
+    path: '/api/v1/admin/events/{event_id}/reports/inventory',
+    body: '',
+  },
+  {
+    group: 'Operations',
+    title: 'Commercial reporting',
+    description:
+      'Inspect immutable Sale facts and current sold capacity without conflating issuance.',
+    method: 'GET',
+    path: '/api/v1/admin/events/{event_id}/reports/sales',
+    body: '',
+  },
+  {
+    group: 'Operations',
+    title: 'Admission reporting',
+    description: 'Review active and reversed Admissions plus every scan outcome.',
+    method: 'GET',
+    path: '/api/v1/admin/events/{event_id}/reports/admission',
+    body: '',
+  },
+  {
+    group: 'Operations',
+    title: 'Audit explorer',
+    description: 'Search a bounded, stable page of append-only material state changes.',
+    method: 'GET',
+    path: '/api/v1/admin/events/{event_id}/audit?limit=50',
+    body: '',
+  },
+  {
+    group: 'Operations',
+    title: 'Accreditation export',
+    description: 'Generate a read-only CSV snapshot without QR credentials or unnecessary PII.',
+    method: 'GET',
+    path: '/api/v1/admin/events/{event_id}/accreditation-export',
+    body: '',
+  },
+  {
+    group: 'Operations',
+    title: 'Metrics and alerts',
+    description: 'Inspect advisory operational signals derived from authoritative records.',
+    method: 'GET',
+    path: '/api/v1/admin/events/{event_id}/metrics',
+    body: '',
   },
 ];
 type ApiResult = { status: number; data: unknown; error?: unknown };
@@ -204,7 +293,7 @@ export function App() {
       />
       <div className="metrics">
         <Metric label="Authority" value="PostgreSQL" detail="Live source of truth" />
-        <Metric label="Contract" value="68 routes" detail="Runtime parity certified" />
+        <Metric label="Contract" value="82 routes" detail="Runtime parity certified" />
         <Metric label="Realtime" value="Advisory" detail="Always re-fetch state" />
         <Metric label="Command safety" value="Idempotent" detail="Fresh key per intent" />
       </div>

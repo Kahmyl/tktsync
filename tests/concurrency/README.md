@@ -1,3 +1,3 @@
 # Concurrency tests
 
-Database contention and transactional invariant tests begin with the milestones that introduce those invariants.
+Database contention and transactional invariant tests live alongside the authoritative domain behavior they certify.

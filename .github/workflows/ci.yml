@@ -67,3 +67,40 @@ jobs:
           go-version: '1.24.x'
       - run: go install github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
       - run: migrate -path migrations -database "postgres://tktsync:tktsync@localhost:5432/tktsync_test?sslmode=disable" up
+
+  mvp-release-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: tktsync
+          POSTGRES_PASSWORD: tktsync
+          POSTGRES_DB: tktsync
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tktsync -d tktsync"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache-dependency-path: backend/go.sum
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.29.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: docker run --rm --network host -v "$PWD/migrations:/migrations:ro" migrate/migrate:v4.18.3 -path=/migrations -database "postgres://tktsync:tktsync@localhost:5432/tktsync?sslmode=disable" up
+      - run: make verify-release
+        env:
+          POSTGRES_PORT: 5432
+          DATABASE_URL: postgres://tktsync:tktsync@localhost:5432/tktsync?sslmode=disable

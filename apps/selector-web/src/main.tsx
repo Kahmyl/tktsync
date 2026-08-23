@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { StrictMode, useCallback, useEffect, useMemo, useState } from 'react';
+import { StrictMode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createTktSyncClient } from '@tktsync/api-client';
 import { Button, InlineNotice, PageHeader, Panel, ProductShell, StatusPill } from '@tktsync/ui';
@@ -43,6 +43,29 @@ export function remaining(until?: string, now = Date.now()) {
   return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
+export function serverOffset(serverTime?: string, clientNow = Date.now()) {
+  if (!serverTime) return 0;
+  const parsed = Date.parse(serverTime);
+  return Number.isFinite(parsed) ? parsed - clientNow : 0;
+}
+
+export function getIntentKey(
+  store: Map<string, string>,
+  intent: string,
+  factory: () => string = () => crypto.randomUUID(),
+) {
+  const existing = store.get(intent);
+  if (existing) return existing;
+
+  const created = factory();
+  store.set(intent, created);
+  return created;
+}
+
+export function clearIntentKey(store: Map<string, string>, intent: string) {
+  store.delete(intent);
+}
+
 export function App() {
   const [capability] = useState(() => {
     return consumeCapability(location, history);
@@ -55,6 +78,8 @@ export function App() {
   const [hold, setHold] = useState<Hold>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [serverOffsetMs, setServerOffsetMs] = useState(0);
+  const intentKeys = useRef(new Map<string, string>());
   const [, tick] = useState(0);
   const client = useMemo(() => createTktSyncClient(import.meta.env.VITE_API_BASE_URL ?? ''), []);
   const headers = useMemo(() => ({ Authorization: `Bearer ${capability}` }), [capability]);
@@ -69,9 +94,12 @@ export function App() {
       setError('This selection link is invalid, expired, or the event is not available.');
       return;
     }
+    const nextAvailability = a.data as Availability;
+
     setSession(s.data as Session);
     setEvent(e.data as EventView);
-    setAvailability(a.data as Availability);
+    setAvailability(nextAvailability);
+    setServerOffsetMs(serverOffset(nextAvailability.server_time));
   }, [client, headers]);
   useEffect(() => {
     if (capability) void refresh();
@@ -83,70 +111,149 @@ export function App() {
   }, []);
   const reserve = async () => {
     if (!selected) return;
+
+    const intent = `reserve:${selected.offer_id}:${quantity}`;
+    const key = getIntentKey(intentKeys.current, intent);
+
     setBusy(true);
     setError('');
-    const response = await client.POST('/api/v1/selection/reservations', {
-      params: {
-        header: {
-          'Idempotency-Key': crypto.randomUUID(),
-          'X-Request-ID': crypto.randomUUID(),
+
+    try {
+      const response = await client.POST('/api/v1/selection/reservations', {
+        params: {
+          header: {
+            'Idempotency-Key': key,
+            'X-Request-ID': crypto.randomUUID(),
+          },
         },
-      },
-      headers,
-      body: { items: [{ offer_id: selected.offer_id, quantity }] },
-    });
-    setBusy(false);
-    if (response.error) {
-      setError('That inventory could not be held. Availability has been refreshed.');
-      await refresh();
-      return;
+        headers,
+        body: {
+          items: [
+            {
+              offer_id: selected.offer_id,
+              quantity,
+            },
+          ],
+        },
+      });
+
+      if (response.error) {
+        clearIntentKey(intentKeys.current, intent);
+        setError('That inventory could not be held. Availability has been refreshed.');
+        await refresh();
+        return;
+      }
+
+      clearIntentKey(intentKeys.current, intent);
+      setHold(response.data as Hold);
+    } catch {
+      setError(
+        'The result could not be confirmed. Retry the same selection; TktSync will reuse the same request identity.',
+      );
+    } finally {
+      setBusy(false);
     }
-    setHold(response.data as Hold);
   };
+
   const add = async () => {
     if (!hold || !selected) return;
+
+    const intent = `modify:${hold.id}:${selected.offer_id}:${quantity}`;
+    const key = getIntentKey(intentKeys.current, intent);
+
     setBusy(true);
-    const response = await client.PATCH('/api/v1/selection/reservations/{reservation_id}', {
-      params: {
-        path: { reservation_id: hold.id },
-        header: {
-          'X-TktSync-Reservation-Token': hold.reservation_token,
-          'Idempotency-Key': crypto.randomUUID(),
+    setError('');
+
+    try {
+      const response = await client.PATCH('/api/v1/selection/reservations/{reservation_id}', {
+        params: {
+          path: {
+            reservation_id: hold.id,
+          },
+          header: {
+            'X-TktSync-Reservation-Token': hold.reservation_token,
+            'Idempotency-Key': key,
+          },
         },
-      },
-      headers,
-      body: { add_items: [{ offer_id: selected.offer_id, quantity }] },
-    });
-    setBusy(false);
-    if (response.error) {
-      setError('The hold could not be changed.');
-      return;
+        headers,
+        body: {
+          add_items: [
+            {
+              offer_id: selected.offer_id,
+              quantity,
+            },
+          ],
+        },
+      });
+
+      if (response.error) {
+        clearIntentKey(intentKeys.current, intent);
+        setError('The hold could not be changed.');
+        return;
+      }
+
+      clearIntentKey(intentKeys.current, intent);
+
+      setHold({
+        ...(response.data as Hold),
+        reservation_token: hold.reservation_token,
+      });
+    } catch {
+      setError(
+        'The change result could not be confirmed. Retry the same change; TktSync will reuse the same request identity.',
+      );
+    } finally {
+      setBusy(false);
     }
-    setHold({ ...(response.data as Hold), reservation_token: hold.reservation_token });
   };
+
   const release = async () => {
     if (!hold) return;
+
+    const intent = `release:${hold.id}`;
+    const key = getIntentKey(intentKeys.current, intent);
+
     setBusy(true);
-    const response = await client.POST('/api/v1/selection/reservations/{reservation_id}/release', {
-      params: {
-        path: { reservation_id: hold.id },
-        header: {
-          'X-TktSync-Reservation-Token': hold.reservation_token,
-          'Idempotency-Key': crypto.randomUUID(),
+    setError('');
+
+    try {
+      const response = await client.POST(
+        '/api/v1/selection/reservations/{reservation_id}/release',
+        {
+          params: {
+            path: {
+              reservation_id: hold.id,
+            },
+            header: {
+              'X-TktSync-Reservation-Token': hold.reservation_token,
+              'Idempotency-Key': key,
+            },
+          },
+          headers,
+          body: {},
         },
-      },
-      headers,
-      body: {},
-    });
-    setBusy(false);
-    if (response.error) {
-      setError('The hold could not be released.');
-      return;
+      );
+
+      if (response.error) {
+        clearIntentKey(intentKeys.current, intent);
+        setError('The hold could not be released.');
+        return;
+      }
+
+      clearIntentKey(intentKeys.current, intent);
+
+      setHold(undefined);
+      setSelected(undefined);
+      await refresh();
+    } catch {
+      setError(
+        'The release result could not be confirmed. Retry release; TktSync will reuse the same request identity.',
+      );
+    } finally {
+      setBusy(false);
     }
-    setHold(undefined);
-    setSelected(undefined);
-    await refresh();
   };
+
   const handoff = () => {
     if (!hold || !session) return;
     const form = document.createElement('form');
@@ -191,7 +298,7 @@ export function App() {
           hold && (
             <div className="hold-clock">
               <span>Hold expires in</span>
-              <strong>{remaining(hold.hold_expires_at)}</strong>
+              <strong>{remaining(hold.hold_expires_at, Date.now() + serverOffsetMs)}</strong>
             </div>
           )
         }

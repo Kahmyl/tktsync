@@ -1,6 +1,6 @@
 # TktSync
 
-TktSync is a pnpm monorepo with three React/Vite applications and one Go backend that builds separate API and worker executables. M0 provides infrastructure only; the business schema and domain behavior begin in later milestones.
+TktSync is a pnpm monorepo with three React/Vite applications and one Go backend that builds separate API and worker executables. The bootstrap layer provides infrastructure; ordered migrations define the authoritative business schema.
 
 ## Prerequisites
 
@@ -33,7 +33,7 @@ make dev-selector
 make dev-scanner
 ```
 
-The API exposes `GET /health` for liveness and `GET /ready` for database-backed readiness. The worker verifies database connectivity, then waits for future M1+ jobs.
+The API exposes `GET /health` for liveness and `GET /ready` for database-backed readiness. The worker verifies database connectivity before processing configured background work.
 
 ## Development commands
 
@@ -61,4 +61,8 @@ If port 5432 is already occupied, set `POSTGRES_PORT` and update the port in `DA
 - `packages/` — shared UI plus generation-ready contracts and API client packages
 - `migrations/` — ordered PostgreSQL migrations
 - `tests/` — integration, concurrency, end-to-end, and fixture conventions
-- `docs/` — governing specifications
+- `docs/` — architecture, API, operations, and implementation history
+
+## Documentation
+
+Start with the [documentation index](docs/README.md) for the governing policy and architecture, API integration contract, release operations, and historical implementation plan.

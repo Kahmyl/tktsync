@@ -16,6 +16,7 @@ import (
 	"github.com/tktsync/tktsync/backend/internal/platform/database"
 	"github.com/tktsync/tktsync/backend/internal/platform/httpserver"
 	"github.com/tktsync/tktsync/backend/internal/platform/publicid"
+	"github.com/tktsync/tktsync/backend/internal/reporting"
 	"github.com/tktsync/tktsync/backend/internal/reservation"
 	"github.com/tktsync/tktsync/backend/internal/selection"
 )
@@ -27,6 +28,7 @@ type Dependencies struct {
 	Transactions *database.Runner
 	Reservation  *reservation.Service
 	Selection    *selection.Service
+	Reporting    *reporting.Service
 }
 
 type Handler struct {
@@ -36,6 +38,7 @@ type Handler struct {
 	transactions *database.Runner
 	reservation  *reservation.Service
 	selection    *selection.Service
+	reporting    *reporting.Service
 	mux          *http.ServeMux
 }
 
@@ -64,7 +67,11 @@ func New(
 		transactions: deps.Transactions,
 		reservation:  deps.Reservation,
 		selection:    deps.Selection,
+		reporting:    deps.Reporting,
 		mux:          http.NewServeMux(),
+	}
+	if h.reporting == nil {
+		h.reporting = reporting.NewService(deps.Database)
 	}
 
 	h.registerRoutes()
@@ -94,6 +101,9 @@ func (h *Handler) registerRoutes() {
 		"GET /api/v1/partner/events/{event_id}/availability",
 		h.getAvailability,
 	)
+	h.mux.HandleFunc("GET /api/v1/partner/events/{event_id}/reports/inventory", h.getInventoryReport)
+	h.mux.HandleFunc("GET /api/v1/partner/events/{event_id}/reports/sales", h.getSalesReport)
+	h.mux.HandleFunc("GET /api/v1/partner/events/{event_id}/activity", h.getActivity)
 
 	if h.reservation != nil {
 		if h.selection != nil {

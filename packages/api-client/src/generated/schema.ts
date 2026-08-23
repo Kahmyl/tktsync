@@ -228,6 +228,86 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/admin/events/{event_id}/pause-sales': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['adminPauseSales'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/events/{event_id}/resume-sales': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['adminResumeSales'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/events/{event_id}/close-sales': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['adminCloseSales'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/events/{event_id}/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['adminCancelEvent'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/events/{event_id}/complete': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['adminCompleteEvent'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/admin/partners': {
     parameters: {
       query?: never;
@@ -964,6 +1044,150 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/admin/events/{event_id}/reports/inventory': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['adminGetEventInventoryReport'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/events/{event_id}/reports/sales': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['adminGetEventSalesReport'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/events/{event_id}/reports/admission': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['adminGetEventAdmissionReport'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/events/{event_id}/audit': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['adminListEventAudit'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/events/{event_id}/accreditation-export': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['adminExportEventAccreditation'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/events/{event_id}/metrics': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['adminGetEventOperationalMetrics'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/partner/events/{event_id}/reports/inventory': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['partnerGetEventInventoryReport'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/partner/events/{event_id}/reports/sales': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['partnerGetEventSalesReport'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/partner/events/{event_id}/activity': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['partnerListEventActivity'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/admin/partners/{partner_id}/allowed-return-urls': {
     parameters: {
       query?: never;
@@ -1205,6 +1429,14 @@ export interface components {
       server_time: string;
       reserved_units: components['schemas']['ReservedAvailability'][];
       ga_pools: components['schemas']['GAAvailability'][];
+    };
+    CancelEventRequest: {
+      reason: string;
+    };
+    EventLifecycleResponse: {
+      event_id: string;
+      /** @enum {string} */
+      state: 'ON_SALE' | 'PAUSED' | 'SALES_CLOSED' | 'COMPLETED' | 'CANCELLED';
     };
     GenericObject: {
       [key: string]: unknown;
@@ -1541,6 +1773,135 @@ export interface components {
       /** Format: uri */
       return_url?: string;
     };
+    ReportEventContext: {
+      id: string;
+      name: string;
+      /** @enum {string} */
+      state: 'DRAFT' | 'ON_SALE' | 'PAUSED' | 'SALES_CLOSED' | 'COMPLETED' | 'CANCELLED';
+      /** Format: date-time */
+      starts_at?: string | null;
+    };
+    InventoryDimensions: {
+      capacity: number;
+      available: number;
+      held: number;
+      committing: number;
+      payment_retry: number;
+      reconciling: number;
+      blocked: number;
+      allocated: number;
+      /** @description Current capacity still consumed by commercial Tickets; not historical Sale quantity. */
+      sold_current: number;
+      /** @description Current non-public issuance consumption; never SOLD. */
+      issued_current: number;
+      voided_tickets: number;
+      capacity_consumed: number;
+      /** @description Immutable confirmed Sale quantity. */
+      historical_sold: number;
+      /** @description Non-public issuance quantity, distinct from commercial Sales. */
+      historical_issued: number;
+    };
+    InventoryReport: {
+      /** Format: date-time */
+      generated_at: string;
+      event: components['schemas']['ReportEventContext'];
+      reserved_seating: components['schemas']['InventoryDimensions'];
+      general_admission: components['schemas']['InventoryDimensions'];
+      total: components['schemas']['InventoryDimensions'];
+    };
+    SalesReport: {
+      /** Format: date-time */
+      generated_at: string;
+      event: components['schemas']['ReportEventContext'];
+      sale_count: number;
+      historical_sale_quantity: number;
+      historical_amount_minor: number;
+      active_sold_tickets: number;
+      voided_sold_tickets: number;
+      current_sold_capacity: number;
+      currency: string | null;
+    };
+    AdmissionReport: {
+      /** Format: date-time */
+      generated_at: string;
+      event: components['schemas']['ReportEventContext'];
+      active_admissions: number;
+      reversed_admissions: number;
+      scan_outcomes: {
+        [key: string]: number;
+      };
+    };
+    AuditEvent: {
+      id: string;
+      /** @enum {string} */
+      actor_kind: 'USER' | 'PARTNER' | 'BUYER_SESSION' | 'SYSTEM';
+      actor_partner_id?: string;
+      operation: string;
+      entity_type: string;
+      entity_id?: string;
+      reservation_id?: string;
+      sale_id?: string;
+      ticket_id?: string;
+      previous_state?: Record<string, never> | unknown[] | null;
+      new_state?: Record<string, never> | unknown[] | null;
+      reason?: string;
+      /** Format: uuid */
+      correlation_id?: string;
+      metadata: {
+        [key: string]: unknown;
+      };
+      /** Format: date-time */
+      occurred_at: string;
+    };
+    AuditPage: {
+      items: components['schemas']['AuditEvent'][];
+      next_cursor: string | null;
+    };
+    OperationalAlert: {
+      code: string;
+      /** @enum {string} */
+      severity: 'WARNING' | 'CRITICAL';
+      message: string;
+      value: number;
+    };
+    OperationalMetrics: {
+      /** Format: date-time */
+      generated_at: string;
+      event: components['schemas']['ReportEventContext'];
+      requests: components['schemas']['RequestMetrics'];
+      reservation_states: {
+        [key: string]: number;
+      };
+      confirmed_sales: number;
+      confirmation_rate: number;
+      overdue_reconciliations: number;
+      due_reservation_work: number;
+      oldest_worker_lag_seconds: number;
+      pending_outbox: number;
+      oldest_outbox_lag_seconds: number;
+      webhook_failures: number;
+      webhook_dead_letters: number;
+      waiting_database_locks: number;
+      scan_outcomes: {
+        [key: string]: number;
+      };
+      alerts: components['schemas']['OperationalAlert'][];
+      /** @constant */
+      authority: 'ADVISORY_DERIVED_READ';
+    } & {
+      [key: string]: unknown;
+    };
+    RequestMetrics: {
+      request_count: number;
+      error_count: number;
+      auth_anomaly_count: number;
+      conflict_response_count: number;
+      hold_conflict_count: number;
+      error_rate: number;
+      hold_conflict_rate: number;
+      average_latency_ms: number;
+      maximum_latency_ms: number;
+    };
     AllowedReturnURLsRequest: {
       urls: string[];
     };
@@ -1550,6 +1911,16 @@ export interface components {
     };
   };
   responses: {
+    /** @description Event lifecycle command accepted. */
+    EventLifecycleResponse: {
+      headers: {
+        'X-Request-ID': components['headers']['XRequestID'];
+        [name: string]: unknown;
+      };
+      content: {
+        'application/json': components['schemas']['EventLifecycleResponse'];
+      };
+    };
     /** @description Machine-readable error response. */
     ErrorResponse: {
       headers: {
@@ -1614,6 +1985,7 @@ export interface components {
     AdmissionID: string;
     PartnerID: string;
     WebhookEndpointID: string;
+    EventID: string;
   };
   requestBodies: never;
   headers: {
@@ -2315,6 +2687,110 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
+    };
+  };
+  adminPauseSales: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        event_id: components['parameters']['EventID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      '2XX': components['responses']['EventLifecycleResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminResumeSales: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        event_id: components['parameters']['EventID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      '2XX': components['responses']['EventLifecycleResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminCloseSales: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        event_id: components['parameters']['EventID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      '2XX': components['responses']['EventLifecycleResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminCancelEvent: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        event_id: components['parameters']['EventID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CancelEventRequest'];
+      };
+    };
+    responses: {
+      '2XX': components['responses']['EventLifecycleResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminCompleteEvent: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        event_id: components['parameters']['EventID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      '2XX': components['responses']['EventLifecycleResponse'];
+      default: components['responses']['ErrorResponse'];
     };
   };
   adminCreatePartner: {
@@ -3919,6 +4395,257 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['ReleaseReservationResponse'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminGetEventInventoryReport: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        event_id: components['parameters']['EventID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authoritative inventory snapshot with current and historical dimensions. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InventoryReport'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminGetEventSalesReport: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        event_id: components['parameters']['EventID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Historical commercial Sale facts and current sold capacity. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesReport'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminGetEventAdmissionReport: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        event_id: components['parameters']['EventID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Current Admission state and immutable ScanAttempt outcome counts. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AdmissionReport'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminListEventAudit: {
+    parameters: {
+      query?: {
+        limit?: number;
+        cursor?: string;
+        operation?: string;
+        entity_type?: string;
+        actor_kind?: 'USER' | 'PARTNER' | 'BUYER_SESSION' | 'SYSTEM';
+        reservation_id?: string;
+        sale_id?: string;
+        ticket_id?: string;
+        correlation_id?: string;
+        from?: string;
+        to?: string;
+        search?: string;
+      };
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        event_id: components['parameters']['EventID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Stable, bounded page of append-only AuditEvents. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AuditPage'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminExportEventAccreditation: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        event_id: components['parameters']['EventID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Derived accreditation snapshot. Never contains QR credentials or secrets. */
+      200: {
+        headers: {
+          'X-TktSync-Generated-At'?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'text/csv': string;
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminGetEventOperationalMetrics: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        event_id: components['parameters']['EventID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Advisory operational metrics and alerts derived from authoritative facts and process observations. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OperationalMetrics'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  partnerGetEventInventoryReport: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        event_id: components['parameters']['EventID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Caller-contextual inventory and the Partner's own obligations only. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InventoryReport'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  partnerGetEventSalesReport: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        event_id: components['parameters']['EventID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Only authoritative Sales owned by the authenticated Partner. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesReport'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  partnerListEventActivity: {
+    parameters: {
+      query?: {
+        limit?: number;
+        cursor?: string;
+      };
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        event_id: components['parameters']['EventID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Partner-owned operational activity with stable pagination. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AuditPage'];
         };
       };
       default: components['responses']['ErrorResponse'];

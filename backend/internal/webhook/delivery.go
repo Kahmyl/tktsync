@@ -94,46 +94,226 @@ func (w *DeliveryWorker) RunOnce(ctx context.Context) error {
 	return nil
 }
 
-func (w *DeliveryWorker) claim(ctx context.Context) (claimedDelivery, bool, error) {
+func (w *DeliveryWorker) claim(
+	ctx context.Context,
+) (claimedDelivery, bool, error) {
 	var result claimedDelivery
 	found := false
-	err := w.transactions.Run(ctx, func(tx pgx.Tx) error {
-		var endpointState string
-		var ciphertexts [][]byte
-		err := tx.QueryRow(ctx, `
-			SELECT d.id,e.url,e.state,o.fact_id,o.event_id,o.fact_type,o.aggregate_type,o.aggregate_id,o.payload,o.created_at,d.attempt_count,
-			       ARRAY(SELECT s.secret_ciphertext FROM partner_webhook_signing_secrets s WHERE s.webhook_endpoint_id=e.id AND (s.state='ACTIVE' OR (s.state='RETIRING' AND s.valid_until>clock_timestamp())) ORDER BY s.state)
-			FROM webhook_deliveries d JOIN partner_webhook_endpoints e ON e.id=d.webhook_endpoint_id JOIN outbox_events o ON o.id=d.outbox_event_id
-			WHERE d.state='PENDING' AND (d.next_attempt_at IS NULL OR d.next_attempt_at<=clock_timestamp()) AND (d.lease_until IS NULL OR d.lease_until<clock_timestamp())
-			ORDER BY d.next_attempt_at NULLS FIRST,d.id FOR UPDATE OF d SKIP LOCKED LIMIT 1
-		`).Scan(&result.ID, &result.URL, &endpointState, &result.FactID, &result.EventID, &result.FactType, &result.AggregateType, &result.AggregateID, &result.Payload, &result.OccurredAt, &result.Attempt, &ciphertexts)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		found = true
-		if endpointState != "ACTIVE" {
-			_, err = tx.Exec(ctx, `UPDATE webhook_deliveries SET state='CANCELLED',next_attempt_at=NULL,leased_by=NULL,lease_until=NULL,last_error='endpoint disabled' WHERE id=$1`, result.ID)
-			found = false
-			return err
-		}
-		result.Attempt++
-		result.Secrets = nil
-		for _, ciphertext := range ciphertexts {
-			secret, openErr := w.box.Open(ciphertext)
-			if openErr != nil {
-				return openErr
+
+	err := w.transactions.Run(
+		ctx,
+		func(tx pgx.Tx) error {
+			for {
+				result = claimedDelivery{}
+
+				var endpointState string
+				var ciphertexts [][]byte
+				var encryptionKeyVersions []int32
+
+				err := tx.QueryRow(
+					ctx,
+					`
+						SELECT
+							d.id,
+							e.url,
+							e.state,
+							o.fact_id,
+							o.event_id,
+							o.fact_type,
+							o.aggregate_type,
+							o.aggregate_id,
+							o.payload,
+							o.created_at,
+							d.attempt_count,
+							ARRAY(
+								SELECT
+									s.secret_ciphertext
+								FROM partner_webhook_signing_secrets s
+								WHERE
+									s.webhook_endpoint_id = e.id
+									AND (
+										s.state = 'ACTIVE'
+										OR (
+											s.state = 'RETIRING'
+											AND s.valid_until >
+											    clock_timestamp()
+										)
+									)
+								ORDER BY
+									s.state,
+									s.activated_at,
+									s.id
+							),
+							ARRAY(
+								SELECT
+									s.encryption_key_version
+								FROM partner_webhook_signing_secrets s
+								WHERE
+									s.webhook_endpoint_id = e.id
+									AND (
+										s.state = 'ACTIVE'
+										OR (
+											s.state = 'RETIRING'
+											AND s.valid_until >
+											    clock_timestamp()
+										)
+									)
+								ORDER BY
+									s.state,
+									s.activated_at,
+									s.id
+							)
+						FROM webhook_deliveries d
+						JOIN partner_webhook_endpoints e
+						  ON e.id =
+						     d.webhook_endpoint_id
+						JOIN outbox_events o
+						  ON o.id =
+						     d.outbox_event_id
+						WHERE
+							d.state = 'PENDING'
+							AND (
+								d.next_attempt_at IS NULL
+								OR d.next_attempt_at <=
+								   clock_timestamp()
+							)
+							AND (
+								d.lease_until IS NULL
+								OR d.lease_until <
+								   clock_timestamp()
+							)
+						ORDER BY
+							d.next_attempt_at
+								NULLS FIRST,
+							d.id
+						FOR UPDATE OF d
+						SKIP LOCKED
+						LIMIT 1
+					`,
+				).Scan(
+					&result.ID,
+					&result.URL,
+					&endpointState,
+					&result.FactID,
+					&result.EventID,
+					&result.FactType,
+					&result.AggregateType,
+					&result.AggregateID,
+					&result.Payload,
+					&result.OccurredAt,
+					&result.Attempt,
+					&ciphertexts,
+					&encryptionKeyVersions,
+				)
+
+				if errors.Is(
+					err,
+					pgx.ErrNoRows,
+				) {
+					found = false
+					return nil
+				}
+
+				if err != nil {
+					return err
+				}
+
+				if endpointState != "ACTIVE" {
+					if _, err = tx.Exec(
+						ctx,
+						`
+							UPDATE webhook_deliveries
+							SET
+								state = 'CANCELLED',
+								next_attempt_at = NULL,
+								leased_by = NULL,
+								lease_until = NULL,
+								last_error =
+								    'endpoint disabled'
+							WHERE id = $1
+							  AND state = 'PENDING'
+						`,
+						result.ID,
+					); err != nil {
+						return err
+					}
+
+					continue
+				}
+
+				if len(ciphertexts) !=
+					len(encryptionKeyVersions) {
+					return errors.New(
+						"webhook signing secret key-version metadata is inconsistent",
+					)
+				}
+
+				if len(ciphertexts) == 0 {
+					return errors.New(
+						"webhook endpoint has no usable signing secret",
+					)
+				}
+
+				result.Secrets = nil
+
+				for index, ciphertext := range ciphertexts {
+					secret, openErr :=
+						w.box.OpenVersion(
+							int(encryptionKeyVersions[index]),
+							ciphertext,
+						)
+					if openErr != nil {
+						return openErr
+					}
+
+					result.Secrets =
+						append(
+							result.Secrets,
+							secret,
+						)
+				}
+
+				result.Attempt++
+
+				commandTag, err :=
+					tx.Exec(
+						ctx,
+						`
+							UPDATE webhook_deliveries
+							SET
+								attempt_count = $2,
+								leased_by = $3,
+								lease_until =
+								    clock_timestamp() +
+								    $4::interval
+							WHERE id = $1
+							  AND state = 'PENDING'
+						`,
+						result.ID,
+						result.Attempt,
+						w.workerID,
+						fmt.Sprintf(
+							"%f seconds",
+							w.lease.Seconds(),
+						),
+					)
+				if err != nil {
+					return err
+				}
+
+				if commandTag.RowsAffected() != 1 {
+					return errors.New(
+						"webhook delivery changed during lease claim",
+					)
+				}
+
+				found = true
+
+				return nil
 			}
-			result.Secrets = append(result.Secrets, secret)
-		}
-		if len(result.Secrets) == 0 {
-			return errors.New("webhook endpoint has no usable signing secret")
-		}
-		_, err = tx.Exec(ctx, `UPDATE webhook_deliveries SET attempt_count=$2,leased_by=$3,lease_until=clock_timestamp()+$4::interval WHERE id=$1`, result.ID, result.Attempt, w.workerID, fmt.Sprintf("%f seconds", w.lease.Seconds()))
-		return err
-	})
+		},
+	)
+
 	return result, found, err
 }
 
@@ -204,27 +384,136 @@ func publicAggregateID(kind string, id uuid.UUID) string {
 	}
 }
 
-func (w *DeliveryWorker) finish(ctx context.Context, d claimedDelivery, status int, errorClass, message string, duration time.Duration) error {
-	return w.transactions.Run(ctx, func(tx pgx.Tx) error {
-		delivered := status >= 200 && status < 300
-		state := "PENDING"
-		var next *time.Time
-		if delivered {
-			state = "DELIVERED"
-		} else if d.Attempt >= w.maxAttempts {
-			state = "DEAD_LETTER"
-		} else {
-			value := time.Now().Add(deliveryRetryDelay(d.Attempt))
-			next = &value
-		}
-		_, err := tx.Exec(ctx, `INSERT INTO webhook_delivery_attempts(id,webhook_delivery_id,attempt_number,attempted_at,duration_ms,status_code,error_class,response_excerpt)VALUES($1,$2,$3,clock_timestamp(),$4,NULLIF($5,0),NULLIF($6,''),NULLIF($7,''))`, uuid.New(), d.ID, d.Attempt, duration.Milliseconds(), status, errorClass, bounded(message, 512))
-		if err != nil {
+func (w *DeliveryWorker) finish(
+	ctx context.Context,
+	d claimedDelivery,
+	status int,
+	errorClass string,
+	message string,
+	duration time.Duration,
+) error {
+	return w.transactions.Run(
+		ctx,
+		func(tx pgx.Tx) error {
+			delivered :=
+				status >= 200 &&
+					status < 300
+
+			state := "PENDING"
+			retryInterval := "0 seconds"
+
+			if delivered {
+				state = "DELIVERED"
+			} else if d.Attempt >=
+				w.maxAttempts {
+				state = "DEAD_LETTER"
+			} else {
+				retryInterval =
+					fmt.Sprintf(
+						"%f seconds",
+						deliveryRetryDelay(
+							d.Attempt,
+						).Seconds(),
+					)
+			}
+
+			if _, err := tx.Exec(
+				ctx,
+				`
+					INSERT INTO webhook_delivery_attempts (
+						id,
+						webhook_delivery_id,
+						attempt_number,
+						attempted_at,
+						duration_ms,
+						status_code,
+						error_class,
+						response_excerpt
+					)
+					VALUES (
+						$1,
+						$2,
+						$3,
+						clock_timestamp(),
+						$4,
+						NULLIF($5, 0),
+						NULLIF($6, ''),
+						NULLIF($7, '')
+					)
+					ON CONFLICT (
+						webhook_delivery_id,
+						attempt_number
+					)
+					DO NOTHING
+				`,
+				uuid.New(),
+				d.ID,
+				d.Attempt,
+				duration.Milliseconds(),
+				status,
+				errorClass,
+				bounded(
+					message,
+					512,
+				),
+			); err != nil {
+				return err
+			}
+
+			_, err := tx.Exec(
+				ctx,
+				`
+					UPDATE webhook_deliveries
+					SET
+						state = $2,
+						next_attempt_at =
+							CASE
+								WHEN $2 = 'PENDING'
+								THEN
+									clock_timestamp() +
+									$3::interval
+								ELSE NULL
+							END,
+						last_status_code =
+							NULLIF($4, 0),
+						last_error =
+							NULLIF($5, ''),
+						delivered_at =
+							CASE
+								WHEN $2 = 'DELIVERED'
+								THEN clock_timestamp()
+								ELSE delivered_at
+							END,
+						dead_lettered_at =
+							CASE
+								WHEN $2 = 'DEAD_LETTER'
+								THEN clock_timestamp()
+								ELSE dead_lettered_at
+							END,
+						leased_by = NULL,
+						lease_until = NULL
+					WHERE id = $1
+					  AND state = 'PENDING'
+					  AND leased_by = $6
+					  AND attempt_count = $7
+				`,
+				d.ID,
+				state,
+				retryInterval,
+				status,
+				bounded(
+					message,
+					512,
+				),
+				w.workerID,
+				d.Attempt,
+			)
+
 			return err
-		}
-		_, err = tx.Exec(ctx, `UPDATE webhook_deliveries SET state=$2,next_attempt_at=$3,last_status_code=NULLIF($4,0),last_error=NULLIF($5,''),delivered_at=CASE WHEN $2='DELIVERED' THEN clock_timestamp() ELSE delivered_at END,dead_lettered_at=CASE WHEN $2='DEAD_LETTER' THEN clock_timestamp() ELSE dead_lettered_at END,leased_by=NULL,lease_until=NULL WHERE id=$1 AND leased_by=$6`, d.ID, state, next, status, bounded(message, 512), w.workerID)
-		return err
-	})
+		},
+	)
 }
+
 func deliveryRetryDelay(attempt int) time.Duration {
 	if attempt < 1 {
 		attempt = 1

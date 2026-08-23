@@ -120,6 +120,10 @@ type pricingAssignmentRequest struct {
 	GAPoolObjectKeys   []string `json:"ga_pool_object_keys,omitempty"`
 }
 
+type cancelEventRequest struct {
+	Reason string `json:"reason"`
+}
+
 type createPartnerRequest struct {
 	Name string `json:"name"`
 }

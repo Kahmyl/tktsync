@@ -49,8 +49,8 @@ func TestAuditAndOutboxRollbackTogether(t *testing.T) {
 		tx,
 		audit.Event{
 			ActorKind:     audit.ActorSystem,
-			SystemActor:   "m2.integration",
-			Operation:     "M2_ATOMICITY_TEST",
+			SystemActor:   "platform.integration",
+			Operation:     "PLATFORM_ATOMICITY_TEST",
 			EntityType:    "PLATFORM",
 			CorrelationID: &correlationID,
 			Metadata: map[string]any{
@@ -69,7 +69,7 @@ func TestAuditAndOutboxRollbackTogether(t *testing.T) {
 		tx,
 		outbox.Fact{
 			FactID:        factID,
-			FactType:      "platform.m2_atomicity_test",
+			FactType:      "platform.atomicity_test",
 			AggregateType: "PLATFORM",
 			Payload: map[string]any{
 				"test": true,
@@ -106,7 +106,7 @@ func TestAuditAndOutboxRollbackTogether(t *testing.T) {
 		)
 	}
 
-	rollbackReason := errors.New("intentional M2 rollback")
+	rollbackReason := errors.New("intentional Platform rollback")
 	_ = rollbackReason
 
 	if err := tx.Rollback(ctx); err != nil {

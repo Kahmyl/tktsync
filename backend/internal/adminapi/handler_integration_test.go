@@ -27,7 +27,7 @@ import (
 	venuesvc "github.com/tktsync/tktsync/backend/internal/venue"
 )
 
-func TestM3AdminHTTPIdempotencyAndCredentialReplay(
+func TestAdminHTTPIdempotencyAndCredentialReplay(
 	t *testing.T,
 ) {
 	databaseURL := os.Getenv("DATABASE_URL")
@@ -73,9 +73,9 @@ func TestM3AdminHTTPIdempotencyAndCredentialReplay(
 			)
 			VALUES (
 				$1,
-				'm3-http-test',
+				'configuration-http-test',
 				$2,
-				'M3 HTTP Admin',
+				'Configuration HTTP Admin',
 				'ACTIVE',
 				clock_timestamp(),
 				clock_timestamp()
@@ -130,7 +130,7 @@ func TestM3AdminHTTPIdempotencyAndCredentialReplay(
 				}
 
 				return auth.HumanPrincipal{
-					Provider: "m3-http-test",
+					Provider: "configuration-http-test",
 					Subject:  subject,
 				}, nil
 			},
@@ -155,7 +155,7 @@ func TestM3AdminHTTPIdempotencyAndCredentialReplay(
 		adminHandler,
 	)
 
-	venueName := "M3 HTTP Venue " + uuid.NewString()
+	venueName := "Configuration HTTP Venue " + uuid.NewString()
 	venueKey := uuid.NewString()
 
 	first := perform(
@@ -270,7 +270,7 @@ func TestM3AdminHTTPIdempotencyAndCredentialReplay(
 	}
 
 	partnerKey := uuid.NewString()
-	partnerName := "M3 HTTP Partner " + uuid.NewString()
+	partnerName := "Configuration HTTP Partner " + uuid.NewString()
 
 	partnerResponse := perform(
 		t,

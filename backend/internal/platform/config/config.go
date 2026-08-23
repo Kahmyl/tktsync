@@ -75,6 +75,7 @@ type Webhook struct {
 	Enabled              bool
 	EncryptionKeyVersion int
 	EncryptionKey        string
+	EncryptionKeyring    string
 }
 
 func (h HTTP) Address() string {
@@ -203,6 +204,7 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 			Enabled:              webhookEnabled,
 			EncryptionKeyVersion: webhookEncryptionVersion,
 			EncryptionKey:        get("WEBHOOK_ENCRYPTION_KEY", ""),
+			EncryptionKeyring:    get("WEBHOOK_ENCRYPTION_KEYRING", ""),
 		},
 		SelectorBaseURL: get("SELECTOR_BASE_URL", "http://localhost:5174/s"),
 		BrowserOrigins:  splitCSV(get("BROWSER_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost:5175")),

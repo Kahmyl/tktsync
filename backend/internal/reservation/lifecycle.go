@@ -1790,6 +1790,40 @@ func (s *Service) MaterializeDue(
 				return err
 			}
 
+			if gate.State == "CANCELLED" {
+				switch record.State {
+				case "COMMITTING":
+					attempt, err := lockActiveCheckout(ctx, tx, record.ID)
+					if err != nil {
+						if errors.Is(err, pgx.ErrNoRows) {
+							return nil
+						}
+						return err
+					}
+					now, err := clockTimestamp(ctx, tx)
+					if err != nil {
+						return err
+					}
+					_, err = s.transitionToReconciliation(ctx, tx, record, gate.Policy, attempt, now, "", "EVENT_CANCELLED", true)
+					return err
+
+				case "HELD", "PAYMENT_RETRY":
+					items, err := loadActiveItems(ctx, tx, record.ID)
+					if err != nil {
+						return err
+					}
+					allocations, err := s.lockMutationResources(ctx, tx, record.EventID, items, nil)
+					if err != nil {
+						return err
+					}
+					now, err := clockTimestamp(ctx, tx)
+					if err != nil {
+						return err
+					}
+					return expireReservationLocked(ctx, tx, s, record, items, allocations, now, "EVENT_CANCELLED", true)
+				}
+			}
+
 			switch record.State {
 			case "COMMITTING":
 				attempt, err :=

@@ -56,7 +56,7 @@ func main() {
 		outbox.NewDispatcher(resources.Transactions, 100),
 	}
 	if resources.Config.Webhook.Enabled {
-		box, boxErr := webhook.NewSecretBox(resources.Config.Webhook.EncryptionKey)
+		box, boxErr := webhook.NewVersionedSecretBox(resources.Config.Webhook.EncryptionKeyVersion, resources.Config.Webhook.EncryptionKey, resources.Config.Webhook.EncryptionKeyring)
 		if boxErr != nil || box == nil || resources.Config.Webhook.EncryptionKeyVersion <= 0 {
 			resources.Logger.Error("webhook worker configuration failed", "operation", "webhook.worker.configure", "error", boxErr)
 			os.Exit(1)

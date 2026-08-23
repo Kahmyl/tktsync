@@ -21,6 +21,7 @@ import (
 	"github.com/tktsync/tktsync/backend/internal/platform/database"
 	"github.com/tktsync/tktsync/backend/internal/platform/httpserver"
 	"github.com/tktsync/tktsync/backend/internal/platform/publicid"
+	"github.com/tktsync/tktsync/backend/internal/reporting"
 	"github.com/tktsync/tktsync/backend/internal/reservation"
 	venuesvc "github.com/tktsync/tktsync/backend/internal/venue"
 	webhooksvc "github.com/tktsync/tktsync/backend/internal/webhook"
@@ -45,6 +46,8 @@ type Dependencies struct {
 	AdmissionService   *admissionsvc.Service
 	WebhookService     *webhooksvc.Service
 	ReplayProtector    *ReplayProtector
+	ReportingService   *reporting.Service
+	MetricsObserver    *reporting.Observer
 }
 
 type Handler struct {
@@ -59,6 +62,8 @@ type Handler struct {
 	admission       *admissionsvc.Service
 	webhook         *webhooksvc.Service
 	replayProtector *ReplayProtector
+	reporting       *reporting.Service
+	metricsObserver *reporting.Observer
 	idempotency     idempotency.Store
 	mux             *http.ServeMux
 }
@@ -88,7 +93,12 @@ func New(
 		admission:       deps.AdmissionService,
 		webhook:         deps.WebhookService,
 		replayProtector: deps.ReplayProtector,
+		reporting:       deps.ReportingService,
+		metricsObserver: deps.MetricsObserver,
 		mux:             http.NewServeMux(),
+	}
+	if h.reporting == nil {
+		h.reporting = reporting.NewService(deps.Database)
 	}
 
 	h.registerRoutes()
@@ -177,6 +187,11 @@ func (h *Handler) registerRoutes() {
 		"POST /api/v1/admin/events/{event_id}/open-sales",
 		h.openSales,
 	)
+	h.mux.HandleFunc("POST /api/v1/admin/events/{event_id}/pause-sales", h.pauseSales)
+	h.mux.HandleFunc("POST /api/v1/admin/events/{event_id}/resume-sales", h.resumeSales)
+	h.mux.HandleFunc("POST /api/v1/admin/events/{event_id}/close-sales", h.closeSales)
+	h.mux.HandleFunc("POST /api/v1/admin/events/{event_id}/cancel", h.cancelEvent)
+	h.mux.HandleFunc("POST /api/v1/admin/events/{event_id}/complete", h.completeEvent)
 
 	h.mux.HandleFunc(
 		"POST /api/v1/admin/partners",
@@ -207,11 +222,12 @@ func (h *Handler) registerRoutes() {
 		h.disablePartnerEventAccess,
 	)
 
-	h.registerM4Routes()
-	h.registerM6Routes()
-	h.registerM7Routes()
-	h.registerM8Routes()
-	h.registerM9Routes()
+	h.registerAllocationRoutes()
+	h.registerTicketingRoutes()
+	h.registerAdmissionRoutes()
+	h.registerAsyncDeliveryRoutes()
+	h.registerSelectionRoutes()
+	h.registerReportingRoutes()
 }
 
 func (h *Handler) authenticate(
@@ -1785,6 +1801,73 @@ func (h *Handler) openSales(
 			)
 		},
 	)
+}
+
+func (h *Handler) pauseSales(w http.ResponseWriter, r *http.Request) {
+	h.runEventLifecycleCommand(w, r, "ADMIN_PAUSE_EVENT_SALES", "PAUSED", nil, func(ctx context.Context, actorID, eventID uuid.UUID) error {
+		return h.event.PauseSales(ctx, actorID, eventID)
+	})
+}
+
+func (h *Handler) resumeSales(w http.ResponseWriter, r *http.Request) {
+	h.runEventLifecycleCommand(w, r, "ADMIN_RESUME_EVENT_SALES", "ON_SALE", nil, func(ctx context.Context, actorID, eventID uuid.UUID) error {
+		return h.event.ResumeSales(ctx, actorID, eventID)
+	})
+}
+
+func (h *Handler) closeSales(w http.ResponseWriter, r *http.Request) {
+	h.runEventLifecycleCommand(w, r, "ADMIN_CLOSE_EVENT_SALES", "SALES_CLOSED", nil, func(ctx context.Context, actorID, eventID uuid.UUID) error {
+		return h.event.CloseSales(ctx, actorID, eventID)
+	})
+}
+
+func (h *Handler) completeEvent(w http.ResponseWriter, r *http.Request) {
+	h.runEventLifecycleCommand(w, r, "ADMIN_COMPLETE_EVENT", "COMPLETED", nil, func(ctx context.Context, actorID, eventID uuid.UUID) error {
+		return h.event.CompleteEvent(ctx, actorID, eventID)
+	})
+}
+
+func (h *Handler) cancelEvent(w http.ResponseWriter, r *http.Request) {
+	var request cancelEventRequest
+	if err := decodeJSON(r, &request); err != nil {
+		httpserver.WriteError(w, r, err)
+		return
+	}
+	request.Reason = strings.TrimSpace(request.Reason)
+	if request.Reason == "" {
+		httpserver.WriteError(w, r, apierror.New(apierror.CodeValidation, "reason is required"))
+		return
+	}
+	h.runEventLifecycleCommand(w, r, "ADMIN_CANCEL_EVENT", "CANCELLED", request, func(ctx context.Context, actorID, eventID uuid.UUID) error {
+		return h.event.CancelEvent(ctx, actorID, eventID, request.Reason)
+	})
+}
+
+func (h *Handler) runEventLifecycleCommand(
+	w http.ResponseWriter,
+	r *http.Request,
+	operation string,
+	nextState string,
+	request any,
+	command func(context.Context, uuid.UUID, uuid.UUID) error,
+) {
+	eventID, err := parsePublicID(r.PathValue("event_id"), publicid.Event, "event_id")
+	if err != nil {
+		httpserver.WriteError(w, r, err)
+		return
+	}
+	if request == nil {
+		request = struct{}{}
+	}
+	h.runMutation(w, r, operation, eventID.String(), request, eventManagerAuthorization(eventID), false, func(ctx context.Context, userID uuid.UUID) (response, error) {
+		if err := command(ctx, userID, eventID); err != nil {
+			return response{}, err
+		}
+		return jsonResponse(http.StatusOK, map[string]any{
+			"event_id": publicid.Encode(publicid.Event, eventID),
+			"state":    nextState,
+		})
+	})
 }
 
 func (h *Handler) createPartner(

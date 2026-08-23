@@ -1,2 +1,2 @@
--- M0 bootstrap migration. The authoritative TktSync schema begins in M1.
+-- Infrastructure-only bootstrap; the authoritative TktSync schema follows in ordered migrations.
 SELECT 1;
