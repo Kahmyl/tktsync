@@ -1,68 +1,62 @@
 # TktSync
 
-TktSync is a pnpm monorepo with three React/Vite applications and one Go backend that builds separate API and worker executables. The bootstrap layer provides infrastructure; ordered migrations define the authoritative business schema.
+TktSync is a pnpm monorepo with three React/Vite applications and a Go backend that builds separate API and worker executables. Ordered PostgreSQL migrations define the authoritative business schema.
 
-## Prerequisites
+## Local product stack
 
-- Node.js 22+
-- pnpm 10+
-- Go 1.25+
-- Docker with Compose
-
-## Setup
+Docker Compose runs PostgreSQL, automatic migrations, the API, worker, Admin, Selector, and Scanner together. Docker with Compose is the only prerequisite for this path.
 
 ```sh
 cp .env.example .env
-pnpm install
-cd backend && go mod download && cd ..
-make db-up
-make db-migrate
+# Add Supabase public/JWT settings if Admin or Scanner login is needed.
+make local-up
 ```
 
-The example configuration contains local-only placeholders. Never commit `.env`, signing keys, database passwords, service-role credentials, or other secrets. Application logs must use identifiers and redacted error context rather than configuration values.
+With the default ports, open:
 
-## Run
+- API: http://localhost:58480 (`/health` and database-backed `/ready`)
+- Admin: http://localhost:54470
+- Selector: http://localhost:54471
+- Scanner: http://localhost:54472
+- PostgreSQL: `localhost:55439`
 
-Start every process with `make dev`, or run them independently:
+Migrations run automatically after PostgreSQL becomes healthy; the API and worker start only after they succeed. A normal cached startup should complete within 60 seconds, while a first image pull/build can take longer.
 
 ```sh
-make dev-api       # http://127.0.0.1:8080
-make dev-worker
-make dev-admin     # Vite selects an available local port
-make dev-selector
-make dev-scanner
+make local-ps
+make local-logs
+make local-down
+make local-reset  # WARNING: destroys the local Compose database volume
 ```
 
-The API exposes `GET /health` for liveness and `GET /ready` for database-backed readiness. The worker verifies database connectivity before processing configured background work.
+Override any published port in `.env` or for one command without editing Compose, for example `API_HOST_PORT=58481 make local-up`. The frontend API address is compiled from `API_HOST_PORT` during the image build.
 
-## Development commands
+Admin and Scanner operator login use an external Supabase Auth/OIDC project. Set matching `SUPABASE_JWT_ISSUER`, `SUPABASE_JWKS_URL`, and browser-safe `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` values. An anon key is public client configuration; never put a service-role key, JWT signing secret, or other private credential in a `VITE_*` variable. The stack starts without external auth, but authenticated operator workflows will remain unavailable.
+
+See the [local smoke checklist](docs/operations/local-smoke-checklist.md) for the short manual product check.
+
+## Source development
+
+For host-based development, install Node.js 22+, pnpm 10+, and Go 1.25+:
 
 ```sh
-make build
-make test
-make lint
-make typecheck
-make format-check
-
+make setup
 make db-up
-make db-down
 make db-migrate
-make db-reset       # removes the local database volume, restarts, and migrates
+make dev
 ```
 
-If port 5432 is already occupied, set `POSTGRES_PORT` and update the port in `DATABASE_URL` to the same value before starting the database.
+Useful repository gates are `make build`, `make test`, `make lint`, `make typecheck`, and `make format-check`. Migration files live in `migrations/`; production code never creates schema dynamically.
 
-`make setup` installs pinned pnpm dependencies and downloads Go modules. Migration files live in `migrations/`; production code never creates schema dynamically. The bootstrap migration deliberately creates no TktSync tables.
+Never commit `.env`, signing keys, database passwords, service-role credentials, or other secrets.
 
 ## Repository layout
 
-- `apps/` — Admin, selector, and scanner React applications
-- `backend/` — authoritative Go codebase and API/worker commands
-- `packages/` — shared UI primitives and the generated API client
+- `apps/` — Admin, Selector, and Scanner React applications
+- `backend/` — authoritative Go API, worker, and domain code
+- `packages/` — shared UI primitives and generated API client
 - `migrations/` — ordered PostgreSQL migrations
 - `tests/` — integration, concurrency, end-to-end, and fixture conventions
 - `docs/` — architecture, API, operations, and implementation history
 
-## Documentation
-
-Start with the [documentation index](docs/README.md) for the governing policy and architecture, API integration contract, release operations, and historical implementation plan.
+Start with the [documentation index](docs/README.md) for governing policy and architecture.
