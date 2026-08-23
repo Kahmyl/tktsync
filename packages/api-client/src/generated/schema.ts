@@ -4,6 +4,118 @@
  */
 
 export interface paths {
+  '/api/v1/admin/dashboard': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['adminGetDashboard'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/tickets': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['adminListTickets'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/tickets/{ticket_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['adminGetTicket'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/admissions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['adminListAdmissions'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/webhook-endpoints': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['adminListAllWebhookEndpoints'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/partners/{partner_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['adminGetPartner'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/events/{event_id}/configuration': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['adminGetEventConfiguration'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/admin/venues': {
     parameters: {
       query?: never;
@@ -91,7 +203,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    get: operations['adminListEvents'];
     put?: never;
     post: operations['adminCreateEvent'];
     delete?: never;
@@ -315,7 +427,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    get: operations['adminListPartners'];
     put?: never;
     post: operations['adminCreatePartner'];
     delete?: never;
@@ -1911,6 +2023,16 @@ export interface components {
     };
   };
   responses: {
+    /** @description Authenticated authoritative Admin read model. */
+    AdminReadResponse: {
+      headers: {
+        'X-Request-ID': components['headers']['XRequestID'];
+        [name: string]: unknown;
+      };
+      content: {
+        'application/json': components['schemas']['GenericObject'];
+      };
+    };
     /** @description Event lifecycle command accepted. */
     EventLifecycleResponse: {
       headers: {
@@ -1973,6 +2095,11 @@ export interface components {
     };
   };
   parameters: {
+    AdminQuery: string;
+    AdminState: string;
+    AdminEventQuery: string;
+    AdminLimit: number;
+    AdminOffset: number;
     /** @description Optional client request/correlation UUID. */
     XRequestID: string;
     /** @description Durable idempotency key scoped to the authenticated actor and operation. */
@@ -1998,6 +2125,137 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  adminGetDashboard: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: components['responses']['AdminReadResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminListTickets: {
+    parameters: {
+      query?: {
+        query?: components['parameters']['AdminQuery'];
+        state?: components['parameters']['AdminState'];
+        event_id?: components['parameters']['AdminEventQuery'];
+        limit?: components['parameters']['AdminLimit'];
+        offset?: components['parameters']['AdminOffset'];
+      };
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: components['responses']['AdminReadResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminGetTicket: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        ticket_id: components['parameters']['TicketID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: components['responses']['AdminReadResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminListAdmissions: {
+    parameters: {
+      query?: {
+        event_id?: components['parameters']['AdminEventQuery'];
+        limit?: components['parameters']['AdminLimit'];
+        offset?: components['parameters']['AdminOffset'];
+      };
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: components['responses']['AdminReadResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminListAllWebhookEndpoints: {
+    parameters: {
+      query?: {
+        limit?: components['parameters']['AdminLimit'];
+        offset?: components['parameters']['AdminOffset'];
+      };
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: components['responses']['AdminReadResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminGetPartner: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        partner_id: components['parameters']['PartnerID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: components['responses']['AdminReadResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminGetEventConfiguration: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        event_id: components['parameters']['EventID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: components['responses']['AdminReadResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
   adminListVenues: {
     parameters: {
       query?: never;
@@ -2292,6 +2550,27 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
+    };
+  };
+  adminListEvents: {
+    parameters: {
+      query?: {
+        query?: components['parameters']['AdminQuery'];
+        state?: components['parameters']['AdminState'];
+        limit?: components['parameters']['AdminLimit'];
+        offset?: components['parameters']['AdminOffset'];
+      };
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: components['responses']['AdminReadResponse'];
+      default: components['responses']['ErrorResponse'];
     };
   };
   adminCreateEvent: {
@@ -2790,6 +3069,27 @@ export interface operations {
     requestBody?: never;
     responses: {
       '2XX': components['responses']['EventLifecycleResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminListPartners: {
+    parameters: {
+      query?: {
+        query?: components['parameters']['AdminQuery'];
+        state?: components['parameters']['AdminState'];
+        limit?: components['parameters']['AdminLimit'];
+        offset?: components['parameters']['AdminOffset'];
+      };
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: components['responses']['AdminReadResponse'];
       default: components['responses']['ErrorResponse'];
     };
   };

@@ -114,6 +114,8 @@ func (h *Handler) ServeHTTP(
 }
 
 func (h *Handler) registerRoutes() {
+	h.registerReadModelRoutes()
+
 	h.mux.HandleFunc(
 		"POST /api/v1/admin/venues",
 		h.createVenue,

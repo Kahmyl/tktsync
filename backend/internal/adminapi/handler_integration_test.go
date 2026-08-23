@@ -419,6 +419,56 @@ func TestAdminHTTPIdempotencyAndCredentialReplay(
 			storedPayload,
 		)
 	}
+
+	eventResponse := perform(
+		t,
+		handler,
+		http.MethodPost,
+		"/api/v1/admin/events",
+		uuid.NewString(),
+		map[string]any{
+			"venue_id": firstVenue["id"],
+			"name":     "Configuration HTTP Event " + uuid.NewString(),
+		},
+	)
+	if eventResponse.Code != http.StatusCreated {
+		t.Fatalf("create Event status = %d body=%s", eventResponse.Code, eventResponse.Body.String())
+	}
+	var eventBody struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(eventResponse.Body.Bytes(), &eventBody); err != nil {
+		t.Fatalf("decode Event: %v", err)
+	}
+
+	readPaths := []string{
+		"/api/v1/admin/dashboard",
+		"/api/v1/admin/events?limit=10",
+		"/api/v1/admin/events/" + eventBody.ID + "/configuration",
+		"/api/v1/admin/partners?limit=10",
+		"/api/v1/admin/partners/" + partnerBody.ID,
+		"/api/v1/admin/tickets?limit=10",
+		"/api/v1/admin/admissions?limit=10",
+		"/api/v1/admin/webhook-endpoints?limit=10",
+	}
+	for _, path := range readPaths {
+		response := perform(t, handler, http.MethodGet, path, "", nil)
+		if response.Code != http.StatusOK {
+			t.Errorf("GET %s status = %d body=%s", path, response.Code, response.Body.String())
+		}
+	}
+
+	partnerRead := perform(t, handler, http.MethodGet, "/api/v1/admin/partners/"+partnerBody.ID, "", nil)
+	if strings.Contains(partnerRead.Body.String(), "tkp_") || strings.Contains(partnerRead.Body.String(), "secret_hash") {
+		t.Fatalf("partner read leaked credential secret material: %s", partnerRead.Body.String())
+	}
+
+	unauthorizedRequest := httptest.NewRequest(http.MethodGet, "/api/v1/admin/dashboard", nil)
+	unauthorizedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(unauthorizedResponse, unauthorizedRequest)
+	if unauthorizedResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthorized dashboard status = %d body=%s", unauthorizedResponse.Code, unauthorizedResponse.Body.String())
+	}
 }
 
 func perform(

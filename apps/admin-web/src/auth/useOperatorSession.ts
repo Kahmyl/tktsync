@@ -86,14 +86,35 @@ export function useOperatorSession() {
     if (!client) return;
 
     setError('');
-    await client.auth.signOut();
+    const { error: signOutError } = await client.auth.signOut();
+    if (signOutError) {
+      setError(signOutError.message);
+      return false;
+    }
     setSession(null);
+    return true;
   };
+
+  const metadata = session?.user.user_metadata ?? {};
+  const displayName = String(
+    metadata.full_name ??
+      metadata.name ??
+      metadata.display_name ??
+      session?.user.email ??
+      'Operator',
+  ).trim();
 
   return {
     token: session?.access_token ?? '',
     authenticated: Boolean(session?.access_token),
     userLabel: session?.user.email ?? session?.user.id ?? 'Operator',
+    user: session?.user
+      ? {
+          id: session.user.id,
+          email: session.user.email ?? '',
+          displayName,
+        }
+      : null,
     loading,
     error,
     signIn,

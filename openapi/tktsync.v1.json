@@ -6,6 +6,108 @@
     "description": "Authoritative TktSync MVP API contract."
   },
   "paths": {
+    "/api/v1/admin/dashboard": {
+      "get": {
+        "operationId": "adminGetDashboard",
+        "security": [{ "AdminBearer": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/XRequestID" }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/AdminReadResponse" },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    },
+    "/api/v1/admin/tickets": {
+      "get": {
+        "operationId": "adminListTickets",
+        "security": [{ "AdminBearer": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/AdminQuery" },
+          { "$ref": "#/components/parameters/AdminState" },
+          { "$ref": "#/components/parameters/AdminEventQuery" },
+          { "$ref": "#/components/parameters/AdminLimit" },
+          { "$ref": "#/components/parameters/AdminOffset" },
+          { "$ref": "#/components/parameters/XRequestID" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/AdminReadResponse" },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    },
+    "/api/v1/admin/tickets/{ticket_id}": {
+      "get": {
+        "operationId": "adminGetTicket",
+        "security": [{ "AdminBearer": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/TicketID" },
+          { "$ref": "#/components/parameters/XRequestID" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/AdminReadResponse" },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    },
+    "/api/v1/admin/admissions": {
+      "get": {
+        "operationId": "adminListAdmissions",
+        "security": [{ "AdminBearer": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/AdminEventQuery" },
+          { "$ref": "#/components/parameters/AdminLimit" },
+          { "$ref": "#/components/parameters/AdminOffset" },
+          { "$ref": "#/components/parameters/XRequestID" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/AdminReadResponse" },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    },
+    "/api/v1/admin/webhook-endpoints": {
+      "get": {
+        "operationId": "adminListAllWebhookEndpoints",
+        "security": [{ "AdminBearer": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/AdminLimit" },
+          { "$ref": "#/components/parameters/AdminOffset" },
+          { "$ref": "#/components/parameters/XRequestID" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/AdminReadResponse" },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    },
+    "/api/v1/admin/partners/{partner_id}": {
+      "get": {
+        "operationId": "adminGetPartner",
+        "security": [{ "AdminBearer": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/PartnerID" },
+          { "$ref": "#/components/parameters/XRequestID" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/AdminReadResponse" },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    },
+    "/api/v1/admin/events/{event_id}/configuration": {
+      "get": {
+        "operationId": "adminGetEventConfiguration",
+        "security": [{ "AdminBearer": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/EventID" },
+          { "$ref": "#/components/parameters/XRequestID" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/AdminReadResponse" },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    },
     "/api/v1/admin/venues": {
       "post": {
         "operationId": "adminCreateVenue",
@@ -612,6 +714,21 @@
               }
             }
           }
+        }
+      },
+      "get": {
+        "operationId": "adminListEvents",
+        "security": [{ "AdminBearer": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/AdminQuery" },
+          { "$ref": "#/components/parameters/AdminState" },
+          { "$ref": "#/components/parameters/AdminLimit" },
+          { "$ref": "#/components/parameters/AdminOffset" },
+          { "$ref": "#/components/parameters/XRequestID" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/AdminReadResponse" },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
         }
       }
     },
@@ -1537,6 +1654,21 @@
               }
             }
           }
+        }
+      },
+      "get": {
+        "operationId": "adminListPartners",
+        "security": [{ "AdminBearer": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/AdminQuery" },
+          { "$ref": "#/components/parameters/AdminState" },
+          { "$ref": "#/components/parameters/AdminLimit" },
+          { "$ref": "#/components/parameters/AdminOffset" },
+          { "$ref": "#/components/parameters/XRequestID" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/AdminReadResponse" },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
         }
       }
     },
@@ -4793,6 +4925,36 @@
       }
     },
     "parameters": {
+      "AdminQuery": {
+        "name": "query",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "string", "maxLength": 200 }
+      },
+      "AdminState": {
+        "name": "state",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "string", "maxLength": 40 }
+      },
+      "AdminEventQuery": {
+        "name": "event_id",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "string", "pattern": "^evt_" }
+      },
+      "AdminLimit": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 }
+      },
+      "AdminOffset": {
+        "name": "offset",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "integer", "minimum": 0, "default": 0 }
+      },
       "XRequestID": {
         "name": "X-Request-ID",
         "in": "header",
@@ -4888,6 +5050,17 @@
       }
     },
     "responses": {
+      "AdminReadResponse": {
+        "description": "Authenticated authoritative Admin read model.",
+        "headers": {
+          "X-Request-ID": { "$ref": "#/components/headers/XRequestID" }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/GenericObject" }
+          }
+        }
+      },
       "EventLifecycleResponse": {
         "description": "Event lifecycle command accepted.",
         "headers": {

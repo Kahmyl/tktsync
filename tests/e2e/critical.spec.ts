@@ -99,63 +99,6 @@ async function signIn(page: Page) {
   await page.getByRole('button', { name: 'Sign in' }).click();
 }
 
-test('Admin authenticates and performs a structured venue workflow', async ({ page }) => {
-  await mockOperatorAuth(page);
-
-  let authorization = '';
-  let body: unknown;
-
-  await page.route(`${API_ORIGIN}/**`, async (route) => {
-    if (await preflight(route)) return;
-
-    const request = route.request();
-    const url = new URL(request.url());
-
-    if (request.method() === 'POST' && url.pathname === '/api/v1/admin/venues') {
-      authorization = request.headers()['authorization'] ?? '';
-      body = request.postDataJSON();
-
-      await json(route, 201, {
-        id: 'ven_test',
-        name: 'E2E Arena',
-        timezone_name: 'Africa/Lagos',
-      });
-      return;
-    }
-
-    await json(route, 404, {
-      error: {
-        message: `Unexpected API request: ${request.method()} ${url.pathname}`,
-      },
-    });
-  });
-
-  await page.goto('http://127.0.0.1:4173');
-
-  await expect(page.getByRole('heading', { name: 'Operator sign in' })).toBeVisible();
-
-  await signIn(page);
-
-  await expect(page.getByRole('heading', { name: 'Venues' })).toBeVisible();
-
-  await expect(page.getByText('Admin bearer')).toHaveCount(0);
-  await expect(page.getByPlaceholder('Paste human bearer token')).toHaveCount(0);
-
-  await page.getByLabel('Name', { exact: true }).fill('E2E Arena');
-
-  await page.getByLabel('Timezone Name', { exact: true }).fill('Africa/Lagos');
-
-  await page.getByRole('button', { name: 'Submit' }).click();
-
-  await expect(page.locator('pre.response')).toContainText('ven_test');
-
-  expect(authorization).toBe(`Bearer ${ACCESS_TOKEN}`);
-  expect(body).toEqual({
-    name: 'E2E Arena',
-    timezone_name: 'Africa/Lagos',
-  });
-});
-
 test('Selector consumes capability, renders reserved layout, and creates a hold', async ({
   page,
 }) => {

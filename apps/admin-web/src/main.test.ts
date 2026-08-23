@@ -1,36 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import { queryClient } from './app/queryClient';
-import { workflows } from './features/workflows/catalog';
+import { admissionLabel, eventStateMeta, formatMoney, initials, optionalISO } from './lib/format';
 
-describe('admin workflow catalog', () => {
-  it('does not automatically retry mutations', () => {
+describe('admin interaction policy', () => {
+  it('never automatically retries mutations', () => {
     expect(queryClient.getDefaultOptions().mutations?.retry).toBe(false);
   });
-  it('covers administration, lifecycle, and Reporting operational workflows with contract paths', () => {
-    expect(workflows.map((item) => item.title)).toEqual([
-      'Venues',
-      'Venue layouts',
-      'Events',
-      'Pricing',
-      'Inventory',
-      'Blocks',
-      'Allocations',
-      'Partner configuration',
-      'Sales lifecycle',
-      'Pause sales',
-      'Resume sales',
-      'Close sales',
-      'Cancel event',
-      'Complete event',
-      'Ticket operations',
-      'Admission operations',
-      'Inventory reporting',
-      'Commercial reporting',
-      'Admission reporting',
-      'Audit explorer',
-      'Accreditation export',
-      'Metrics and alerts',
-    ]);
-    expect(workflows.every((item) => item.path.startsWith('/api/v1/admin/'))).toBe(true);
+
+  it('uses operator-facing lifecycle copy', () => {
+    expect(eventStateMeta.ON_SALE).toEqual({ label: 'On sale', tone: 'positive' });
+    expect(eventStateMeta.SALES_CLOSED).toEqual({ label: 'Sales closed', tone: 'info' });
+    expect(eventStateMeta.CANCELLED).toEqual({ label: 'Cancelled', tone: 'critical' });
+  });
+
+  it('transforms contract minor units into display currency', () => {
+    expect(formatMoney(250_000, 'NGN')).toMatch(/2,500/);
+  });
+
+  it('normalizes an entered local date-time and omits a blank optional value', () => {
+    expect(optionalISO('')).toBeUndefined();
+    expect(optionalISO('2026-08-23T10:30')).toMatch(/^2026-08-23T/);
+  });
+
+  it('maps authoritative admission outcomes and session display values', () => {
+    expect(admissionLabel('ALREADY_ADMITTED')).toBe('Already admitted');
+    expect(admissionLabel('INVALID_CREDENTIAL')).toBe('Invalid');
+    expect(initials('Amina Okafor')).toBe('AO');
   });
 });
