@@ -184,7 +184,7 @@ function Header({
           onClick={onCredential}
         >
           <Icon name="key" />
-          {credential ? 'Credential set' : 'Set API key'}
+          {credential ? 'Test credential set' : 'Set Test Credential'}
         </button>
       </div>
     </header>
@@ -742,6 +742,7 @@ function Workbench({
                       ...current,
                       idempotencyKey: event.target.value,
                       idempotencyEdited: true,
+                      idempotencyIntentChanged: false,
                     }))
                   }
                 />
@@ -752,6 +753,7 @@ function Workbench({
                       ...current,
                       idempotencyKey: crypto.randomUUID(),
                       idempotencyEdited: false,
+                      idempotencyIntentChanged: false,
                     }))
                   }
                 >
@@ -759,6 +761,12 @@ function Workbench({
                 </button>
               </div>
               <small>Preserved for identical retries.</small>
+              {request.idempotencyIntentChanged && (
+                <small className="key-warning">
+                  Request intent changed. Reusing your manually supplied key may cause an
+                  idempotency conflict.
+                </small>
+              )}
             </label>
           )}
           {operation.body && (

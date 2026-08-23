@@ -610,6 +610,10 @@ h1 {
   color: #70798a;
   font-size: 9px;
 }
+.work-field .key-warning {
+  color: #f1b56c;
+  line-height: 1.5;
+}
 .key-input {
   display: flex;
 }

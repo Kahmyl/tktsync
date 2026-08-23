@@ -29,9 +29,8 @@ describe('request model', () => {
     expect(materialEdit(initial, { body: { quantity: 2 } }).idempotencyKey).not.toBe(
       initial.idempotencyKey,
     );
-    expect(
-      materialEdit({ ...initial, idempotencyEdited: true }, { body: { quantity: 2 } })
-        .idempotencyKey,
-    ).toBe(initial.idempotencyKey);
+    const manual = materialEdit({ ...initial, idempotencyEdited: true }, { body: { quantity: 2 } });
+    expect(manual.idempotencyKey).toBe(initial.idempotencyKey);
+    expect(manual.idempotencyIntentChanged).toBe(true);
   });
 });

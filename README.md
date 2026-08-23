@@ -31,7 +31,7 @@ make local-seed   # rerun application defaults after changing operator settings
 make local-reset  # WARNING: destroys the local Compose database volume
 ```
 
-Override any published port in `.env` or for one command without editing Compose, for example `DOCS_HOST_PORT=54474 make local-up`. The frontend API address is compiled from `API_HOST_PORT` during the image build. The docs request console sends local Partner requests through a fixed same-origin proxy; credentials remain in page memory and clear on reload. Optional sandbox and production base URLs are display-only unless a safe execution path is configured, and production execution is disabled.
+Override any published port in `.env` or for one command without editing Compose, for example `DOCS_HOST_PORT=54474 make local-up`. The frontend API address is compiled from `API_HOST_PORT` during the image build. Partner docs are the public integration reference. Its Set Test Credential control is memory-only and clears on reload; local requests use a fixed same-origin proxy. Optional sandbox and production base URLs are display-only unless a safe execution path is configured, and production execution is disabled.
 
 Admin and Scanner operator login use an external Supabase Auth/OIDC project. Set matching `SUPABASE_JWT_ISSUER`, `SUPABASE_JWKS_URL`, and browser-safe `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` values. An anon key is public client configuration; never put a service-role key, JWT signing secret, or other private credential in a `VITE_*` variable.
 

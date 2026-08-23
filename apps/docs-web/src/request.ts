@@ -10,6 +10,7 @@ export type RequestState = {
   body: unknown;
   idempotencyKey: string;
   idempotencyEdited: boolean;
+  idempotencyIntentChanged: boolean;
 };
 
 const scalar = (value: unknown) => (typeof value === 'string' ? value : JSON.stringify(value));
@@ -25,6 +26,7 @@ export function initialRequest(operation: RequestOperation): RequestState {
     body: operation.body ? structuredClone(operation.body.example) : undefined,
     idempotencyKey: crypto.randomUUID(),
     idempotencyEdited: false,
+    idempotencyIntentChanged: false,
   };
 }
 
@@ -36,6 +38,7 @@ export function materialEdit(
     ...state,
     ...edit,
     idempotencyKey: state.idempotencyEdited ? state.idempotencyKey : crypto.randomUUID(),
+    idempotencyIntentChanged: state.idempotencyEdited,
   };
 }
 
