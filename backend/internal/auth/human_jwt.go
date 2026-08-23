@@ -34,10 +34,15 @@ type HumanVerifier struct {
 	allowedSet map[string]struct{}
 	client     *http.Client
 	cacheTTL   time.Duration
+	staleTTL   time.Duration
+	retryDelay time.Duration
 
-	mu        sync.RWMutex
-	keys      map[string]signingKey
-	fetchedAt time.Time
+	mu               sync.RWMutex
+	keys             map[string]signingKey
+	fetchedAt        time.Time
+	lastAttempt      time.Time
+	lastError        error
+	unknownMissUntil time.Time
 }
 
 type jwksDocument struct {
@@ -93,8 +98,10 @@ func NewHumanVerifier(
 		client: &http.Client{
 			Timeout: 5 * time.Second,
 		},
-		cacheTTL: 10 * time.Minute,
-		keys:     map[string]signingKey{},
+		cacheTTL:   10 * time.Minute,
+		staleTTL:   time.Hour,
+		retryDelay: 5 * time.Second,
+		keys:       map[string]signingKey{},
 	}, nil
 }
 
@@ -191,14 +198,23 @@ func (v *HumanVerifier) key(
 ) (any, error) {
 	v.mu.RLock()
 	cached, ok := v.keys[kid]
-	fresh := time.Since(v.fetchedAt) < v.cacheTTL
+	fetchedAt := v.fetchedAt
+	unknownMissUntil := v.unknownMissUntil
+	age := time.Since(fetchedAt)
+	fresh := age >= 0 && age < v.cacheTTL
 	v.mu.RUnlock()
 
 	if ok && fresh {
 		return validateSigningKey(cached, algorithm)
 	}
+	if !ok && time.Now().Before(unknownMissUntil) {
+		return nil, errors.New("JWT key ID not found")
+	}
 
-	if err := v.refresh(ctx); err != nil {
+	if err := v.refresh(ctx, fetchedAt); err != nil {
+		if ok && age >= 0 && age < v.staleTTL {
+			return validateSigningKey(cached, algorithm)
+		}
 		return nil, err
 	}
 
@@ -207,6 +223,9 @@ func (v *HumanVerifier) key(
 	v.mu.RUnlock()
 
 	if !ok {
+		v.mu.Lock()
+		v.unknownMissUntil = time.Now().Add(v.retryDelay)
+		v.mu.Unlock()
 		return nil, errors.New("JWT key ID not found")
 	}
 
@@ -237,9 +256,20 @@ func validateSigningKey(value signingKey, algorithm string) (any, error) {
 	return value.key, nil
 }
 
-func (v *HumanVerifier) refresh(ctx context.Context) error {
+func (v *HumanVerifier) refresh(ctx context.Context, observedFetch time.Time) error {
 	v.mu.Lock()
 	defer v.mu.Unlock()
+
+	// A successful refresh by another request satisfies this request. A recent
+	// failed attempt is also shared so an unavailable issuer cannot cause every
+	// verifier goroutine to issue its own request.
+	if !v.fetchedAt.Equal(observedFetch) {
+		return nil
+	}
+	if v.lastError != nil && time.Since(v.lastAttempt) >= 0 && time.Since(v.lastAttempt) < v.retryDelay {
+		return v.lastError
+	}
+	v.lastAttempt = time.Now()
 
 	request, err := http.NewRequestWithContext(
 		ctx,
@@ -248,31 +278,41 @@ func (v *HumanVerifier) refresh(ctx context.Context) error {
 		nil,
 	)
 	if err != nil {
+		v.lastError = err
 		return err
 	}
 
 	response, err := v.client.Do(request)
 	if err != nil {
+		v.lastError = err
 		return err
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("JWKS returned HTTP %d", response.StatusCode)
+		err = fmt.Errorf("JWKS returned HTTP %d", response.StatusCode)
+		v.lastError = err
+		return err
 	}
 
 	raw, err := io.ReadAll(io.LimitReader(response.Body, maxJWKSBytes+1))
 	if err != nil {
-		return fmt.Errorf("read JWKS: %w", err)
+		err = fmt.Errorf("read JWKS: %w", err)
+		v.lastError = err
+		return err
 	}
 
 	if len(raw) > maxJWKSBytes {
-		return errors.New("JWKS response exceeds size limit")
+		err = errors.New("JWKS response exceeds size limit")
+		v.lastError = err
+		return err
 	}
 
 	var document jwksDocument
 	if err := json.Unmarshal(raw, &document); err != nil {
-		return fmt.Errorf("decode JWKS: %w", err)
+		err = fmt.Errorf("decode JWKS: %w", err)
+		v.lastError = err
+		return err
 	}
 
 	keys := map[string]signingKey{}
@@ -293,7 +333,9 @@ func (v *HumanVerifier) refresh(ctx context.Context) error {
 		}
 
 		if _, duplicate := keys[item.Kid]; duplicate {
-			return errors.New("JWKS contains duplicate key ID")
+			err = errors.New("JWKS contains duplicate key ID")
+			v.lastError = err
+			return err
 		}
 
 		key, err := parseJWK(item)
@@ -308,11 +350,14 @@ func (v *HumanVerifier) refresh(ctx context.Context) error {
 	}
 
 	if len(keys) == 0 {
-		return errors.New("JWKS contains no usable signing keys")
+		err = errors.New("JWKS contains no usable signing keys")
+		v.lastError = err
+		return err
 	}
 
 	v.keys = keys
 	v.fetchedAt = time.Now()
+	v.lastError = nil
 
 	return nil
 }

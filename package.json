@@ -15,10 +15,12 @@
     "format:check": "prettier --check .",
     "api:generate": "pnpm --filter @tktsync/api-client generate",
     "api:check": "pnpm --filter @tktsync/api-client check:generated",
-    "api:routes": "node scripts/check-route-parity.mjs"
+    "api:routes": "node scripts/check-route-parity.mjs",
+    "e2e": "playwright test"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
+    "@playwright/test": "^1.62.1",
     "@types/node": "^24.3.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",

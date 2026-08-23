@@ -185,3 +185,138 @@ export const workflows: Workflow[] = [
     body: '',
   },
 ];
+
+export type WorkflowField = {
+  key: string;
+  name: string;
+  label: string;
+  source: 'path' | 'body';
+  kind: 'text' | 'number' | 'boolean' | 'json';
+  required: boolean;
+};
+
+export type WorkflowValues = Record<string, string>;
+
+function humanize(value: string) {
+  return value.replace(/_/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function sampleBody(workflow: Workflow): Record<string, unknown> {
+  if (!workflow.body.trim()) return {};
+
+  try {
+    const parsed = JSON.parse(workflow.body) as unknown;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function bodyKind(value: unknown): WorkflowField['kind'] {
+  if (typeof value === 'number') return 'number';
+  if (typeof value === 'boolean') return 'boolean';
+  if (Array.isArray(value) || (value !== null && typeof value === 'object')) return 'json';
+  return 'text';
+}
+
+function valueToInput(value: unknown) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+export function workflowFields(workflow: Workflow): WorkflowField[] {
+  const fields: WorkflowField[] = [];
+  const pathParameters = [
+    ...new Set(Array.from(workflow.path.matchAll(/\{([^}]+)\}/g), (match) => match[1]!)),
+  ];
+
+  for (const name of pathParameters) {
+    fields.push({
+      key: `path:${name}`,
+      name,
+      label: humanize(name),
+      source: 'path',
+      kind: 'text',
+      required: true,
+    });
+  }
+
+  for (const [name, value] of Object.entries(sampleBody(workflow))) {
+    fields.push({
+      key: `body:${name}`,
+      name,
+      label: humanize(name),
+      source: 'body',
+      kind: bodyKind(value),
+      required: true,
+    });
+  }
+
+  return fields;
+}
+
+export function initialWorkflowValues(workflow: Workflow): WorkflowValues {
+  const values: WorkflowValues = {};
+
+  for (const field of workflowFields(workflow)) {
+    if (field.source === 'path') {
+      values[field.key] = '';
+      continue;
+    }
+
+    values[field.key] = valueToInput(sampleBody(workflow)[field.name]);
+  }
+
+  return values;
+}
+
+function materializeBodyValue(field: WorkflowField, value: string): unknown {
+  switch (field.kind) {
+    case 'number': {
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) {
+        throw new Error(`${field.label} must be a valid number.`);
+      }
+      return parsed;
+    }
+    case 'boolean':
+      return value === 'true';
+    case 'json':
+      try {
+        return JSON.parse(value);
+      } catch {
+        throw new Error(`${field.label} must contain valid JSON.`);
+      }
+    default:
+      return value;
+  }
+}
+
+export function materializeWorkflow(workflow: Workflow, values: WorkflowValues) {
+  const fields = workflowFields(workflow);
+  let path = workflow.path;
+  const body: Record<string, unknown> = {};
+
+  for (const field of fields) {
+    const value = values[field.key] ?? '';
+
+    if (field.required && !value.trim()) {
+      throw new Error(`${field.label} is required.`);
+    }
+
+    if (field.source === 'path') {
+      path = path.replace(`{${field.name}}`, encodeURIComponent(value.trim()));
+    } else {
+      body[field.name] = materializeBodyValue(field, value);
+    }
+  }
+
+  return {
+    path,
+    body: workflow.method === 'GET' ? undefined : body,
+  };
+}

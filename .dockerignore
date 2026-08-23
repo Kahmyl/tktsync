@@ -1,0 +1,13 @@
+.git
+.github
+.env
+.env.*
+node_modules
+**/node_modules
+**/dist
+coverage
+tmp
+.tmp
+backend/bin
+docs
+tests

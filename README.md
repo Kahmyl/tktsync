@@ -6,7 +6,7 @@ TktSync is a pnpm monorepo with three React/Vite applications and one Go backend
 
 - Node.js 22+
 - pnpm 10+
-- Go 1.24+
+- Go 1.25+
 - Docker with Compose
 
 ## Setup

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Button,
   FormField,
@@ -6,14 +7,18 @@ import {
   Panel,
   ProductShell,
   StatusPill,
+  Spinner,
 } from '@tktsync/ui';
+import { useOperatorSession } from '../../auth/useOperatorSession';
 import { resultLabel, resultTone } from './outcome';
 import { useScanner } from './useScanner';
 
 export function ScannerPage() {
+  const auth = useOperatorSession();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
   const {
-    token,
-    setToken,
     eventID,
     setEventID,
     deviceID,
@@ -27,7 +32,64 @@ export function ScannerPage() {
     submit,
     startCamera,
     reset,
-  } = useScanner();
+  } = useScanner(auth.token);
+
+  if (auth.loading) {
+    return (
+      <ProductShell product="Gate scanner" eyebrow="TktSync Admission">
+        <Panel title="Restoring scanner session">
+          <Spinner label="Restoring scanner session" />
+        </Panel>
+      </ProductShell>
+    );
+  }
+
+  if (!auth.authenticated) {
+    return (
+      <ProductShell product="Gate scanner" eyebrow="TktSync Admission">
+        <div className="auth-shell">
+          <PageHeader
+            title="Scanner sign in"
+            description="Authenticate as an event-authorized operator before using this device at a gate."
+          />
+          <Panel
+            title="Operator identity"
+            description="The scanner uses the configured identity provider rather than accepting pasted bearer credentials."
+          >
+            <div className="form-stack">
+              <FormField label="Email">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="username"
+                />
+              </FormField>
+              <FormField label="Password">
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="current-password"
+                />
+              </FormField>
+              {auth.error && (
+                <InlineNotice tone="warning" title="Authentication">
+                  {auth.error}
+                </InlineNotice>
+              )}
+              <Button
+                disabled={auth.loading || !email.trim() || !password}
+                onClick={() => void auth.signIn(email, password)}
+              >
+                {auth.loading ? 'Signing in…' : 'Sign in'}
+              </Button>
+            </div>
+          </Panel>
+        </div>
+      </ProductShell>
+    );
+  }
 
   return (
     <ProductShell
@@ -35,10 +97,13 @@ export function ScannerPage() {
       eyebrow="TktSync Admission"
       actions={
         <>
-          <StatusPill tone={token && eventID ? 'success' : 'warning'}>
-            {token && eventID ? 'Event authority set' : 'Setup needed'}
+          <StatusPill tone={eventID ? 'success' : 'warning'}>
+            {eventID ? 'Event authority set' : 'Event setup needed'}
           </StatusPill>
           <span className="device">Device {deviceID.slice(0, 8)}</span>
+          <Button className="secondary hide-mobile" onClick={() => void auth.signOut()}>
+            Sign out
+          </Button>
         </>
       }
     >
@@ -51,6 +116,7 @@ export function ScannerPage() {
           </Button>
         }
       />
+
       <div className="scanner-layout">
         <Panel className="scanner-panel">
           <div
@@ -67,7 +133,9 @@ export function ScannerPage() {
                     ? '↺'
                     : '⌁'}
             </div>
+
             <p>{resultLabel(result, error)}</p>
+
             {result?.ticket?.display && (
               <strong>
                 {[
@@ -79,11 +147,14 @@ export function ScannerPage() {
                   .join(' · ')}
               </strong>
             )}
+
             {result?.admitted_at && (
               <small>Admitted {new Date(result.admitted_at).toLocaleTimeString()}</small>
             )}
+
             {error && <small>{error}</small>}
           </div>
+
           <div className="camera-frame">
             {camera ? (
               <video ref={video} autoPlay playsInline muted />
@@ -98,35 +169,32 @@ export function ScannerPage() {
             <i />
             <i />
           </div>
+
           <div className="scan-actions">
-            <Button onClick={startCamera} disabled={busy || !token || !eventID}>
+            <Button onClick={() => void startCamera()} disabled={busy || !eventID}>
               {camera ? 'Scanning…' : 'Open camera'}
             </Button>
           </div>
         </Panel>
+
         <div className="side-stack">
           <Panel title="Gate setup" description="Scope this device to one event before scanning.">
             <div className="form-stack">
               <FormField label="Event ID">
                 <input
                   value={eventID}
-                  onChange={(e) => setEventID(e.target.value)}
+                  onChange={(event) => setEventID(event.target.value)}
                   placeholder="evt_…"
                   autoComplete="off"
                   aria-invalid={Boolean(eventID && !eventID.startsWith('evt_'))}
                 />
               </FormField>
-              <FormField label="Scanner bearer">
-                <input
-                  type="password"
-                  value={token}
-                  onChange={(e) => setToken(e.target.value)}
-                  placeholder="Human event-scoped token"
-                  autoComplete="off"
-                />
-              </FormField>
+              <InlineNotice title="Signed-in operator">
+                {auth.userLabel}. Event access is still enforced by central authority on every scan.
+              </InlineNotice>
             </div>
           </Panel>
+
           <Panel
             title="Manual scan"
             description="Paste decoded QR data when camera capture is unavailable."
@@ -135,7 +203,7 @@ export function ScannerPage() {
               <FormField label="QR payload">
                 <textarea
                   value={manual}
-                  onChange={(e) => setManual(e.target.value)}
+                  onChange={(event) => setManual(event.target.value)}
                   placeholder="qr1.…"
                   spellCheck={false}
                   autoComplete="off"
@@ -143,12 +211,13 @@ export function ScannerPage() {
               </FormField>
               <Button
                 onClick={() => void submit(manual)}
-                disabled={busy || !manual || !token || !eventID}
+                disabled={busy || !manual.trim() || !eventID}
               >
                 {busy ? 'Checking authority…' : 'Validate ticket'}
               </Button>
             </div>
           </Panel>
+
           <InlineNotice tone="warning" title="Fail closed">
             If authority is unavailable, cancelled, or cannot establish ticket state, do not admit
             the guest.

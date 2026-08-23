@@ -245,6 +245,146 @@ func TestHumanVerifierRefreshesUnknownKeyID(t *testing.T) {
 	}
 }
 
+func TestHumanVerifierCoalescesConcurrentRefresh(t *testing.T) {
+	privateKey := mustECDSAKey(t)
+	state := &mutableJWKS{}
+	state.set(jwksDocument{Keys: []jwk{ecJWK("shared-key", privateKey, "sig", "ES256")}})
+	server := httptest.NewServer(http.HandlerFunc(state.serve))
+	defer server.Close()
+	verifier, err := NewHumanVerifier(server.URL, "https://issuer.example", "authenticated", []string{"ES256"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	token := signHumanToken(t, privateKey, "shared-key", "https://issuer.example", "authenticated", time.Now().Add(5*time.Minute), time.Now().Add(-time.Minute))
+	if _, err = verifier.Verify(t.Context(), token); err != nil {
+		t.Fatal(err)
+	}
+	verifier.mu.Lock()
+	verifier.fetchedAt = time.Now().Add(-verifier.cacheTTL - time.Second)
+	verifier.mu.Unlock()
+
+	const concurrency = 24
+	errors := make(chan error, concurrency)
+	var wait sync.WaitGroup
+	for range concurrency {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			_, verifyErr := verifier.Verify(t.Context(), token)
+			errors <- verifyErr
+		}()
+	}
+	wait.Wait()
+	close(errors)
+	for verifyErr := range errors {
+		if verifyErr != nil {
+			t.Fatalf("concurrent verification failed: %v", verifyErr)
+		}
+	}
+	if got := state.requests.Load(); got != 2 {
+		t.Fatalf("JWKS requests=%d, want initial fetch plus one coalesced refresh", got)
+	}
+}
+
+func TestHumanVerifierUsesBoundedStaleKeyAfterRefreshFailure(t *testing.T) {
+	privateKey := mustECDSAKey(t)
+	var fail atomic.Bool
+	var requests atomic.Int32
+	document := jwksDocument{Keys: []jwk{ecJWK("stale-key", privateKey, "sig", "ES256")}}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		if fail.Load() {
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(document)
+	}))
+	defer server.Close()
+	verifier, err := NewHumanVerifier(server.URL, "https://issuer.example", "authenticated", []string{"ES256"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	token := signHumanToken(t, privateKey, "stale-key", "https://issuer.example", "authenticated", time.Now().Add(5*time.Minute), time.Now().Add(-time.Minute))
+	if _, err = verifier.Verify(t.Context(), token); err != nil {
+		t.Fatal(err)
+	}
+	fail.Store(true)
+	verifier.mu.Lock()
+	verifier.fetchedAt = time.Now().Add(-verifier.cacheTTL - time.Second)
+	verifier.mu.Unlock()
+	if _, err = verifier.Verify(t.Context(), token); err != nil {
+		t.Fatalf("bounded stale key should survive issuer outage: %v", err)
+	}
+	if _, err = verifier.Verify(t.Context(), token); err != nil {
+		t.Fatalf("refresh failure cooldown should continue serving bounded stale key: %v", err)
+	}
+	if got := requests.Load(); got != 2 {
+		t.Fatalf("JWKS requests=%d, want one failed refresh shared during cooldown", got)
+	}
+
+	verifier.mu.Lock()
+	verifier.fetchedAt = time.Now().Add(-verifier.staleTTL - time.Second)
+	verifier.lastAttempt = time.Time{}
+	verifier.lastError = nil
+	verifier.mu.Unlock()
+	if _, err = verifier.Verify(t.Context(), token); err == nil {
+		t.Fatal("key older than bounded stale window must fail closed")
+	}
+}
+
+func TestHumanVerifierDoesNotUseStaleCacheForUnknownKeyID(t *testing.T) {
+	knownKey := mustECDSAKey(t)
+	unknownKey := mustECDSAKey(t)
+	var fail atomic.Bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if fail.Load() {
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(jwksDocument{Keys: []jwk{ecJWK("known-key", knownKey, "sig", "ES256")}})
+	}))
+	defer server.Close()
+	verifier, err := NewHumanVerifier(server.URL, "https://issuer.example", "authenticated", []string{"ES256"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	known := signHumanToken(t, knownKey, "known-key", "https://issuer.example", "authenticated", time.Now().Add(5*time.Minute), time.Now().Add(-time.Minute))
+	if _, err = verifier.Verify(t.Context(), known); err != nil {
+		t.Fatal(err)
+	}
+	fail.Store(true)
+	unknown := signHumanToken(t, unknownKey, "unknown-key", "https://issuer.example", "authenticated", time.Now().Add(5*time.Minute), time.Now().Add(-time.Minute))
+	if _, err = verifier.Verify(t.Context(), unknown); err == nil {
+		t.Fatal("unknown key ID must fail closed when refresh fails")
+	}
+}
+
+func TestHumanVerifierRateLimitsRepeatedUnknownKeyRefresh(t *testing.T) {
+	knownKey := mustECDSAKey(t)
+	unknownKey := mustECDSAKey(t)
+	state := &mutableJWKS{}
+	state.set(jwksDocument{Keys: []jwk{ecJWK("known-key", knownKey, "sig", "ES256")}})
+	server := httptest.NewServer(http.HandlerFunc(state.serve))
+	defer server.Close()
+	verifier, err := NewHumanVerifier(server.URL, "https://issuer.example", "authenticated", []string{"ES256"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	known := signHumanToken(t, knownKey, "known-key", "https://issuer.example", "authenticated", time.Now().Add(5*time.Minute), time.Now().Add(-time.Minute))
+	if _, err = verifier.Verify(t.Context(), known); err != nil {
+		t.Fatal(err)
+	}
+	unknown := signHumanToken(t, unknownKey, "unknown-key", "https://issuer.example", "authenticated", time.Now().Add(5*time.Minute), time.Now().Add(-time.Minute))
+	for range 5 {
+		if _, err = verifier.Verify(t.Context(), unknown); err == nil {
+			t.Fatal("unknown key ID unexpectedly verified")
+		}
+	}
+	if got := state.requests.Load(); got != 2 {
+		t.Fatalf("JWKS requests=%d, want initial fetch plus one unknown-key refresh", got)
+	}
+}
+
 func TestHumanVerifierRejectsEncryptionOnlyJWK(t *testing.T) {
 	privateKey := mustECDSAKey(t)
 

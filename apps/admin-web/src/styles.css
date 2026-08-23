@@ -120,3 +120,29 @@
     display: none;
   }
 }
+
+/* operator-auth */
+.auth-shell {
+  width: min(100%, 620px);
+  margin: 0 auto;
+}
+
+.auth-shell .panel {
+  margin-top: 24px;
+}
+
+.operator-label,
+.device {
+  font-size: 0.875rem;
+  opacity: 0.8;
+}
+
+.form-stack select {
+  width: 100%;
+  min-height: 42px;
+  font: inherit;
+}
+
+.form-stack textarea {
+  min-height: 110px;
+}

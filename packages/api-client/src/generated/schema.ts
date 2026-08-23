@@ -1881,7 +1881,7 @@ export interface components {
       oldest_outbox_lag_seconds: number;
       webhook_failures: number;
       webhook_dead_letters: number;
-      waiting_database_locks: number;
+      process_waiting_database_locks: number;
       scan_outcomes: {
         [key: string]: number;
       };
@@ -3970,7 +3970,7 @@ export interface operations {
     parameters: {
       query: {
         event_id: string;
-        audience: 'admin' | 'scanner';
+        audience: 'admin' | 'scanner' | 'selection';
       };
       header?: {
         /** @description Optional client request/correlation UUID. */

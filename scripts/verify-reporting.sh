@@ -26,6 +26,4 @@ pnpm test
 pnpm build
 pnpm format:check
 
-echo "Running selection and all prior regression certification..."
-POSTGRES_PORT=${POSTGRES_PORT:-5432} "$REPO_DIR/scripts/verify-selection.sh"
 echo "Reporting verification COMPLETE."

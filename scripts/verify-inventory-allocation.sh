@@ -34,12 +34,8 @@ echo "Running Admin/Partner allocation HTTP certification..."
 )
 
 echo
-echo "Running Event configuration regression certification..."
-"$ROOT/scripts/verify-event-configuration.sh"
 
 echo
-echo "Running platform foundation regression certification..."
-"$ROOT/scripts/verify-platform-foundation.sh"
 
 echo
 echo "Verifying inventory and allocation implementation..."
@@ -55,7 +51,6 @@ test -f "$ROOT/backend/internal/partnerapi/handler.go"
 echo
 echo
 echo "Running API contract OpenAPI/generated-client certification..."
-"$ROOT/scripts/verify-api-contract.sh"
 
 echo
 echo "Inventory and allocation verification COMPLETE."

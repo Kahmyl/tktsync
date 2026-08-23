@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"strconv"
@@ -90,19 +91,26 @@ type claimedDelivery struct {
 }
 
 func (w *DeliveryWorker) RunOnce(ctx context.Context) error {
+	_, err := w.RunOnceWithProgress(ctx)
+	return err
+}
+
+func (w *DeliveryWorker) RunOnceWithProgress(ctx context.Context) (bool, error) {
+	worked := false
 	for i := 0; i < w.batchSize; i++ {
 		delivery, ok, err := w.claim(ctx)
 		if err != nil {
-			return err
+			return worked, err
 		}
 		if !ok {
-			return nil
+			return worked, nil
 		}
+		worked = true
 		if err := w.deliver(ctx, delivery); err != nil {
-			return err
+			return worked, err
 		}
 	}
-	return nil
+	return worked, nil
 }
 
 func (w *DeliveryWorker) claim(
@@ -422,7 +430,7 @@ func (w *DeliveryWorker) finish(
 				retryInterval =
 					fmt.Sprintf(
 						"%f seconds",
-						deliveryRetryDelay(
+						jitteredDeliveryRetryDelay(
 							d.Attempt,
 						).Seconds(),
 					)
@@ -525,19 +533,31 @@ func (w *DeliveryWorker) finish(
 	)
 }
 
-func deliveryRetryDelay(attempt int) time.Duration {
+func deliveryRetryDelay(attempt int, random float64) time.Duration {
 	if attempt < 1 {
 		attempt = 1
 	}
-	shift := attempt - 1
-	if shift > 8 {
-		shift = 8
+	if random < 0 {
+		random = 0
+	} else if random > 1 {
+		random = 1
 	}
-	d := time.Second * time.Duration(1<<shift)
+	base := time.Second * time.Duration(1<<min(attempt-1, 9))
+	if base > 5*time.Minute {
+		base = 5 * time.Minute
+	}
+	d := time.Duration(float64(base) * (0.8 + 0.4*random))
+	if d < time.Second {
+		return time.Second
+	}
 	if d > 5*time.Minute {
 		return 5 * time.Minute
 	}
 	return d
+}
+
+func jitteredDeliveryRetryDelay(attempt int) time.Duration {
+	return deliveryRetryDelay(attempt, rand.Float64())
 }
 func bounded(value string, n int) string {
 	value = strings.Map(func(r rune) rune {

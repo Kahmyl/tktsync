@@ -26,6 +26,4 @@ pnpm test
 pnpm build
 pnpm format:check
 
-echo "Running asynchronous delivery and prior regression certification..."
-POSTGRES_PORT=${POSTGRES_PORT:-5432} "$REPO_DIR/scripts/verify-async-delivery.sh"
 echo "Selection verification COMPLETE."

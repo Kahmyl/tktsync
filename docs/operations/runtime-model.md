@@ -4,7 +4,7 @@ TktSync has two Go process types. The API owns authenticated HTTP requests, auth
 
 ## Concurrency and scaling
 
-The API uses the Go HTTP server's goroutine-per-request model behind a process-wide `HTTP_MAX_IN_FLIGHT` semaphore (default 200). Requests beyond that bound receive `503` and `Retry-After: 1`; health, readiness, and protected metrics remain available. The Worker uses `WORKER_CONCURRENCY` bounded slots (default 4). Each slot runs one Reservation materializer, outbox dispatcher, or webhook-delivery batch. The batch defaults are 100, 100, and 50. PostgreSQL row locks, `SKIP LOCKED`, idempotency records, and webhook lease fencing coordinate independent Worker replicas; there is no in-process leader.
+The API uses the Go HTTP server's goroutine-per-request model behind a process-wide `HTTP_MAX_IN_FLIGHT` semaphore (default 200). Requests beyond that bound receive `503` and `Retry-After: 1`; health, readiness, and protected metrics remain available. The Worker has independently bounded Reservation, outbox, and webhook workloads (`WORKER_RESERVATION_CONCURRENCY=2`, `WORKER_OUTBOX_CONCURRENCY=2`, and `WORKER_WEBHOOK_CONCURRENCY=4` by default). The batch defaults are 100, 100, and 50. PostgreSQL row locks, `SKIP LOCKED`, idempotency records, and webhook lease fencing coordinate independent Worker replicas; there is no in-process leader.
 
 The Go programs never create replicas. An external runtime scales API replicas using sustained request concurrency, p95/p99 latency, CPU/memory, rejection rate, and database-pool wait. It scales Worker replicas primarily using pending count, oldest-work age, and slot utilization from the structured `worker.backlog` signal. CPU alone is a weak Worker signal. Scale-in must deliver SIGTERM and honor the configured drain periods.
 
@@ -16,9 +16,9 @@ Each process defaults to a PostgreSQL pool of 20 maximum and 2 minimum connectio
 
 SIGINT or SIGTERM makes the API mark readiness false and invoke `http.Server.Shutdown`. In-flight ordinary requests and realtime streams may finish within `SHUTDOWN_TIMEOUT` (10 seconds by default); after the deadline the server closes remaining connections. Telemetry is flushed after HTTP draining, and the database pool closes last. The Worker immediately stops scheduling/claiming new batches, lets in-flight batches finish for `WORKER_SHUTDOWN_TIMEOUT` (10 seconds), then cancels their contexts and exits deterministically.
 
-HTTP defaults are a five-second header timeout, 60-second idle timeout, 15-second ordinary-request context deadline, 60-second report/audit/export deadline, 1 MiB body/header limits, and 200 in-flight ordinary requests. SSE is excluded from the ordinary request deadline and uses heartbeat/cancellation semantics. PostgreSQL defaults are a five-second connect timeout, 30-second statement timeout, three-second lock timeout, 30-minute connection lifetime, and five-minute idle lifetime. Transaction retries are limited to three attempts, apply only to definite serialization/deadlock failures, and use bounded exponential full jitter. Unknown commit outcomes are never retried internally.
+HTTP defaults are a five-second header timeout, 60-second idle timeout, 15-second ordinary-request context deadline, 60-second report/audit/export deadline, 1 MiB body/header limits, and 200 in-flight ordinary requests. SSE is excluded from the ordinary request deadline and uses heartbeat/cancellation semantics. PostgreSQL defaults are a five-second connect timeout, 65-second statement timeout, three-second lock timeout, 30-minute connection lifetime, and five-minute idle lifetime. Startup requires both HTTP request deadlines to remain strictly inside the PostgreSQL statement budget, so the API cancels work coherently before the database limit. Transaction retries are limited to three attempts, apply only to definite serialization/deadlock failures, and use bounded exponential full jitter. Unknown commit outcomes are never retried internally.
 
-Webhook delivery uses one reusable HTTP client and transport per worker, SSRF-safe DNS/dialing, bounded dial/TLS/header/total deadlines, connection pooling, redirects disabled, a bounded response read, and mandatory body closure. Delivery leases and fenced updates protect multiple replicas and stale attempts.
+Webhook delivery uses one reusable HTTP client and transport per worker, SSRF-safe DNS/dialing, bounded dial/TLS/header/total deadlines, connection pooling, redirects disabled, a bounded response read, and mandatory body closure. Outbox and webhook failures use one-second-to-five-minute bounded exponential retry delays with jitter. Delivery leases and fenced updates protect multiple replicas and stale attempts.
 
 ## Observability
 
@@ -26,7 +26,9 @@ Logs are structured and include service, environment, bounded operation names, d
 
 Set `OTEL_ENABLED=true`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_TRACE_SAMPLE_RATIO` to emit vendor-neutral OTLP traces. W3C trace context is accepted and propagated by the HTTP instrumentation. The exporter flushes during shutdown. Disabled telemetry is a no-op and does not change correctness.
 
-Set `METRICS_ENABLED=true` and a strong `METRICS_BEARER_TOKEN` to expose `/metrics`; startup rejects an enabled but unprotected endpoint. The Prometheus text endpoint reports request volume/errors/in-flight/rejections/panics/average duration, Go goroutines/heap/GC, and pgx pool capacity/waits. Event-scoped derived operational metrics remain available through the authorized Admin API, including Reservation/reconciliation work, outbox lag, webhook failures, database lock waits, Admission outcomes, and alerts. Worker structured `worker.backlog` records pending counts, oldest ages, and active/capacity slots every 30 seconds. None of these signals controls business correctness.
+Set `VITE_BROWSER_TELEMETRY_ENDPOINT` at browser build time to export an allowlisted API operation, status, duration, application, and error-class envelope. The transport uses `sendBeacon` with a keepalive fetch fallback, omits credentials/referrer data, and drops failures. It never exports headers, URLs, request bodies, capabilities, Reservation tokens, QR material, or credentials. An empty or unsafe endpoint disables export.
+
+Set `METRICS_ENABLED=true` and a strong `METRICS_BEARER_TOKEN` to expose `/metrics`; startup rejects an enabled but unprotected endpoint. The Prometheus text endpoint reports process request volume/errors/in-flight/rejections/panics/average duration, Go goroutines/heap/GC, and pgx pool capacity/waits. Authorized event operational metrics scope request observations, Reservation/reconciliation work, outbox lag, webhook failures, and Admission outcomes to the selected Event. The explicitly named `process_waiting_database_locks` field remains process/database-wide because PostgreSQL lock waits cannot be truthfully assigned to one Event. Worker structured `worker.backlog` records pending counts, oldest ages, and active/capacity slots every 30 seconds. None of these signals controls business correctness.
 
 Realtime is advisory invalidation over committed outbox facts. On connect/reconnect the server emits `resync`; clients must refetch authoritative state. A realtime outage never changes inventory, Sales, Ticket, or Admission truth. Scanner decisions remain online-authoritative and fail closed.
 
@@ -34,8 +36,10 @@ Realtime is advisory invalidation over committed outbox facts. On connect/reconn
 
 - HTTP: `SHUTDOWN_TIMEOUT`, `HTTP_READ_HEADER_TIMEOUT`, `HTTP_IDLE_TIMEOUT`, `HTTP_REQUEST_TIMEOUT`, `HTTP_LONG_REQUEST_TIMEOUT`, `HTTP_MAX_BODY_BYTES`, `HTTP_MAX_HEADER_BYTES`, `HTTP_MAX_IN_FLIGHT`.
 - Database: `DB_MAX_CONNECTIONS`, `DB_MIN_CONNECTIONS`, `DB_MAX_CONNECTION_LIFETIME`, `DB_MAX_CONNECTION_IDLE_TIME`, `DB_CONNECT_TIMEOUT`, `DB_STATEMENT_TIMEOUT`, `DB_LOCK_TIMEOUT`, `DB_TX_MAX_ATTEMPTS`, `DB_TX_RETRY_BASE_DELAY`.
-- Worker: `WORKER_CONCURRENCY`, `WORKER_POLL_INTERVAL`, `WORKER_SHUTDOWN_TIMEOUT`, the three `WORKER_*_BATCH_SIZE` values, and `WORKER_WEBHOOK_TIMEOUT`.
-- Telemetry: `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_TRACE_SAMPLE_RATIO`, `METRICS_ENABLED`, `METRICS_BEARER_TOKEN`.
+- Worker: `WORKER_RESERVATION_CONCURRENCY`, `WORKER_OUTBOX_CONCURRENCY`, `WORKER_WEBHOOK_CONCURRENCY`, `WORKER_POLL_INTERVAL`, `WORKER_SHUTDOWN_TIMEOUT`, the three `WORKER_*_BATCH_SIZE` values, and `WORKER_WEBHOOK_TIMEOUT`.
+- Telemetry: `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_TRACE_SAMPLE_RATIO`, `METRICS_ENABLED`, `METRICS_BEARER_TOKEN`, and browser-build `VITE_BROWSER_TELEMETRY_ENDPOINT`.
+
+`APP_ENV=production` rejects missing human-auth JWKS/issuer/audience, capability and QR keyrings, Partner credential replay protection, insecure selector/browser origins, and incomplete enabled-webhook encryption. Development and test retain local defaults.
 
 ## Local runtime baseline
 

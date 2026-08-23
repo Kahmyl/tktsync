@@ -157,3 +157,147 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+.seat-section,
+.ga-section {
+  margin-top: 24px;
+}
+
+.seat-section:first-child {
+  margin-top: 0;
+}
+
+.seat-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.seat-section-heading span {
+  font-size: 0.82rem;
+  opacity: 0.68;
+}
+
+.seat-map {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(54px, 1fr));
+  gap: 8px;
+}
+
+.seat {
+  min-height: 52px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.14));
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.seat span {
+  font-weight: 700;
+}
+
+.seat small {
+  font-size: 0.65rem;
+  opacity: 0.68;
+}
+
+.seat.available:hover,
+.seat.selected {
+  border-color: currentColor;
+}
+
+.seat.selected {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+
+.seat.unavailable {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.ga-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.ga-card {
+  width: 100%;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.14));
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ga-card span {
+  display: grid;
+  gap: 3px;
+}
+
+.ga-card small {
+  opacity: 0.68;
+}
+
+.ga-card.selected {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+
+.seat-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 20px;
+  font-size: 0.78rem;
+  opacity: 0.8;
+}
+
+.seat-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.seat-legend i {
+  width: 10px;
+  height: 10px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+}
+
+.seat-legend i.unavailable {
+  opacity: 0.3;
+}
+
+.seat-legend i.selected {
+  outline: 1px solid currentColor;
+  outline-offset: 2px;
+}
+
+.selection-location {
+  display: grid;
+  gap: 4px;
+}
+
+@media (max-width: 720px) {
+  .seat-map {
+    grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+  }
+
+  .ga-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

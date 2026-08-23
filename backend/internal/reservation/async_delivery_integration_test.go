@@ -30,9 +30,10 @@ func TestAsyncDeliverySSEEmitsOnlyProcessedCommittedFacts(t *testing.T) {
 	f := newFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
+	hub := realtimeapi.NewHub(32)
 	handler := realtimeapi.New(f.pool, func(context.Context, string) (auth.HumanPrincipal, error) {
 		return auth.HumanPrincipal{Provider: "reservation", Subject: f.userSubject}, nil
-	})
+	}, nil, hub)
 	server := httptest.NewServer(handler)
 	defer server.Close()
 	request, _ := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/api/v1/realtime/stream?audience=admin&event_id="+publicid.Encode(publicid.Event, f.eventID), nil)
@@ -55,6 +56,7 @@ func TestAsyncDeliverySSEEmitsOnlyProcessedCommittedFacts(t *testing.T) {
 	if _, err = f.pool.Exec(ctx, `INSERT INTO outbox_events(id,fact_id,event_id,fact_type,aggregate_type,aggregate_id,payload,created_at,processed_at) VALUES($1,$2,$3,'event.configuration_updated','EVENT',$3,'{}',clock_timestamp(),clock_timestamp())`, uuid.New(), factID, f.eventID); err != nil {
 		t.Fatal(err)
 	}
+	hub.Publish(realtimeapi.Fact{FactID: factID, EventID: f.eventID, FactType: "event.configuration_updated", AggregateType: "EVENT", AggregateID: &f.eventID})
 	found := false
 	for scanner.Scan() {
 		if scanner.Text() == "event: invalidate" {

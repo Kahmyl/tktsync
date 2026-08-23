@@ -1315,81 +1315,155 @@
     "/api/v1/admin/events/{event_id}/pause-sales": {
       "post": {
         "operationId": "adminPauseSales",
-        "security": [{ "AdminBearer": [] }],
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/EventID" },
-          { "$ref": "#/components/parameters/IdempotencyKey" },
-          { "$ref": "#/components/parameters/XRequestID" }
+          {
+            "$ref": "#/components/parameters/EventID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
         ],
         "responses": {
-          "2XX": { "$ref": "#/components/responses/EventLifecycleResponse" },
-          "default": { "$ref": "#/components/responses/ErrorResponse" }
+          "2XX": {
+            "$ref": "#/components/responses/EventLifecycleResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
         }
       }
     },
     "/api/v1/admin/events/{event_id}/resume-sales": {
       "post": {
         "operationId": "adminResumeSales",
-        "security": [{ "AdminBearer": [] }],
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/EventID" },
-          { "$ref": "#/components/parameters/IdempotencyKey" },
-          { "$ref": "#/components/parameters/XRequestID" }
+          {
+            "$ref": "#/components/parameters/EventID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
         ],
         "responses": {
-          "2XX": { "$ref": "#/components/responses/EventLifecycleResponse" },
-          "default": { "$ref": "#/components/responses/ErrorResponse" }
+          "2XX": {
+            "$ref": "#/components/responses/EventLifecycleResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
         }
       }
     },
     "/api/v1/admin/events/{event_id}/close-sales": {
       "post": {
         "operationId": "adminCloseSales",
-        "security": [{ "AdminBearer": [] }],
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/EventID" },
-          { "$ref": "#/components/parameters/IdempotencyKey" },
-          { "$ref": "#/components/parameters/XRequestID" }
+          {
+            "$ref": "#/components/parameters/EventID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
         ],
         "responses": {
-          "2XX": { "$ref": "#/components/responses/EventLifecycleResponse" },
-          "default": { "$ref": "#/components/responses/ErrorResponse" }
+          "2XX": {
+            "$ref": "#/components/responses/EventLifecycleResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
         }
       }
     },
     "/api/v1/admin/events/{event_id}/cancel": {
       "post": {
         "operationId": "adminCancelEvent",
-        "security": [{ "AdminBearer": [] }],
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/EventID" },
-          { "$ref": "#/components/parameters/IdempotencyKey" },
-          { "$ref": "#/components/parameters/XRequestID" }
+          {
+            "$ref": "#/components/parameters/EventID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
         ],
         "requestBody": {
           "required": true,
           "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/CancelEventRequest" } }
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelEventRequest"
+              }
+            }
           }
         },
         "responses": {
-          "2XX": { "$ref": "#/components/responses/EventLifecycleResponse" },
-          "default": { "$ref": "#/components/responses/ErrorResponse" }
+          "2XX": {
+            "$ref": "#/components/responses/EventLifecycleResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
         }
       }
     },
     "/api/v1/admin/events/{event_id}/complete": {
       "post": {
         "operationId": "adminCompleteEvent",
-        "security": [{ "AdminBearer": [] }],
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/EventID" },
-          { "$ref": "#/components/parameters/IdempotencyKey" },
-          { "$ref": "#/components/parameters/XRequestID" }
+          {
+            "$ref": "#/components/parameters/EventID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
         ],
         "responses": {
-          "2XX": { "$ref": "#/components/responses/EventLifecycleResponse" },
-          "default": { "$ref": "#/components/responses/ErrorResponse" }
+          "2XX": {
+            "$ref": "#/components/responses/EventLifecycleResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
         }
       }
     },
@@ -3568,6 +3642,9 @@
           },
           {
             "ScannerBearer": []
+          },
+          {
+            "SelectionBearer": []
           }
         ],
         "parameters": [
@@ -3586,7 +3663,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "enum": ["admin", "scanner"]
+              "enum": ["admin", "scanner", "selection"]
             }
           },
           {
@@ -4228,212 +4305,416 @@
     "/api/v1/admin/events/{event_id}/reports/inventory": {
       "get": {
         "operationId": "adminGetEventInventoryReport",
-        "security": [{ "AdminBearer": [] }],
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/EventID" },
-          { "$ref": "#/components/parameters/XRequestID" }
+          {
+            "$ref": "#/components/parameters/EventID"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
         ],
         "responses": {
           "200": {
             "description": "Authoritative inventory snapshot with current and historical dimensions.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/InventoryReport" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryReport"
+                }
+              }
             }
           },
-          "default": { "$ref": "#/components/responses/ErrorResponse" }
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
         }
       }
     },
     "/api/v1/admin/events/{event_id}/reports/sales": {
       "get": {
         "operationId": "adminGetEventSalesReport",
-        "security": [{ "AdminBearer": [] }],
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/EventID" },
-          { "$ref": "#/components/parameters/XRequestID" }
+          {
+            "$ref": "#/components/parameters/EventID"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
         ],
         "responses": {
           "200": {
             "description": "Historical commercial Sale facts and current sold capacity.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/SalesReport" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalesReport"
+                }
+              }
             }
           },
-          "default": { "$ref": "#/components/responses/ErrorResponse" }
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
         }
       }
     },
     "/api/v1/admin/events/{event_id}/reports/admission": {
       "get": {
         "operationId": "adminGetEventAdmissionReport",
-        "security": [{ "AdminBearer": [] }],
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/EventID" },
-          { "$ref": "#/components/parameters/XRequestID" }
+          {
+            "$ref": "#/components/parameters/EventID"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
         ],
         "responses": {
           "200": {
             "description": "Current Admission state and immutable ScanAttempt outcome counts.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/AdmissionReport" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdmissionReport"
+                }
+              }
             }
           },
-          "default": { "$ref": "#/components/responses/ErrorResponse" }
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
         }
       }
     },
     "/api/v1/admin/events/{event_id}/audit": {
       "get": {
         "operationId": "adminListEventAudit",
-        "security": [{ "AdminBearer": [] }],
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/EventID" },
-          { "$ref": "#/components/parameters/XRequestID" },
+          {
+            "$ref": "#/components/parameters/EventID"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
           {
             "name": "limit",
             "in": "query",
-            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
           },
-          { "name": "cursor", "in": "query", "schema": { "type": "string" } },
-          { "name": "operation", "in": "query", "schema": { "type": "string" } },
-          { "name": "entity_type", "in": "query", "schema": { "type": "string" } },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "operation",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entity_type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "name": "actor_kind",
             "in": "query",
-            "schema": { "type": "string", "enum": ["USER", "PARTNER", "BUYER_SESSION", "SYSTEM"] }
+            "schema": {
+              "type": "string",
+              "enum": ["USER", "PARTNER", "BUYER_SESSION", "SYSTEM"]
+            }
           },
           {
             "name": "reservation_id",
             "in": "query",
-            "schema": { "type": "string", "pattern": "^res_" }
+            "schema": {
+              "type": "string",
+              "pattern": "^res_"
+            }
           },
-          { "name": "sale_id", "in": "query", "schema": { "type": "string", "pattern": "^sale_" } },
+          {
+            "name": "sale_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^sale_"
+            }
+          },
           {
             "name": "ticket_id",
             "in": "query",
-            "schema": { "type": "string", "pattern": "^tkt_" }
+            "schema": {
+              "type": "string",
+              "pattern": "^tkt_"
+            }
           },
           {
             "name": "correlation_id",
             "in": "query",
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           },
-          { "name": "from", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "to", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "search", "in": "query", "schema": { "type": "string" } }
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "Stable, bounded page of append-only AuditEvents.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/AuditPage" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditPage"
+                }
+              }
             }
           },
-          "default": { "$ref": "#/components/responses/ErrorResponse" }
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
         }
       }
     },
     "/api/v1/admin/events/{event_id}/accreditation-export": {
       "get": {
         "operationId": "adminExportEventAccreditation",
-        "security": [{ "AdminBearer": [] }],
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/EventID" },
-          { "$ref": "#/components/parameters/XRequestID" }
+          {
+            "$ref": "#/components/parameters/EventID"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
         ],
         "responses": {
           "200": {
             "description": "Derived accreditation snapshot. Never contains QR credentials or secrets.",
             "headers": {
-              "X-TktSync-Generated-At": { "schema": { "type": "string", "format": "date-time" } }
+              "X-TktSync-Generated-At": {
+                "schema": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
             },
-            "content": { "text/csv": { "schema": { "type": "string" } } }
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
-          "default": { "$ref": "#/components/responses/ErrorResponse" }
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
         }
       }
     },
     "/api/v1/admin/events/{event_id}/metrics": {
       "get": {
         "operationId": "adminGetEventOperationalMetrics",
-        "security": [{ "AdminBearer": [] }],
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/EventID" },
-          { "$ref": "#/components/parameters/XRequestID" }
+          {
+            "$ref": "#/components/parameters/EventID"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
         ],
         "responses": {
           "200": {
             "description": "Advisory operational metrics and alerts derived from authoritative facts and process observations.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/OperationalMetrics" }
+                "schema": {
+                  "$ref": "#/components/schemas/OperationalMetrics"
+                }
               }
             }
           },
-          "default": { "$ref": "#/components/responses/ErrorResponse" }
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
         }
       }
     },
     "/api/v1/partner/events/{event_id}/reports/inventory": {
       "get": {
         "operationId": "partnerGetEventInventoryReport",
-        "security": [{ "PartnerBearer": [] }],
+        "security": [
+          {
+            "PartnerBearer": []
+          }
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/EventID" },
-          { "$ref": "#/components/parameters/XRequestID" }
+          {
+            "$ref": "#/components/parameters/EventID"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
         ],
         "responses": {
           "200": {
             "description": "Caller-contextual inventory and the Partner's own obligations only.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/InventoryReport" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryReport"
+                }
+              }
             }
           },
-          "default": { "$ref": "#/components/responses/ErrorResponse" }
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
         }
       }
     },
     "/api/v1/partner/events/{event_id}/reports/sales": {
       "get": {
         "operationId": "partnerGetEventSalesReport",
-        "security": [{ "PartnerBearer": [] }],
+        "security": [
+          {
+            "PartnerBearer": []
+          }
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/EventID" },
-          { "$ref": "#/components/parameters/XRequestID" }
+          {
+            "$ref": "#/components/parameters/EventID"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
         ],
         "responses": {
           "200": {
             "description": "Only authoritative Sales owned by the authenticated Partner.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/SalesReport" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalesReport"
+                }
+              }
             }
           },
-          "default": { "$ref": "#/components/responses/ErrorResponse" }
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
         }
       }
     },
     "/api/v1/partner/events/{event_id}/activity": {
       "get": {
         "operationId": "partnerListEventActivity",
-        "security": [{ "PartnerBearer": [] }],
+        "security": [
+          {
+            "PartnerBearer": []
+          }
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/EventID" },
-          { "$ref": "#/components/parameters/XRequestID" },
+          {
+            "$ref": "#/components/parameters/EventID"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
           {
             "name": "limit",
             "in": "query",
-            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
           },
-          { "name": "cursor", "in": "query", "schema": { "type": "string" } }
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "Partner-owned operational activity with stable pagination.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/AuditPage" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditPage"
+                }
+              }
             }
           },
-          "default": { "$ref": "#/components/responses/ErrorResponse" }
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
         }
       }
     },
@@ -4600,18 +4881,25 @@
         "name": "event_id",
         "in": "path",
         "required": true,
-        "schema": { "type": "string", "pattern": "^evt_" }
+        "schema": {
+          "type": "string",
+          "pattern": "^evt_"
+        }
       }
     },
     "responses": {
       "EventLifecycleResponse": {
         "description": "Event lifecycle command accepted.",
         "headers": {
-          "X-Request-ID": { "$ref": "#/components/headers/XRequestID" }
+          "X-Request-ID": {
+            "$ref": "#/components/headers/XRequestID"
+          }
         },
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/EventLifecycleResponse" }
+            "schema": {
+              "$ref": "#/components/schemas/EventLifecycleResponse"
+            }
           }
         }
       },
@@ -5424,7 +5712,10 @@
         "additionalProperties": false,
         "required": ["reason"],
         "properties": {
-          "reason": { "type": "string", "minLength": 1 }
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "EventLifecycleResponse": {
@@ -5432,7 +5723,10 @@
         "additionalProperties": false,
         "required": ["event_id", "state"],
         "properties": {
-          "event_id": { "type": "string", "pattern": "^evt_" },
+          "event_id": {
+            "type": "string",
+            "pattern": "^evt_"
+          },
           "state": {
             "type": "string",
             "enum": ["ON_SALE", "PAUSED", "SALES_CLOSED", "COMPLETED", "CANCELLED"]
@@ -6508,13 +6802,21 @@
         "additionalProperties": false,
         "required": ["id", "name", "state"],
         "properties": {
-          "id": { "type": "string", "pattern": "^evt_" },
-          "name": { "type": "string" },
+          "id": {
+            "type": "string",
+            "pattern": "^evt_"
+          },
+          "name": {
+            "type": "string"
+          },
           "state": {
             "type": "string",
             "enum": ["DRAFT", "ON_SALE", "PAUSED", "SALES_CLOSED", "COMPLETED", "CANCELLED"]
           },
-          "starts_at": { "type": ["string", "null"], "format": "date-time" }
+          "starts_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          }
         }
       },
       "InventoryDimensions": {
@@ -6537,14 +6839,38 @@
           "historical_issued"
         ],
         "properties": {
-          "capacity": { "type": "integer", "minimum": 0 },
-          "available": { "type": "integer", "minimum": 0 },
-          "held": { "type": "integer", "minimum": 0 },
-          "committing": { "type": "integer", "minimum": 0 },
-          "payment_retry": { "type": "integer", "minimum": 0 },
-          "reconciling": { "type": "integer", "minimum": 0 },
-          "blocked": { "type": "integer", "minimum": 0 },
-          "allocated": { "type": "integer", "minimum": 0 },
+          "capacity": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "available": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "held": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "committing": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "payment_retry": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reconciling": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blocked": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "allocated": {
+            "type": "integer",
+            "minimum": 0
+          },
           "sold_current": {
             "type": "integer",
             "minimum": 0,
@@ -6555,8 +6881,14 @@
             "minimum": 0,
             "description": "Current non-public issuance consumption; never SOLD."
           },
-          "voided_tickets": { "type": "integer", "minimum": 0 },
-          "capacity_consumed": { "type": "integer", "minimum": 0 },
+          "voided_tickets": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "capacity_consumed": {
+            "type": "integer",
+            "minimum": 0
+          },
           "historical_sold": {
             "type": "integer",
             "minimum": 0,
@@ -6574,11 +6906,22 @@
         "additionalProperties": false,
         "required": ["generated_at", "event", "reserved_seating", "general_admission", "total"],
         "properties": {
-          "generated_at": { "type": "string", "format": "date-time" },
-          "event": { "$ref": "#/components/schemas/ReportEventContext" },
-          "reserved_seating": { "$ref": "#/components/schemas/InventoryDimensions" },
-          "general_admission": { "$ref": "#/components/schemas/InventoryDimensions" },
-          "total": { "$ref": "#/components/schemas/InventoryDimensions" }
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "event": {
+            "$ref": "#/components/schemas/ReportEventContext"
+          },
+          "reserved_seating": {
+            "$ref": "#/components/schemas/InventoryDimensions"
+          },
+          "general_admission": {
+            "$ref": "#/components/schemas/InventoryDimensions"
+          },
+          "total": {
+            "$ref": "#/components/schemas/InventoryDimensions"
+          }
         }
       },
       "SalesReport": {
@@ -6596,15 +6939,41 @@
           "currency"
         ],
         "properties": {
-          "generated_at": { "type": "string", "format": "date-time" },
-          "event": { "$ref": "#/components/schemas/ReportEventContext" },
-          "sale_count": { "type": "integer", "minimum": 0 },
-          "historical_sale_quantity": { "type": "integer", "minimum": 0 },
-          "historical_amount_minor": { "type": "integer", "minimum": 0 },
-          "active_sold_tickets": { "type": "integer", "minimum": 0 },
-          "voided_sold_tickets": { "type": "integer", "minimum": 0 },
-          "current_sold_capacity": { "type": "integer", "minimum": 0 },
-          "currency": { "type": ["string", "null"], "pattern": "^[A-Z]{3}$" }
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "event": {
+            "$ref": "#/components/schemas/ReportEventContext"
+          },
+          "sale_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "historical_sale_quantity": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "historical_amount_minor": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "active_sold_tickets": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "voided_sold_tickets": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "current_sold_capacity": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "currency": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Z]{3}$"
+          }
         }
       },
       "AdmissionReport": {
@@ -6618,13 +6987,27 @@
           "scan_outcomes"
         ],
         "properties": {
-          "generated_at": { "type": "string", "format": "date-time" },
-          "event": { "$ref": "#/components/schemas/ReportEventContext" },
-          "active_admissions": { "type": "integer", "minimum": 0 },
-          "reversed_admissions": { "type": "integer", "minimum": 0 },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "event": {
+            "$ref": "#/components/schemas/ReportEventContext"
+          },
+          "active_admissions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reversed_admissions": {
+            "type": "integer",
+            "minimum": 0
+          },
           "scan_outcomes": {
             "type": "object",
-            "additionalProperties": { "type": "integer", "minimum": 0 }
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            }
           }
         }
       },
@@ -6633,24 +7016,60 @@
         "additionalProperties": false,
         "required": ["id", "actor_kind", "operation", "entity_type", "metadata", "occurred_at"],
         "properties": {
-          "id": { "type": "string", "pattern": "^audit_" },
+          "id": {
+            "type": "string",
+            "pattern": "^audit_"
+          },
           "actor_kind": {
             "type": "string",
             "enum": ["USER", "PARTNER", "BUYER_SESSION", "SYSTEM"]
           },
-          "actor_partner_id": { "type": "string", "pattern": "^ptr_" },
-          "operation": { "type": "string" },
-          "entity_type": { "type": "string" },
-          "entity_id": { "type": "string" },
-          "reservation_id": { "type": "string", "pattern": "^res_" },
-          "sale_id": { "type": "string", "pattern": "^sale_" },
-          "ticket_id": { "type": "string", "pattern": "^tkt_" },
-          "previous_state": { "type": ["object", "array", "null"] },
-          "new_state": { "type": ["object", "array", "null"] },
-          "reason": { "type": "string" },
-          "correlation_id": { "type": "string", "format": "uuid" },
-          "metadata": { "type": "object", "additionalProperties": true },
-          "occurred_at": { "type": "string", "format": "date-time" }
+          "actor_partner_id": {
+            "type": "string",
+            "pattern": "^ptr_"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "entity_type": {
+            "type": "string"
+          },
+          "entity_id": {
+            "type": "string"
+          },
+          "reservation_id": {
+            "type": "string",
+            "pattern": "^res_"
+          },
+          "sale_id": {
+            "type": "string",
+            "pattern": "^sale_"
+          },
+          "ticket_id": {
+            "type": "string",
+            "pattern": "^tkt_"
+          },
+          "previous_state": {
+            "type": ["object", "array", "null"]
+          },
+          "new_state": {
+            "type": ["object", "array", "null"]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "correlation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "AuditPage": {
@@ -6658,8 +7077,15 @@
         "additionalProperties": false,
         "required": ["items", "next_cursor"],
         "properties": {
-          "items": { "type": "array", "items": { "$ref": "#/components/schemas/AuditEvent" } },
-          "next_cursor": { "type": ["string", "null"] }
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditEvent"
+            }
+          },
+          "next_cursor": {
+            "type": ["string", "null"]
+          }
         }
       },
       "OperationalAlert": {
@@ -6667,10 +7093,19 @@
         "additionalProperties": false,
         "required": ["code", "severity", "message", "value"],
         "properties": {
-          "code": { "type": "string" },
-          "severity": { "type": "string", "enum": ["WARNING", "CRITICAL"] },
-          "message": { "type": "string" },
-          "value": { "type": "integer" }
+          "code": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["WARNING", "CRITICAL"]
+          },
+          "message": {
+            "type": "string"
+          },
+          "value": {
+            "type": "integer"
+          }
         }
       },
       "OperationalMetrics": {
@@ -6690,32 +7125,77 @@
           "oldest_outbox_lag_seconds",
           "webhook_failures",
           "webhook_dead_letters",
-          "waiting_database_locks",
+          "process_waiting_database_locks",
           "scan_outcomes",
           "alerts",
           "authority"
         ],
         "properties": {
-          "generated_at": { "type": "string", "format": "date-time" },
-          "event": { "$ref": "#/components/schemas/ReportEventContext" },
-          "requests": { "$ref": "#/components/schemas/RequestMetrics" },
-          "reservation_states": { "type": "object", "additionalProperties": { "type": "integer" } },
-          "confirmed_sales": { "type": "integer" },
-          "confirmation_rate": { "type": "number", "minimum": 0, "maximum": 1 },
-          "overdue_reconciliations": { "type": "integer" },
-          "due_reservation_work": { "type": "integer" },
-          "oldest_worker_lag_seconds": { "type": "integer", "minimum": 0 },
-          "pending_outbox": { "type": "integer" },
-          "oldest_outbox_lag_seconds": { "type": "integer" },
-          "webhook_failures": { "type": "integer" },
-          "webhook_dead_letters": { "type": "integer" },
-          "waiting_database_locks": { "type": "integer" },
-          "scan_outcomes": { "type": "object", "additionalProperties": { "type": "integer" } },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "event": {
+            "$ref": "#/components/schemas/ReportEventContext"
+          },
+          "requests": {
+            "$ref": "#/components/schemas/RequestMetrics"
+          },
+          "reservation_states": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "confirmed_sales": {
+            "type": "integer"
+          },
+          "confirmation_rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "overdue_reconciliations": {
+            "type": "integer"
+          },
+          "due_reservation_work": {
+            "type": "integer"
+          },
+          "oldest_worker_lag_seconds": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pending_outbox": {
+            "type": "integer"
+          },
+          "oldest_outbox_lag_seconds": {
+            "type": "integer"
+          },
+          "webhook_failures": {
+            "type": "integer"
+          },
+          "webhook_dead_letters": {
+            "type": "integer"
+          },
+          "process_waiting_database_locks": {
+            "type": "integer"
+          },
+          "scan_outcomes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
           "alerts": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/OperationalAlert" }
+            "items": {
+              "$ref": "#/components/schemas/OperationalAlert"
+            }
           },
-          "authority": { "type": "string", "const": "ADVISORY_DERIVED_READ" }
+          "authority": {
+            "type": "string",
+            "const": "ADVISORY_DERIVED_READ"
+          }
         }
       },
       "RequestMetrics": {
@@ -6733,15 +7213,44 @@
           "maximum_latency_ms"
         ],
         "properties": {
-          "request_count": { "type": "integer", "minimum": 0 },
-          "error_count": { "type": "integer", "minimum": 0 },
-          "auth_anomaly_count": { "type": "integer", "minimum": 0 },
-          "conflict_response_count": { "type": "integer", "minimum": 0 },
-          "hold_conflict_count": { "type": "integer", "minimum": 0 },
-          "error_rate": { "type": "number", "minimum": 0, "maximum": 1 },
-          "hold_conflict_rate": { "type": "number", "minimum": 0, "maximum": 1 },
-          "average_latency_ms": { "type": "number", "minimum": 0 },
-          "maximum_latency_ms": { "type": "number", "minimum": 0 }
+          "request_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "error_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "auth_anomaly_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "conflict_response_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "hold_conflict_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "error_rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "hold_conflict_rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "average_latency_ms": {
+            "type": "number",
+            "minimum": 0
+          },
+          "maximum_latency_ms": {
+            "type": "number",
+            "minimum": 0
+          }
         }
       },
       "AllowedReturnURLsRequest": {
