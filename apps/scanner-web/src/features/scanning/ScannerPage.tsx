@@ -53,7 +53,11 @@ export function ScannerPage() {
       />
       <div className="scanner-layout">
         <Panel className="scanner-panel">
-          <div className={`result-stage ${resultTone(result?.result)} ${error ? 'danger' : ''}`}>
+          <div
+            className={`result-stage ${resultTone(result?.result)} ${error ? 'danger' : ''}`}
+            aria-live="assertive"
+            aria-busy={busy}
+          >
             <div className="result-icon">
               {error
                 ? '!'
@@ -108,6 +112,8 @@ export function ScannerPage() {
                   value={eventID}
                   onChange={(e) => setEventID(e.target.value)}
                   placeholder="evt_…"
+                  autoComplete="off"
+                  aria-invalid={Boolean(eventID && !eventID.startsWith('evt_'))}
                 />
               </FormField>
               <FormField label="Scanner bearer">
@@ -116,6 +122,7 @@ export function ScannerPage() {
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
                   placeholder="Human event-scoped token"
+                  autoComplete="off"
                 />
               </FormField>
             </div>
@@ -131,6 +138,7 @@ export function ScannerPage() {
                   onChange={(e) => setManual(e.target.value)}
                   placeholder="qr1.…"
                   spellCheck={false}
+                  autoComplete="off"
                 />
               </FormField>
               <Button

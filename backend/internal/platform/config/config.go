@@ -23,17 +23,34 @@ type Config struct {
 	BrowserOrigins             []string
 	PartnerCredentialReplayKey string
 	Shutdown                   time.Duration
+	Telemetry                  Telemetry
 }
 
 type HTTP struct {
-	Host string
-	Port int
+	Host               string
+	Port               int
+	ReadHeaderTimeout  time.Duration
+	IdleTimeout        time.Duration
+	RequestTimeout     time.Duration
+	LongRequestTimeout time.Duration
+	MaxBodyBytes       int64
+	MaxHeaderBytes     int
+	MaxInFlight        int
+	MetricsEnabled     bool
+	MetricsToken       string
 }
 
 type Database struct {
-	URL           string
-	TxMaxAttempts int
-	TxRetryBase   time.Duration
+	URL              string
+	TxMaxAttempts    int
+	TxRetryBase      time.Duration
+	MaxConnections   int32
+	MinConnections   int32
+	MaxLifetime      time.Duration
+	MaxIdleLifetime  time.Duration
+	ConnectTimeout   time.Duration
+	StatementTimeout time.Duration
+	LockTimeout      time.Duration
 }
 
 type Logging struct {
@@ -62,8 +79,19 @@ type Keyrings struct {
 }
 
 type Worker struct {
-	PollInterval    time.Duration
-	ShutdownTimeout time.Duration
+	PollInterval         time.Duration
+	ShutdownTimeout      time.Duration
+	Concurrency          int
+	ReservationBatchSize int
+	OutboxBatchSize      int
+	WebhookBatchSize     int
+	WebhookTimeout       time.Duration
+}
+
+type Telemetry struct {
+	Enabled      bool
+	OTLPEndpoint string
+	SampleRatio  float64
 }
 
 type Realtime struct {
@@ -99,6 +127,83 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 		return Config{}, errors.New("API_PORT must be a valid TCP port")
 	}
 
+	positiveDuration := func(key, fallback string) (time.Duration, error) {
+		value, parseErr := time.ParseDuration(get(key, fallback))
+		if parseErr != nil || value <= 0 {
+			return 0, fmt.Errorf("%s must be a positive duration", key)
+		}
+		return value, nil
+	}
+	positiveInt := func(key, fallback string, maximum int) (int, error) {
+		value, parseErr := strconv.Atoi(get(key, fallback))
+		if parseErr != nil || value <= 0 || value > maximum {
+			return 0, fmt.Errorf("%s must be between 1 and %d", key, maximum)
+		}
+		return value, nil
+	}
+
+	readHeaderTimeout, err := positiveDuration("HTTP_READ_HEADER_TIMEOUT", "5s")
+	if err != nil {
+		return Config{}, err
+	}
+	idleTimeout, err := positiveDuration("HTTP_IDLE_TIMEOUT", "60s")
+	if err != nil {
+		return Config{}, err
+	}
+	requestTimeout, err := positiveDuration("HTTP_REQUEST_TIMEOUT", "15s")
+	if err != nil {
+		return Config{}, err
+	}
+	longRequestTimeout, err := positiveDuration("HTTP_LONG_REQUEST_TIMEOUT", "60s")
+	if err != nil {
+		return Config{}, err
+	}
+	maxBodyBytes, err := strconv.ParseInt(get("HTTP_MAX_BODY_BYTES", "1048576"), 10, 64)
+	if err != nil || maxBodyBytes < 1024 || maxBodyBytes > 64<<20 {
+		return Config{}, errors.New("HTTP_MAX_BODY_BYTES must be between 1024 and 67108864")
+	}
+	maxHeaderBytes, err := positiveInt("HTTP_MAX_HEADER_BYTES", "1048576", 16<<20)
+	if err != nil {
+		return Config{}, err
+	}
+	maxInFlight, err := positiveInt("HTTP_MAX_IN_FLIGHT", "200", 100000)
+	if err != nil {
+		return Config{}, err
+	}
+	metricsEnabled, err := strconv.ParseBool(get("METRICS_ENABLED", "false"))
+	if err != nil {
+		return Config{}, errors.New("METRICS_ENABLED must be true or false")
+	}
+
+	maxConnections, err := positiveInt("DB_MAX_CONNECTIONS", "20", 10000)
+	if err != nil {
+		return Config{}, err
+	}
+	minConnectionsRaw, err := strconv.Atoi(get("DB_MIN_CONNECTIONS", "2"))
+	if err != nil || minConnectionsRaw < 0 || minConnectionsRaw > maxConnections {
+		return Config{}, errors.New("DB_MIN_CONNECTIONS must be between 0 and DB_MAX_CONNECTIONS")
+	}
+	maxLifetime, err := positiveDuration("DB_MAX_CONNECTION_LIFETIME", "30m")
+	if err != nil {
+		return Config{}, err
+	}
+	maxIdleLifetime, err := positiveDuration("DB_MAX_CONNECTION_IDLE_TIME", "5m")
+	if err != nil {
+		return Config{}, err
+	}
+	connectTimeout, err := positiveDuration("DB_CONNECT_TIMEOUT", "5s")
+	if err != nil {
+		return Config{}, err
+	}
+	statementTimeout, err := positiveDuration("DB_STATEMENT_TIMEOUT", "30s")
+	if err != nil {
+		return Config{}, err
+	}
+	lockTimeout, err := positiveDuration("DB_LOCK_TIMEOUT", "3s")
+	if err != nil {
+		return Config{}, err
+	}
+
 	txMaxAttempts, err := strconv.Atoi(get("DB_TX_MAX_ATTEMPTS", "3"))
 	if err != nil || txMaxAttempts < 1 || txMaxAttempts > 10 {
 		return Config{}, errors.New("DB_TX_MAX_ATTEMPTS must be between 1 and 10")
@@ -118,6 +223,26 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 	if err != nil || workerShutdown <= 0 {
 		return Config{}, errors.New("WORKER_SHUTDOWN_TIMEOUT must be a positive duration")
 	}
+	workerConcurrency, err := positiveInt("WORKER_CONCURRENCY", "4", 256)
+	if err != nil {
+		return Config{}, err
+	}
+	reservationBatch, err := positiveInt("WORKER_RESERVATION_BATCH_SIZE", "100", 10000)
+	if err != nil {
+		return Config{}, err
+	}
+	outboxBatch, err := positiveInt("WORKER_OUTBOX_BATCH_SIZE", "100", 10000)
+	if err != nil {
+		return Config{}, err
+	}
+	webhookBatch, err := positiveInt("WORKER_WEBHOOK_BATCH_SIZE", "50", 10000)
+	if err != nil {
+		return Config{}, err
+	}
+	webhookTimeout, err := positiveDuration("WORKER_WEBHOOK_TIMEOUT", "5s")
+	if err != nil {
+		return Config{}, err
+	}
 
 	shutdown, err := time.ParseDuration(get("SHUTDOWN_TIMEOUT", "10s"))
 	if err != nil || shutdown <= 0 {
@@ -132,6 +257,14 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 	webhookEnabled, err := strconv.ParseBool(get("WEBHOOK_ENABLED", "false"))
 	if err != nil {
 		return Config{}, errors.New("WEBHOOK_ENABLED must be true or false")
+	}
+	telemetryEnabled, err := strconv.ParseBool(get("OTEL_ENABLED", "false"))
+	if err != nil {
+		return Config{}, errors.New("OTEL_ENABLED must be true or false")
+	}
+	sampleRatio, err := strconv.ParseFloat(get("OTEL_TRACE_SAMPLE_RATIO", "0.1"), 64)
+	if err != nil || sampleRatio < 0 || sampleRatio > 1 {
+		return Config{}, errors.New("OTEL_TRACE_SAMPLE_RATIO must be between 0 and 1")
 	}
 
 	selectionVersion, err := optionalPositiveInt(get("SELECTION_KEYRING_ACTIVE_VERSION", ""))
@@ -158,13 +291,19 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 		Environment:                get("APP_ENV", "development"),
 		PartnerCredentialReplayKey: get("PARTNER_CREDENTIAL_REPLAY_KEY", ""),
 		HTTP: HTTP{
-			Host: get("API_HOST", "127.0.0.1"),
-			Port: port,
+			Host: get("API_HOST", "127.0.0.1"), Port: port,
+			ReadHeaderTimeout: readHeaderTimeout, IdleTimeout: idleTimeout,
+			RequestTimeout: requestTimeout, LongRequestTimeout: longRequestTimeout, MaxBodyBytes: maxBodyBytes,
+			MaxHeaderBytes: maxHeaderBytes, MaxInFlight: maxInFlight,
+			MetricsEnabled: metricsEnabled, MetricsToken: get("METRICS_BEARER_TOKEN", ""),
 		},
 		Database: Database{
-			URL:           get("DATABASE_URL", ""),
-			TxMaxAttempts: txMaxAttempts,
-			TxRetryBase:   txRetryBase,
+			URL:            get("DATABASE_URL", ""),
+			TxMaxAttempts:  txMaxAttempts,
+			TxRetryBase:    txRetryBase,
+			MaxConnections: int32(maxConnections), MinConnections: int32(minConnectionsRaw),
+			MaxLifetime: maxLifetime, MaxIdleLifetime: maxIdleLifetime,
+			ConnectTimeout: connectTimeout, StatementTimeout: statementTimeout, LockTimeout: lockTimeout,
 		},
 		Logging: Logging{
 			Level:  strings.ToLower(get("LOG_LEVEL", "info")),
@@ -195,6 +334,9 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 		Worker: Worker{
 			PollInterval:    poll,
 			ShutdownTimeout: workerShutdown,
+			Concurrency:     workerConcurrency, ReservationBatchSize: reservationBatch,
+			OutboxBatchSize: outboxBatch, WebhookBatchSize: webhookBatch,
+			WebhookTimeout: webhookTimeout,
 		},
 		Realtime: Realtime{
 			Enabled:       realtimeEnabled,
@@ -209,10 +351,17 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 		SelectorBaseURL: get("SELECTOR_BASE_URL", "http://localhost:5174/s"),
 		BrowserOrigins:  splitCSV(get("BROWSER_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost:5175")),
 		Shutdown:        shutdown,
+		Telemetry:       Telemetry{Enabled: telemetryEnabled, OTLPEndpoint: strings.TrimSpace(get("OTEL_EXPORTER_OTLP_ENDPOINT", "")), SampleRatio: sampleRatio},
 	}
 
 	if cfg.Database.URL == "" {
 		return Config{}, errors.New("DATABASE_URL is required")
+	}
+	if cfg.HTTP.MetricsEnabled && strings.TrimSpace(cfg.HTTP.MetricsToken) == "" {
+		return Config{}, errors.New("METRICS_BEARER_TOKEN is required when METRICS_ENABLED=true")
+	}
+	if cfg.Telemetry.Enabled && cfg.Telemetry.OTLPEndpoint == "" {
+		return Config{}, errors.New("OTEL_EXPORTER_OTLP_ENDPOINT is required when OTEL_ENABLED=true")
 	}
 
 	if cfg.Logging.Format != "json" && cfg.Logging.Format != "text" {

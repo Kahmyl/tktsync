@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { queryClient } from './app/queryClient';
 import { workflows } from './features/workflows/catalog';
 
 describe('admin workflow catalog', () => {
+  it('does not automatically retry mutations', () => {
+    expect(queryClient.getDefaultOptions().mutations?.retry).toBe(false);
+  });
   it('covers administration, lifecycle, and Reporting operational workflows with contract paths', () => {
     expect(workflows.map((item) => item.title)).toEqual([
       'Venues',

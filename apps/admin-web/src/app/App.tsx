@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { createTktSyncClient } from '@tktsync/api-client';
 import {
   Button,
@@ -9,6 +10,7 @@ import {
   Panel,
   ProductShell,
   StatusPill,
+  Spinner,
 } from '@tktsync/ui';
 import { workflows, type Workflow } from '../features/workflows/catalog';
 
@@ -20,8 +22,15 @@ export function App() {
   const [body, setBody] = useState(active.body);
   const [token, setToken] = useState(() => sessionStorage.getItem('tktsync.admin.token') ?? '');
   const [result, setResult] = useState<ApiResult>();
-  const [busy, setBusy] = useState(false);
+  const intentKeys = useRef(new Map<string, string>());
   const client = useMemo(() => createTktSyncClient(import.meta.env.VITE_API_BASE_URL ?? ''), []);
+  const command = useMutation({
+    retry: false,
+    mutationFn: (
+      executeRequest: () => Promise<{ data?: unknown; error?: unknown; response: Response }>,
+    ) => executeRequest(),
+  });
+  const busy = command.isPending;
   const select = (item: Workflow) => {
     setActive(item);
     setPath(item.path);
@@ -29,7 +38,6 @@ export function App() {
     setResult(undefined);
   };
   const execute = async () => {
-    setBusy(true);
     setResult(undefined);
     sessionStorage.setItem('tktsync.admin.token', token);
     try {
@@ -38,14 +46,20 @@ export function App() {
         path: string,
         options: Record<string, unknown>,
       ) => Promise<{ data?: unknown; error?: unknown; response: Response }>;
-      const response = await request(active.method, path, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Idempotency-Key': crypto.randomUUID(),
-          'X-Request-ID': crypto.randomUUID(),
-        },
-        body: active.method === 'GET' ? undefined : JSON.parse(body),
-      });
+      const intent = `${active.method}:${path}:${body}`;
+      const key = intentKeys.current.get(intent) ?? crypto.randomUUID();
+      intentKeys.current.set(intent, key);
+      const response = await command.mutateAsync(() =>
+        request(active.method, path, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Idempotency-Key': key,
+            'X-Request-ID': crypto.randomUUID(),
+          },
+          body: active.method === 'GET' ? undefined : JSON.parse(body),
+        }),
+      );
+      intentKeys.current.delete(intent);
       setResult({ status: response.response.status, data: response.data, error: response.error });
     } catch (error) {
       setResult({
@@ -53,8 +67,6 @@ export function App() {
         data: null,
         error: error instanceof Error ? error.message : String(error),
       });
-    } finally {
-      setBusy(false);
     }
   };
   const groups = [...new Set(workflows.map((item) => item.group))];
@@ -98,7 +110,13 @@ export function App() {
         description={active.description}
         actions={
           <Button onClick={execute} disabled={busy || !token}>
-            {busy ? 'Sending…' : `${active.method} command`}
+            {busy ? (
+              <>
+                <Spinner label="Sending command" /> Sending…
+              </>
+            ) : (
+              `${active.method} command`
+            )}
           </Button>
         }
       />

@@ -1,9 +1,10 @@
 package adminapi
 
 import (
-	"bytes"
 	"context"
+	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -171,9 +172,19 @@ func (h *Handler) exportAccreditation(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var body bytes.Buffer
-	snapshot, err := h.reporting.WriteAccreditationCSV(r.Context(), eventID, &body)
+	temporary, err := os.CreateTemp("", "tktsync-accreditation-*.csv")
 	if err != nil {
+		httpserver.WriteError(w, r, err)
+		return
+	}
+	name := temporary.Name()
+	defer func() { _ = temporary.Close(); _ = os.Remove(name) }()
+	snapshot, err := h.reporting.WriteAccreditationCSV(r.Context(), eventID, temporary)
+	if err != nil {
+		httpserver.WriteError(w, r, err)
+		return
+	}
+	if _, err = temporary.Seek(0, io.SeekStart); err != nil {
 		httpserver.WriteError(w, r, err)
 		return
 	}
@@ -182,7 +193,7 @@ func (h *Handler) exportAccreditation(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-TktSync-Generated-At", snapshot.GeneratedAt.Format(time.RFC3339Nano))
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(body.Bytes())
+	_, _ = io.Copy(w, temporary)
 }
 func (h *Handler) getOperationalMetrics(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := h.authorizeReporting(w, r, reportAuthorization)

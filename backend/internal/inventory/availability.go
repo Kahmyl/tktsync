@@ -72,6 +72,11 @@ func (s *Service) PartnerAvailability(
 			"Partner and Event are required",
 		)
 	}
+	tx, err := s.db.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return Availability{}, err
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 
 	var (
 		partnerState string
@@ -80,7 +85,7 @@ func (s *Service) PartnerAvailability(
 		asOf         time.Time
 	)
 
-	err := s.db.QueryRow(
+	err = tx.QueryRow(
 		ctx,
 		`
 			SELECT
@@ -166,6 +171,7 @@ func (s *Service) PartnerAvailability(
 
 	reserved, err := s.reservedAvailability(
 		ctx,
+		tx,
 		partnerID,
 		eventID,
 	)
@@ -175,6 +181,7 @@ func (s *Service) PartnerAvailability(
 
 	gaPools, err := s.gaAvailability(
 		ctx,
+		tx,
 		partnerID,
 		eventID,
 	)
@@ -184,10 +191,13 @@ func (s *Service) PartnerAvailability(
 
 	var serverTime time.Time
 
-	if err := s.db.QueryRow(
+	if err := tx.QueryRow(
 		ctx,
 		`SELECT clock_timestamp()`,
 	).Scan(&serverTime); err != nil {
+		return Availability{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return Availability{}, err
 	}
 
@@ -202,10 +212,11 @@ func (s *Service) PartnerAvailability(
 
 func (s *Service) reservedAvailability(
 	ctx context.Context,
+	q pgx.Tx,
 	partnerID uuid.UUID,
 	eventID uuid.UUID,
 ) ([]ReservedAvailability, error) {
-	rows, err := s.db.Query(
+	rows, err := q.Query(
 		ctx,
 		`
 			SELECT
@@ -367,10 +378,11 @@ func (s *Service) reservedAvailability(
 
 func (s *Service) gaAvailability(
 	ctx context.Context,
+	q pgx.Tx,
 	partnerID uuid.UUID,
 	eventID uuid.UUID,
 ) ([]GAPoolAvailability, error) {
-	rows, err := s.db.Query(
+	rows, err := q.Query(
 		ctx,
 		`
 			SELECT

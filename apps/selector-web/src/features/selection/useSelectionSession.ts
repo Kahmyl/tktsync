@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createTktSyncClient } from '@tktsync/api-client';
 import { consumeCapability } from './capability';
 import { clearIntentKey, getIntentKey } from './idempotency';
@@ -9,41 +10,43 @@ export function useSelectionSession() {
   const [capability] = useState(() => {
     return consumeCapability(location, history);
   });
-  const [session, setSession] = useState<Session>();
-  const [event, setEvent] = useState<EventView>();
-  const [availability, setAvailability] = useState<Availability>();
   const [selected, setSelected] = useState<SelectableOffer>();
   const [quantity, setQuantity] = useState(1);
   const [hold, setHold] = useState<Hold>();
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [serverOffsetMs, setServerOffsetMs] = useState(0);
+  const [mutationError, setMutationError] = useState('');
   const intentKeys = useRef(new Map<string, string>());
   const [, tick] = useState(0);
   const client = useMemo(() => createTktSyncClient(import.meta.env.VITE_API_BASE_URL ?? ''), []);
   const headers = useMemo(() => ({ Authorization: `Bearer ${capability}` }), [capability]);
-  const refresh = useCallback(async () => {
-    setError('');
-    const [s, e, a] = await Promise.all([
-      client.GET('/api/v1/selection/session', { headers }),
-      client.GET('/api/v1/selection/event', { headers }),
-      client.GET('/api/v1/selection/availability', { headers }),
-    ]);
-    if (s.error || e.error || a.error) {
-      setError('This selection link is invalid, expired, or the event is not available.');
-      return;
-    }
-    const nextAvailability = a.data as Availability;
-
-    setSession(s.data as Session);
-    setEvent(e.data as EventView);
-    setAvailability(nextAvailability);
-    setServerOffsetMs(serverOffset(nextAvailability.server_time));
-  }, [client, headers]);
-  useEffect(() => {
-    if (capability) void refresh();
-    else setError('Open the secure selection link supplied by the ticket partner.');
-  }, [capability, refresh]);
+  const queryClient = useQueryClient();
+  const bootstrapKey = useMemo(() => ['selection', capability, 'bootstrap'] as const, [capability]);
+  const bootstrap = useQuery({
+    queryKey: bootstrapKey,
+    enabled: Boolean(capability),
+    queryFn: async ({ signal }) => {
+      const [sessionResponse, eventResponse, availabilityResponse] = await Promise.all([
+        client.GET('/api/v1/selection/session', { headers, signal }),
+        client.GET('/api/v1/selection/event', { headers, signal }),
+        client.GET('/api/v1/selection/availability', { headers, signal }),
+      ]);
+      if (sessionResponse.error || eventResponse.error || availabilityResponse.error) {
+        throw new Error('selection bootstrap rejected');
+      }
+      return {
+        session: sessionResponse.data as Session,
+        event: eventResponse.data as EventView,
+        availability: availabilityResponse.data as Availability,
+      };
+    },
+  });
+  const session = bootstrap.data?.session;
+  const event = bootstrap.data?.event;
+  const availability = bootstrap.data?.availability;
+  const serverOffsetMs = availability ? serverOffset(availability.server_time) : 0;
+  const refresh = async () => {
+    await bootstrap.refetch();
+  };
+  const command = useMutation({ mutationFn: async (execute: () => Promise<unknown>) => execute() });
   useEffect(() => {
     const timer = setInterval(() => tick((v) => v + 1), 1000);
     return () => clearInterval(timer);
@@ -54,31 +57,32 @@ export function useSelectionSession() {
     const intent = `reserve:${selected.offer_id}:${quantity}`;
     const key = getIntentKey(intentKeys.current, intent);
 
-    setBusy(true);
-    setError('');
+    setMutationError('');
 
     try {
-      const response = await client.POST('/api/v1/selection/reservations', {
-        params: {
-          header: {
-            'Idempotency-Key': key,
-            'X-Request-ID': crypto.randomUUID(),
-          },
-        },
-        headers,
-        body: {
-          items: [
-            {
-              offer_id: selected.offer_id,
-              quantity,
+      const response = (await command.mutateAsync(() =>
+        client.POST('/api/v1/selection/reservations', {
+          params: {
+            header: {
+              'Idempotency-Key': key,
+              'X-Request-ID': crypto.randomUUID(),
             },
-          ],
-        },
-      });
+          },
+          headers,
+          body: {
+            items: [
+              {
+                offer_id: selected.offer_id,
+                quantity,
+              },
+            ],
+          },
+        }),
+      )) as Awaited<ReturnType<typeof client.POST>>;
 
       if (response.error) {
         clearIntentKey(intentKeys.current, intent);
-        setError('That inventory could not be held. Availability has been refreshed.');
+        setMutationError('That inventory could not be held. Availability has been refreshed.');
         await refresh();
         return;
       }
@@ -86,11 +90,9 @@ export function useSelectionSession() {
       clearIntentKey(intentKeys.current, intent);
       setHold(response.data as Hold);
     } catch {
-      setError(
+      setMutationError(
         'The result could not be confirmed. Retry the same selection; TktSync will reuse the same request identity.',
       );
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -100,34 +102,35 @@ export function useSelectionSession() {
     const intent = `modify:${hold.id}:${selected.offer_id}:${quantity}`;
     const key = getIntentKey(intentKeys.current, intent);
 
-    setBusy(true);
-    setError('');
+    setMutationError('');
 
     try {
-      const response = await client.PATCH('/api/v1/selection/reservations/{reservation_id}', {
-        params: {
-          path: {
-            reservation_id: hold.id,
-          },
-          header: {
-            'X-TktSync-Reservation-Token': hold.reservation_token,
-            'Idempotency-Key': key,
-          },
-        },
-        headers,
-        body: {
-          add_items: [
-            {
-              offer_id: selected.offer_id,
-              quantity,
+      const response = (await command.mutateAsync(() =>
+        client.PATCH('/api/v1/selection/reservations/{reservation_id}', {
+          params: {
+            path: {
+              reservation_id: hold.id,
             },
-          ],
-        },
-      });
+            header: {
+              'X-TktSync-Reservation-Token': hold.reservation_token,
+              'Idempotency-Key': key,
+            },
+          },
+          headers,
+          body: {
+            add_items: [
+              {
+                offer_id: selected.offer_id,
+                quantity,
+              },
+            ],
+          },
+        }),
+      )) as Awaited<ReturnType<typeof client.PATCH>>;
 
       if (response.error) {
         clearIntentKey(intentKeys.current, intent);
-        setError('The hold could not be changed.');
+        setMutationError('The hold could not be changed.');
         return;
       }
 
@@ -138,11 +141,9 @@ export function useSelectionSession() {
         reservation_token: hold.reservation_token,
       });
     } catch {
-      setError(
+      setMutationError(
         'The change result could not be confirmed. Retry the same change; TktSync will reuse the same request identity.',
       );
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -152,13 +153,11 @@ export function useSelectionSession() {
     const intent = `release:${hold.id}`;
     const key = getIntentKey(intentKeys.current, intent);
 
-    setBusy(true);
-    setError('');
+    setMutationError('');
 
     try {
-      const response = await client.POST(
-        '/api/v1/selection/reservations/{reservation_id}/release',
-        {
+      const response = (await command.mutateAsync(() =>
+        client.POST('/api/v1/selection/reservations/{reservation_id}/release', {
           params: {
             path: {
               reservation_id: hold.id,
@@ -170,12 +169,12 @@ export function useSelectionSession() {
           },
           headers,
           body: {},
-        },
-      );
+        }),
+      )) as Awaited<ReturnType<typeof client.POST>>;
 
       if (response.error) {
         clearIntentKey(intentKeys.current, intent);
-        setError('The hold could not be released.');
+        setMutationError('The hold could not be released.');
         return;
       }
 
@@ -183,13 +182,11 @@ export function useSelectionSession() {
 
       setHold(undefined);
       setSelected(undefined);
-      await refresh();
+      await queryClient.invalidateQueries({ queryKey: bootstrapKey });
     } catch {
-      setError(
+      setMutationError(
         'The release result could not be confirmed. Retry release; TktSync will reuse the same request identity.',
       );
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -227,8 +224,15 @@ export function useSelectionSession() {
     quantity,
     setQuantity,
     hold,
-    error,
-    busy,
+    error: !capability
+      ? 'Open the secure selection link supplied by the ticket partner.'
+      : bootstrap.isError
+        ? 'This selection link is invalid, expired, or the event is not available.'
+        : mutationError,
+    busy: command.isPending,
+    loading: bootstrap.isPending,
+    refreshing: bootstrap.isFetching && !bootstrap.isPending,
+    retry: refresh,
     serverOffsetMs,
     offers,
     reserve,

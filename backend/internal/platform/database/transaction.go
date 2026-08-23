@@ -4,11 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 type TxBeginner interface {
@@ -54,11 +58,15 @@ func (r *Runner) Run(ctx context.Context, work func(pgx.Tx) error) error {
 	if tx, ok := TransactionFromContext(ctx); ok {
 		return work(tx)
 	}
+	ctx, span := otel.Tracer("tktsync.database").Start(ctx, "database.transaction")
+	defer span.End()
 
 	var lastErr error
 
 	for attempt := 1; attempt <= r.maxAttempts; attempt++ {
 		if err := ctx.Err(); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "context ended")
 			return err
 		}
 
@@ -93,6 +101,7 @@ func (r *Runner) Run(ctx context.Context, work func(pgx.Tx) error) error {
 
 		err = tx.Commit(ctx)
 		if err == nil {
+			span.SetAttributes(attribute.Int("db.transaction.attempts", attempt))
 			return nil
 		}
 
@@ -105,7 +114,8 @@ func (r *Runner) Run(ctx context.Context, work func(pgx.Tx) error) error {
 			return err
 		}
 	}
-
+	span.SetStatus(codes.Error, "attempts exhausted")
+	span.RecordError(lastErr)
 	return fmt.Errorf("transaction attempts exhausted: %w", lastErr)
 }
 
@@ -119,6 +129,9 @@ func (r *Runner) wait(ctx context.Context, attempt int) error {
 			break
 		}
 	}
+	// Full jitter prevents synchronized replicas from retrying the same lock at
+	// identical boundaries while retaining the existing bounded backoff.
+	delay = time.Duration(rand.Int64N(int64(delay) + 1))
 
 	timer := time.NewTimer(delay)
 	defer timer.Stop()

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { createTktSyncClient } from '@tktsync/api-client';
 import type { ScanResult } from './types';
 
@@ -19,32 +20,34 @@ export function useScanner() {
   const [manual, setManual] = useState('');
   const [result, setResult] = useState<ScanResult>();
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
   const [camera, setCamera] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
   const stream = useRef<MediaStream | null>(null);
+  const intentKeys = useRef(new Map<string, string>());
   const client = useMemo(() => createTktSyncClient(import.meta.env.VITE_API_BASE_URL ?? ''), []);
+  const scan = useMutation({
+    retry: false,
+    mutationFn: ({ qr, key }: { qr: string; key: string }) =>
+      client.POST('/api/v1/admission/scans', {
+        params: { header: { 'Idempotency-Key': key, 'X-Request-ID': crypto.randomUUID() } },
+        headers: { Authorization: `Bearer ${token}` },
+        body: { event_id: eventID, credential: qr, gate_reference: deviceID },
+      }),
+  });
+  const busy = scan.isPending;
   const submit = useCallback(
     async (qr: string) => {
       if (!qr.trim() || busy) return;
-      setBusy(true);
       setError('');
       sessionStorage.setItem('tktsync.scanner.token', token);
       sessionStorage.setItem('tktsync.scanner.event', eventID);
       try {
-        const response = await client.POST('/api/v1/admission/scans', {
-          params: {
-            header: {
-              'Idempotency-Key': crypto.randomUUID(),
-              'X-Request-ID': crypto.randomUUID(),
-            },
-          },
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: { event_id: eventID, credential: qr.trim(), gate_reference: deviceID },
-        });
+        const intent = `${eventID}:${qr.trim()}`;
+        const key = intentKeys.current.get(intent) ?? crypto.randomUUID();
+        intentKeys.current.set(intent, key);
+        const response = await scan.mutateAsync({ qr: qr.trim(), key });
         if (response.error) {
+          intentKeys.current.delete(intent);
           const failure = response.error as { error?: { code?: string; message?: string } };
           setResult(undefined);
           setError(
@@ -54,16 +57,15 @@ export function useScanner() {
           );
           return;
         }
+        intentKeys.current.delete(intent);
         setResult(response.data as unknown as ScanResult);
         setManual('');
       } catch {
         setResult(undefined);
         setError('Central authority could not be reached. Do not admit.');
-      } finally {
-        setBusy(false);
       }
     },
-    [busy, client, deviceID, eventID, token],
+    [busy, eventID, scan, token],
   );
   const startCamera = async () => {
     try {

@@ -5,7 +5,7 @@ DATABASE_URL ?= postgres://tktsync:tktsync@localhost:$${POSTGRES_PORT:-5432}/tkt
 MIGRATE_IMAGE ?= migrate/migrate:v4.18.3
 LOAD_ENV = set -a; [ ! -f "$(CURDIR)/.env" ] || . "$(CURDIR)/.env"; set +a;
 
-.PHONY: setup dev dev-api dev-worker dev-admin dev-selector dev-scanner build test lint typecheck format-check db-up db-down db-migrate db-reset verify-schema verify-platform-foundation verify-event-configuration verify-inventory-allocation verify-api-contract verify-reservations verify-ticketing verify-admissions verify-async-delivery verify-selection verify-reporting verify-fresh-database certify-partner-integration verify-release
+.PHONY: setup dev dev-api dev-worker dev-admin dev-selector dev-scanner build test lint typecheck format-check benchmark-runtime db-up db-down db-migrate db-reset verify-schema verify-platform-foundation verify-event-configuration verify-inventory-allocation verify-api-contract verify-reservations verify-ticketing verify-admissions verify-async-delivery verify-selection verify-reporting verify-fresh-database certify-partner-integration verify-release
 
 setup:
 	pnpm install --frozen-lockfile
@@ -49,6 +49,10 @@ typecheck:
 format-check:
 	test -z "$$(cd backend && gofmt -l .)"
 	pnpm format:check
+
+benchmark-runtime:
+	cd backend && RUNTIME_BENCHMARK=true go test ./internal/platform/httpserver -run TestRuntimeLoadProfile -count=1 -v
+	cd backend && go test ./internal/platform/httpserver -run '^$$' -bench BenchmarkHTTPRuntimeHealth -benchmem -count=3
 
 db-up:
 	docker compose up -d --wait postgres

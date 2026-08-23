@@ -35,7 +35,17 @@ func Start(ctx context.Context, service string) (Resources, error) {
 
 	logger := logging.New(os.Stdout, service, cfg)
 
-	pool, err := database.Open(ctx, cfg.Database.URL)
+	pool, err := database.Open(ctx, database.PoolOptions{
+		URL:              cfg.Database.URL,
+		ApplicationName:  "tktsync-" + service,
+		MaxConnections:   cfg.Database.MaxConnections,
+		MinConnections:   cfg.Database.MinConnections,
+		MaxLifetime:      cfg.Database.MaxLifetime,
+		MaxIdleLifetime:  cfg.Database.MaxIdleLifetime,
+		ConnectTimeout:   cfg.Database.ConnectTimeout,
+		StatementTimeout: cfg.Database.StatementTimeout,
+		LockTimeout:      cfg.Database.LockTimeout,
+	})
 	if err != nil {
 		return Resources{}, err
 	}

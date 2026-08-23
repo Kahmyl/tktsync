@@ -1,4 +1,14 @@
-import { Button, InlineNotice, PageHeader, Panel, ProductShell, StatusPill } from '@tktsync/ui';
+import {
+  Button,
+  EmptyState,
+  ErrorState,
+  InlineNotice,
+  PageHeader,
+  Panel,
+  ProductShell,
+  Skeleton,
+  StatusPill,
+} from '@tktsync/ui';
 import { formatMoney, remaining } from './presentation';
 import { useSelectionSession } from './useSelectionSession';
 
@@ -12,6 +22,9 @@ export function SelectionPage() {
     hold,
     error,
     busy,
+    loading,
+    refreshing,
+    retry,
     serverOffsetMs,
     offers,
     reserve,
@@ -42,11 +55,18 @@ export function SelectionPage() {
           )
         }
       />
-      {error && (
-        <InlineNotice tone="danger" title="Selection unavailable">
-          {error}
-        </InlineNotice>
-      )}
+      {error &&
+        (event ? (
+          <InlineNotice tone="danger" title="Selection unavailable">
+            {error}
+          </InlineNotice>
+        ) : (
+          <ErrorState
+            title="Selection unavailable"
+            description={error}
+            retry={() => void retry()}
+          />
+        ))}
       {!hold ? (
         <div className="selector-grid">
           <Panel
@@ -54,6 +74,7 @@ export function SelectionPage() {
             description={`${offers.length} bookable offers. Availability may change until your hold succeeds.`}
           >
             <div className="seat-list">
+              {loading && <Skeleton lines={4} />}
               {offers.map((offer) => (
                 <button
                   key={offer.offer_id}
@@ -72,8 +93,23 @@ export function SelectionPage() {
                   <b>{formatMoney(offer.price.amount_minor, offer.price.currency)}</b>
                 </button>
               ))}
-              {offers.length === 0 && <p className="muted">No inventory is currently available.</p>}
+              {!loading && offers.length === 0 && (
+                <EmptyState
+                  title="No inventory available"
+                  description="Inventory may be held by other customers or the event may not yet be on sale."
+                  action={
+                    <Button className="secondary" onClick={() => void retry()}>
+                      Refresh availability
+                    </Button>
+                  }
+                />
+              )}
             </div>
+            {refreshing && (
+              <small role="status" aria-live="polite">
+                Updating availability…
+              </small>
+            )}
           </Panel>
           <Panel
             title="Your selection"

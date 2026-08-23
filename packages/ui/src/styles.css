@@ -26,6 +26,14 @@ select,
 textarea {
   font: inherit;
 }
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(27, 110, 75, 0.35);
+  outline-offset: 3px;
+}
 .product-shell {
   min-height: 100vh;
 }
@@ -149,6 +157,79 @@ textarea {
   opacity: 0.48;
   cursor: not-allowed;
   transform: none;
+}
+.spinner {
+  display: inline-flex;
+  align-items: center;
+}
+.spinner i {
+  width: 15px;
+  height: 15px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.skeleton {
+  display: grid;
+  gap: 12px;
+}
+.skeleton i {
+  display: block;
+  height: 42px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #edf1ee 25%, #f7f9f7 50%, #edf1ee 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+.skeleton i:first-child {
+  height: 72px;
+}
+.error-state,
+.fatal-state {
+  padding: 28px;
+  border-radius: 14px;
+  background: #fae6e2;
+  color: #8e3227;
+  text-align: center;
+}
+.fatal-state {
+  max-width: 640px;
+  margin: 15vh auto;
+}
+.error-state p,
+.fatal-state p {
+  margin: 8px 0 18px;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner i,
+  .skeleton i {
+    animation: none;
+  }
+  .button {
+    transition: none;
+  }
 }
 .button.secondary {
   background: #edf1ee;

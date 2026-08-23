@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/tktsync/tktsync/backend/internal/adminapi"
 	"github.com/tktsync/tktsync/backend/internal/admission"
@@ -16,6 +17,7 @@ import (
 	"github.com/tktsync/tktsync/backend/internal/partnerapi"
 	"github.com/tktsync/tktsync/backend/internal/platform/bootstrap"
 	"github.com/tktsync/tktsync/backend/internal/platform/httpserver"
+	"github.com/tktsync/tktsync/backend/internal/platform/telemetry"
 	"github.com/tktsync/tktsync/backend/internal/realtimeapi"
 	"github.com/tktsync/tktsync/backend/internal/reporting"
 	"github.com/tktsync/tktsync/backend/internal/reservation"
@@ -34,6 +36,17 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("bootstrap API: %w", err)
 	}
 	defer resources.Close()
+	telemetryRuntime, err := telemetry.Start(ctx, "tktsync-api", resources.Config.Telemetry, resources.Logger)
+	if err != nil {
+		return fmt.Errorf("configure telemetry: %w", err)
+	}
+	defer func() {
+		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if shutdownErr := telemetryRuntime.Shutdown(shutdown); shutdownErr != nil {
+			resources.Logger.Error("telemetry shutdown failed", "operation", "telemetry.shutdown", "error", shutdownErr)
+		}
+	}()
 
 	replayProtector, err :=
 		adminapi.NewReplayProtectorFromEncoded(
@@ -174,17 +187,37 @@ func run(ctx context.Context) error {
 		),
 	)
 
-	handler := httpserver.Handler(
+	readiness := &httpserver.Readiness{}
+	handler := telemetryRuntime.HTTPHandler(httpserver.HandlerWithOptions(
 		resources.Logger,
 		resources.Database,
+		httpserver.Options{
+			Readiness:          readiness,
+			RequestTimeout:     resources.Config.HTTP.RequestTimeout,
+			LongRequestTimeout: resources.Config.HTTP.LongRequestTimeout,
+			MaxBodyBytes:       resources.Config.HTTP.MaxBodyBytes,
+			MaxInFlight:        resources.Config.HTTP.MaxInFlight,
+			MetricsEnabled:     resources.Config.HTTP.MetricsEnabled,
+			MetricsToken:       resources.Config.HTTP.MetricsToken,
+			PoolStats: func() httpserver.PoolSnapshot {
+				stat := resources.Database.Stat()
+				return httpserver.PoolSnapshot{Acquired: stat.AcquiredConns(), Idle: stat.IdleConns(), Total: stat.TotalConns(), Max: stat.MaxConns(), AcquireCount: uint64(stat.AcquireCount()), EmptyAcquireCount: uint64(stat.EmptyAcquireCount()), AcquireDuration: stat.AcquireDuration()}
+			},
+		},
 		httpserver.CORS(metricsObserver.Middleware(apiMux), resources.Config.BrowserOrigins),
-	)
+	))
 
 	server := httpserver.New(
 		resources.Config.HTTP.Address(),
 		handler,
 		resources.Logger,
-		resources.Config.Shutdown,
+		httpserver.ServerOptions{
+			ShutdownTimeout:   resources.Config.Shutdown,
+			ReadHeaderTimeout: resources.Config.HTTP.ReadHeaderTimeout,
+			IdleTimeout:       resources.Config.HTTP.IdleTimeout,
+			MaxHeaderBytes:    resources.Config.HTTP.MaxHeaderBytes,
+			Readiness:         readiness,
+		},
 	)
 
 	return server.Run(ctx)

@@ -11,6 +11,7 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.102.1",
     "@tktsync/api-client": "workspace:*",
     "@tktsync/ui": "workspace:*",
     "react": "^19.1.1",

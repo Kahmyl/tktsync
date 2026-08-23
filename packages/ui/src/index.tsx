@@ -1,4 +1,39 @@
-import type { ButtonHTMLAttributes, PropsWithChildren, ReactNode } from 'react';
+import {
+  Component,
+  type ButtonHTMLAttributes,
+  type ErrorInfo,
+  type PropsWithChildren,
+  type ReactNode,
+} from 'react';
+
+export class AppErrorBoundary extends Component<PropsWithChildren, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    window.dispatchEvent(
+      new CustomEvent('tktsync:client-error', {
+        detail: {
+          kind: 'render',
+          name: error.name,
+          componentStack: info.componentStack?.slice(0, 500),
+        },
+      }),
+    );
+  }
+  render() {
+    if (this.state.failed)
+      return (
+        <main className="fatal-state" role="alert">
+          <h1>This screen could not be displayed</h1>
+          <p>Reload the page. If the problem continues, contact TktSync support.</p>
+          <Button onClick={() => location.reload()}>Reload</Button>
+        </main>
+      );
+    return this.props.children;
+  }
+}
 
 export function ProductShell({
   product,
@@ -72,6 +107,66 @@ export function Panel({
 
 export function Button({ className = '', ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
   return <button className={`button ${className}`} {...props} />;
+}
+
+export function Spinner({ label = 'Working' }: { label?: string }) {
+  return (
+    <span className="spinner" role="status">
+      <i aria-hidden="true" />
+      <span className="sr-only">{label}</span>
+    </span>
+  );
+}
+
+export function Skeleton({ lines = 3 }: { lines?: number }) {
+  return (
+    <div className="skeleton" aria-label="Loading content" role="status">
+      {Array.from({ length: lines }, (_, index) => (
+        <i key={index} />
+      ))}
+    </div>
+  );
+}
+
+export function EmptyState({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="empty-state">
+      <span aria-hidden="true">⌁</span>
+      <strong>{title}</strong>
+      <p>{description}</p>
+      {action}
+    </div>
+  );
+}
+
+export function ErrorState({
+  title,
+  description,
+  retry,
+}: {
+  title: string;
+  description: string;
+  retry?: () => void;
+}) {
+  return (
+    <div className="error-state" role="alert">
+      <strong>{title}</strong>
+      <p>{description}</p>
+      {retry && (
+        <Button className="secondary" onClick={retry}>
+          Try again
+        </Button>
+      )}
+    </div>
+  );
 }
 export function StatusPill({
   tone = 'neutral',

@@ -59,6 +59,9 @@ importers:
 
   apps/admin-web:
     dependencies:
+      '@tanstack/react-query':
+        specifier: ^5.102.1
+        version: 5.102.1(react@19.2.8)
       '@tktsync/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
@@ -74,6 +77,9 @@ importers:
 
   apps/scanner-web:
     dependencies:
+      '@tanstack/react-query':
+        specifier: ^5.102.1
+        version: 5.102.1(react@19.2.8)
       '@tktsync/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
@@ -89,6 +95,9 @@ importers:
 
   apps/selector-web:
     dependencies:
+      '@tanstack/react-query':
+        specifier: ^5.102.1
+        version: 5.102.1(react@19.2.8)
       '@tktsync/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
@@ -586,6 +595,14 @@ packages:
     resolution: {integrity: sha512-/gDJaRs4gl0NPIwqCz+6PkpmhhjRAD2j6P4rSNHBzUkO3naEx2mIU0pRle1vUNRQ7mE/+8OOeXLTv/J56FKiQg==}
     cpu: [x64]
     os: [win32]
+
+  '@tanstack/query-core@5.102.1':
+    resolution: {integrity: sha512-bJTsrO2ODWSgg+x1leTsK036GBtmNNjnrF1Vk06J5fg/phYZLQIdXrBe0uf5xTItXYvIW1MtbLhyPw7cPMqUUQ==}
+
+  '@tanstack/react-query@5.102.1':
+    resolution: {integrity: sha512-DKJeRvxjsGUWhUVnVVXSseTS0SKBMLSkrz8dm7i08r93IQQ2gAfUkX1e801gVZ18KSwHiG5yng4tQm5+qSGS0w==}
+    peerDependencies:
+      react: ^18 || ^19
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -1856,6 +1873,13 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.62.5':
     optional: true
+
+  '@tanstack/query-core@5.102.1': {}
+
+  '@tanstack/react-query@5.102.1(react@19.2.8)':
+    dependencies:
+      '@tanstack/query-core': 5.102.1
+      react: 19.2.8
 
   '@types/babel__core@7.20.5':
     dependencies:

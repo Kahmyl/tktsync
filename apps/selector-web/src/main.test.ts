@@ -1,9 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
+import { queryClient } from './features/selection/queryClient';
 import { consumeCapability } from './features/selection/capability';
 import { clearIntentKey, getIntentKey } from './features/selection/idempotency';
 import { remaining, serverOffset } from './features/selection/presentation';
 
 describe('selector security and timer', () => {
+  it('uses short-lived server state and non-retrying mutations', () => {
+    expect(queryClient.getDefaultOptions().queries?.staleTime).toBe(2_000);
+    expect(queryClient.getDefaultOptions().mutations?.retry).toBe(false);
+  });
   it('consumes the fragment and removes it from the visible URL', () => {
     const replaceState = vi.fn();
     expect(

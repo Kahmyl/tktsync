@@ -8,16 +8,20 @@ import (
 	"time"
 )
 
+type ServerOptions struct {
+	ShutdownTimeout, ReadHeaderTimeout, IdleTimeout time.Duration
+	MaxHeaderBytes                                  int
+	Readiness                                       *Readiness
+}
 type Server struct {
-	server          *http.Server
-	logger          *slog.Logger
-	shutdownTimeout time.Duration
+	server  *http.Server
+	logger  *slog.Logger
+	options ServerOptions
 }
 
-func New(address string, handler http.Handler, logger *slog.Logger, shutdownTimeout time.Duration) *Server {
-	return &Server{server: &http.Server{Addr: address, Handler: handler, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}, logger: logger, shutdownTimeout: shutdownTimeout}
+func New(address string, handler http.Handler, logger *slog.Logger, options ServerOptions) *Server {
+	return &Server{server: &http.Server{Addr: address, Handler: handler, ReadHeaderTimeout: options.ReadHeaderTimeout, IdleTimeout: options.IdleTimeout, MaxHeaderBytes: options.MaxHeaderBytes}, logger: logger, options: options}
 }
-
 func (s *Server) Run(ctx context.Context) error {
 	errorsCh := make(chan error, 1)
 	go func() {
@@ -31,9 +35,17 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 		return err
 	case <-ctx.Done():
-		shutdownContext, cancel := context.WithTimeout(context.Background(), s.shutdownTimeout)
+		if s.options.Readiness != nil {
+			s.options.Readiness.BeginDrain()
+		}
+		s.logger.Info("API draining", "operation", "http.shutdown", "grace_period", s.options.ShutdownTimeout)
+		shutdownContext, cancel := context.WithTimeout(context.Background(), s.options.ShutdownTimeout)
 		defer cancel()
-		s.logger.Info("API shutting down", "operation", "http.shutdown")
-		return s.server.Shutdown(shutdownContext)
+		if err := s.server.Shutdown(shutdownContext); err != nil {
+			s.logger.Warn("API graceful shutdown deadline exceeded", "operation", "http.shutdown", "error", err)
+			_ = s.server.Close()
+			return err
+		}
+		return nil
 	}
 }

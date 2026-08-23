@@ -17,6 +17,9 @@ func TestLoadUsesTypedValues(t *testing.T) {
 		"DB_TX_MAX_ATTEMPTS":      "4",
 		"DB_TX_RETRY_BASE_DELAY":  "25ms",
 		"SUPABASE_JWT_ALGORITHMS": "ES256",
+		"DB_MAX_CONNECTIONS":      "32",
+		"DB_MIN_CONNECTIONS":      "4",
+		"WORKER_CONCURRENCY":      "6",
 	}
 
 	cfg, err := load(func(key string) (string, bool) {
@@ -47,6 +50,12 @@ func TestLoadUsesTypedValues(t *testing.T) {
 		cfg.Supabase.JWTAlgorithms[0] != "ES256" {
 		t.Fatalf("unexpected algorithms: %#v", cfg.Supabase.JWTAlgorithms)
 	}
+	if cfg.Database.MaxConnections != 32 || cfg.Database.MinConnections != 4 {
+		t.Fatalf("unexpected pool sizing: %d/%d", cfg.Database.MinConnections, cfg.Database.MaxConnections)
+	}
+	if cfg.Worker.Concurrency != 6 {
+		t.Fatalf("unexpected worker concurrency: %d", cfg.Worker.Concurrency)
+	}
 }
 
 func TestLoadRejectsInvalidPort(t *testing.T) {
@@ -61,6 +70,22 @@ func TestLoadRejectsInvalidPort(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected invalid API_PORT to fail")
+	}
+}
+
+func TestLoadRejectsMetricsWithoutBearerToken(t *testing.T) {
+	values := map[string]string{"DATABASE_URL": "postgres://example", "METRICS_ENABLED": "true"}
+	_, err := load(func(key string) (string, bool) { value, ok := values[key]; return value, ok })
+	if err == nil {
+		t.Fatal("expected unprotected metrics configuration to fail")
+	}
+}
+
+func TestLoadRejectsPoolBudgetMismatch(t *testing.T) {
+	values := map[string]string{"DATABASE_URL": "postgres://example", "DB_MAX_CONNECTIONS": "2", "DB_MIN_CONNECTIONS": "3"}
+	_, err := load(func(key string) (string, bool) { value, ok := values[key]; return value, ok })
+	if err == nil {
+		t.Fatal("expected invalid pool budget to fail")
 	}
 }
 

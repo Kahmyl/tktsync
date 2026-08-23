@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/tktsync/tktsync/backend/internal/platform/database"
 	"github.com/tktsync/tktsync/backend/internal/platform/publicid"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type DeliveryWorker struct {
@@ -41,9 +42,19 @@ func NewDeliveryWorker(transactions *database.Runner, box *SecretBox, allowPriva
 	if timeout <= 0 {
 		timeout = 5 * time.Second
 	}
-	dialer := &net.Dialer{Timeout: timeout}
-	transport := &http.Transport{Proxy: nil, TLSHandshakeTimeout: timeout, ResponseHeaderTimeout: timeout, DialContext: safeDialContext(dialer, allowPrivate)}
-	return &DeliveryWorker{transactions: transactions, box: box, client: &http.Client{Timeout: timeout, Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, batchSize: batchSize, maxAttempts: maxAttempts, lease: timeout + 5*time.Second, workerID: uuid.New()}
+	dialer := &net.Dialer{Timeout: timeout, KeepAlive: 30 * time.Second}
+	transport := &http.Transport{
+		Proxy:                 nil,
+		TLSHandshakeTimeout:   timeout,
+		ResponseHeaderTimeout: timeout,
+		IdleConnTimeout:       90 * time.Second,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   10,
+		MaxConnsPerHost:       20,
+		ExpectContinueTimeout: time.Second,
+		DialContext:           safeDialContext(dialer, allowPrivate),
+	}
+	return &DeliveryWorker{transactions: transactions, box: box, client: &http.Client{Timeout: timeout, Transport: otelhttp.NewTransport(transport), CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, batchSize: batchSize, maxAttempts: maxAttempts, lease: timeout + 5*time.Second, workerID: uuid.New()}
 }
 
 func safeDialContext(dialer *net.Dialer, allowPrivate bool) func(context.Context, string, string) (net.Conn, error) {
