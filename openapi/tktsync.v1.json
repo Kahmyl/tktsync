@@ -3615,6 +3615,39 @@
         }
       }
     },
+    "/api/v1/admission/events": {
+      "get": {
+        "operationId": "admissionListAuthorizedEvents",
+        "security": [
+          {
+            "ScannerBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Events the signed-in operator is authorized to scan.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/XRequestID"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScannerEventList"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
     "/api/v1/admission/scans": {
       "post": {
         "operationId": "admissionValidateAndAdmit",
@@ -5750,6 +5783,12 @@
           "timezone_name": {
             "type": ["string", "null"]
           },
+          "venue_name": {
+            "type": ["string", "null"]
+          },
+          "address_text": {
+            "type": ["string", "null"]
+          },
           "server_time": {
             "type": "string",
             "format": "date-time"
@@ -6542,6 +6581,57 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TicketSummary"
+            }
+          }
+        }
+      },
+      "ScannerEvent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "state", "venue_name"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^evt_"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "state": {
+            "type": "string",
+            "enum": ["DRAFT", "ON_SALE", "PAUSED", "SALES_CLOSED", "COMPLETED", "CANCELLED"]
+          },
+          "starts_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "ends_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "timezone_name": {
+            "type": ["string", "null"]
+          },
+          "venue_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "address_text": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "ScannerEventList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/ScannerEvent"
             }
           }
         }

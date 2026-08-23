@@ -900,6 +900,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/admission/events': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['admissionListAuthorizedEvents'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/admission/scans': {
     parameters: {
       query?: never;
@@ -1508,6 +1524,8 @@ export interface components {
       /** Format: date-time */
       admission_close_at?: string | null;
       timezone_name?: string | null;
+      venue_name?: string | null;
+      address_text?: string | null;
       /** Format: date-time */
       server_time: string;
     };
@@ -1752,6 +1770,22 @@ export interface components {
       /** Format: date-time */
       issued_at: string;
       tickets: components['schemas']['TicketSummary'][];
+    };
+    ScannerEvent: {
+      id: string;
+      name: string;
+      /** @enum {string} */
+      state: 'DRAFT' | 'ON_SALE' | 'PAUSED' | 'SALES_CLOSED' | 'COMPLETED' | 'CANCELLED';
+      /** Format: date-time */
+      starts_at?: string | null;
+      /** Format: date-time */
+      ends_at?: string | null;
+      timezone_name?: string | null;
+      venue_name: string;
+      address_text?: string | null;
+    };
+    ScannerEventList: {
+      items: components['schemas']['ScannerEvent'][];
     };
     AdmissionScanRequest: {
       event_id: string;
@@ -4167,6 +4201,29 @@ export interface operations {
     };
     responses: {
       200: components['responses']['ReReleaseTicketInventoryResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  admissionListAuthorizedEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Events the signed-in operator is authorized to scan. */
+      200: {
+        headers: {
+          'X-Request-ID': components['headers']['XRequestID'];
+          'Cache-Control': components['headers']['CacheControlNoStore'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ScannerEventList'];
+        };
+      };
       default: components['responses']['ErrorResponse'];
     };
   };

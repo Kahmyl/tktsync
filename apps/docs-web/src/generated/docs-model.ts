@@ -105,6 +105,20 @@ export const partnerOperations = [
             children: [],
           },
           {
+            name: 'venue_name',
+            required: false,
+            type: 'string | null',
+            description: '',
+            children: [],
+          },
+          {
+            name: 'address_text',
+            required: false,
+            type: 'string | null',
+            description: '',
+            children: [],
+          },
+          {
             name: 'server_time',
             required: true,
             type: 'string · date-time',
