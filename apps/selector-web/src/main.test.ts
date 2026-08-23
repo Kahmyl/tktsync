@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { clearIntentKey, consumeCapability, getIntentKey, remaining, serverOffset } from './main';
+import { consumeCapability } from './features/selection/capability';
+import { clearIntentKey, getIntentKey } from './features/selection/idempotency';
+import { remaining, serverOffset } from './features/selection/presentation';
 
 describe('selector security and timer', () => {
   it('consumes the fragment and removes it from the visible URL', () => {

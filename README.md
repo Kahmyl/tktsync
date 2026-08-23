@@ -58,7 +58,7 @@ If port 5432 is already occupied, set `POSTGRES_PORT` and update the port in `DA
 
 - `apps/` — Admin, selector, and scanner React applications
 - `backend/` — authoritative Go codebase and API/worker commands
-- `packages/` — shared UI plus generation-ready contracts and API client packages
+- `packages/` — shared UI primitives and the generated API client
 - `migrations/` — ordered PostgreSQL migrations
 - `tests/` — integration, concurrency, end-to-end, and fixture conventions
 - `docs/` — architecture, API, operations, and implementation history

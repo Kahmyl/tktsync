@@ -17,4 +17,21 @@ export default tseslint.config(
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
+  {
+    files: ['apps/**/*.{ts,tsx}', 'packages/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/admin-web/src/**', '**/selector-web/src/**', '**/scanner-web/src/**'],
+              message:
+                'Application source is private. Move genuinely shared code into a workspace package.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

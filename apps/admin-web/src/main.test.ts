@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { workflows } from './main';
+import { workflows } from './features/workflows/catalog';
 
 describe('admin workflow catalog', () => {
   it('covers administration, lifecycle, and Reporting operational workflows with contract paths', () => {
