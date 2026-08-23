@@ -4,7 +4,7 @@ TktSync is a pnpm monorepo with three React/Vite applications and a Go backend t
 
 ## Local product stack
 
-Docker Compose runs PostgreSQL, automatic migrations and application seeds, the API, worker, Admin, Selector, and Scanner together. Docker with Compose is the only prerequisite for this path.
+Docker Compose runs PostgreSQL, automatic migrations and application seeds, the API, worker, Admin, Selector, Scanner, and Partner developer documentation together. Docker with Compose is the only prerequisite for this path.
 
 ```sh
 cp .env.example .env
@@ -18,6 +18,7 @@ With the default ports, open:
 - Admin: http://localhost:54470
 - Selector: http://localhost:54471
 - Scanner: http://localhost:54472
+- Partner API docs: http://localhost:54473
 - PostgreSQL: `localhost:55439`
 
 Migrations run after PostgreSQL becomes healthy, then the idempotent seed runs; the API and worker start only after both succeed. A normal cached startup should complete within 60 seconds, while a first image pull/build can take longer.
@@ -30,7 +31,7 @@ make local-seed   # rerun application defaults after changing operator settings
 make local-reset  # WARNING: destroys the local Compose database volume
 ```
 
-Override any published port in `.env` or for one command without editing Compose, for example `API_HOST_PORT=58481 make local-up`. The frontend API address is compiled from `API_HOST_PORT` during the image build.
+Override any published port in `.env` or for one command without editing Compose, for example `DOCS_HOST_PORT=54474 make local-up`. The frontend API address is compiled from `API_HOST_PORT` during the image build. The docs request console sends local Partner requests through a fixed same-origin proxy; credentials remain in page memory and clear on reload. Optional sandbox and production base URLs are display-only unless a safe execution path is configured, and production execution is disabled.
 
 Admin and Scanner operator login use an external Supabase Auth/OIDC project. Set matching `SUPABASE_JWT_ISSUER`, `SUPABASE_JWKS_URL`, and browser-safe `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` values. An anon key is public client configuration; never put a service-role key, JWT signing secret, or other private credential in a `VITE_*` variable.
 
@@ -57,7 +58,7 @@ Never commit `.env`, signing keys, database passwords, service-role credentials,
 
 ## Repository layout
 
-- `apps/` — Admin, Selector, and Scanner React applications
+- `apps/` — Admin, Selector, Scanner, and Partner documentation React applications
 - `backend/` — authoritative Go API, worker, and domain code
 - `packages/` — shared UI primitives and generated API client
 - `migrations/` — ordered PostgreSQL migrations

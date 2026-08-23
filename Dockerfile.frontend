@@ -10,12 +10,15 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/admin-web/package.json apps/admin-web/package.json
 COPY apps/selector-web/package.json apps/selector-web/package.json
 COPY apps/scanner-web/package.json apps/scanner-web/package.json
+COPY apps/docs-web/package.json apps/docs-web/package.json
 COPY packages/api-client/package.json packages/api-client/package.json
 COPY packages/ui/package.json packages/ui/package.json
 RUN --mount=type=cache,id=tktsync-pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile
 
 COPY tsconfig.base.json ./
+COPY scripts/generate-partner-docs.mjs scripts/generate-partner-docs.mjs
+COPY openapi/tktsync.v1.json openapi/tktsync.v1.json
 COPY apps/ apps/
 COPY packages/ packages/
 
@@ -25,12 +28,16 @@ ARG VITE_API_BASE_URL
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
 ARG VITE_BROWSER_TELEMETRY_ENDPOINT
+ARG VITE_DOCS_LOCAL_API_BASE_URL
+ARG VITE_DOCS_SANDBOX_API_BASE_URL
+ARG VITE_DOCS_PRODUCTION_API_BASE_URL
 RUN pnpm --filter "$APP_PACKAGE..." build && \
     mkdir -p /out && \
     cp -R "apps/$APP_DIRECTORY/dist/." /out/
 
 FROM nginx:1.27-alpine
-COPY docker/nginx-spa.conf /etc/nginx/nginx.conf
+ARG NGINX_CONFIG=nginx-spa.conf
+COPY docker/${NGINX_CONFIG} /etc/nginx/nginx.conf
 COPY --from=build --chown=nginx:nginx /out/ /usr/share/nginx/html/
 USER nginx
 EXPOSE 8080

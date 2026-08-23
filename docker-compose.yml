@@ -167,5 +167,24 @@ services:
     healthcheck: *frontend-healthcheck
     restart: no
 
+  docs:
+    build:
+      <<: *frontend-build
+      args:
+        <<: *frontend-build-args
+        APP_PACKAGE: '@tktsync/docs-web'
+        APP_DIRECTORY: docs-web
+        NGINX_CONFIG: nginx-docs.conf
+        VITE_DOCS_LOCAL_API_BASE_URL: http://localhost:${API_HOST_PORT:-58480}
+        VITE_DOCS_SANDBOX_API_BASE_URL: ${DOCS_SANDBOX_API_BASE_URL:-}
+        VITE_DOCS_PRODUCTION_API_BASE_URL: ${DOCS_PRODUCTION_API_BASE_URL:-}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - ${DOCS_HOST_PORT:-54473}:8080
+    healthcheck: *frontend-healthcheck
+    restart: no
+
 volumes:
   postgres-data:

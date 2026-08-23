@@ -37,5 +37,11 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
+    {
+      command: `VITE_DOCS_LOCAL_API_BASE_URL=http://localhost:58480 pnpm --filter @tktsync/docs-web dev --host 127.0.0.1 --port 4176 --strictPort`,
+      url: 'http://127.0.0.1:4176',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
   ],
 });

@@ -81,6 +81,15 @@ importers:
         specifier: ^19.1.1
         version: 19.2.8(react@19.2.8)
 
+  apps/docs-web:
+    dependencies:
+      react:
+        specifier: ^19.1.1
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.1.1
+        version: 19.2.8(react@19.2.8)
+
   apps/scanner-web:
     dependencies:
       '@supabase/supabase-js':

@@ -16,6 +16,8 @@
     "api:generate": "pnpm --filter @tktsync/api-client generate",
     "api:check": "pnpm --filter @tktsync/api-client check:generated",
     "api:routes": "node scripts/check-route-parity.mjs",
+    "docs:generate": "node scripts/generate-partner-docs.mjs",
+    "docs:check": "node scripts/generate-partner-docs.mjs --check",
     "e2e": "playwright test"
   },
   "devDependencies": {
