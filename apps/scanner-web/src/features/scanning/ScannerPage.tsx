@@ -48,6 +48,22 @@ function formatEventTime(value?: string | null) {
   }).format(new Date(value));
 }
 
+function eventDateParts(value?: string | null) {
+  if (!value) {
+    return { month: 'TBA', day: '—', timing: 'Date to be announced' };
+  }
+  const date = new Date(value);
+  return {
+    month: new Intl.DateTimeFormat(undefined, { month: 'short' }).format(date).toUpperCase(),
+    day: new Intl.DateTimeFormat(undefined, { day: 'numeric' }).format(date),
+    timing: new Intl.DateTimeFormat(undefined, {
+      weekday: 'long',
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(date),
+  };
+}
+
 function Sheet({
   open,
   onClose,
@@ -203,6 +219,27 @@ function EventPicker({
   onRetry: () => void;
   onSignOut: () => void;
 }) {
+  const displayEvents = useMemo(() => {
+    const readable = events.map((event) => ({
+      event,
+      name: humanLabel(event.name, 'Untitled event'),
+      venue: humanLabel(event.venue_name, 'Venue to be announced'),
+      address: humanLabel(event.address_text, ''),
+      date: eventDateParts(event.starts_at),
+    }));
+    const totals = readable.reduce((counts, item) => {
+      counts.set(item.name, (counts.get(item.name) ?? 0) + 1);
+      return counts;
+    }, new Map<string, number>());
+    const seen = new Map<string, number>();
+    return readable.map((item) => {
+      const position = (seen.get(item.name) ?? 0) + 1;
+      seen.set(item.name, position);
+      const total = totals.get(item.name) ?? 1;
+      return { ...item, option: total > 1 ? `Option ${position} of ${total}` : '' };
+    });
+  }, [events]);
+
   return (
     <div className="event-picker-page">
       <header className="picker-header">
@@ -212,11 +249,25 @@ function EventPicker({
         </button>
       </header>
       <main className="event-picker">
-        <span className="picker-icon">
-          <TicketCheck size={24} />
-        </span>
-        <h1>Choose an event to scan</h1>
-        <p>{userLabel}</p>
+        <section className="event-picker-intro">
+          <div className="event-picker-title">
+            <span className="picker-icon">
+              <TicketCheck size={24} />
+            </span>
+            <div>
+              <span className="picker-eyebrow">Gate scanner</span>
+              <h1>Choose an event to scan</h1>
+              <p>Select the event you are checking tickets for.</p>
+            </div>
+          </div>
+          <div className="picker-operator">
+            <span>{userLabel.slice(0, 1).toUpperCase()}</span>
+            <div>
+              <strong>Gate operator</strong>
+              <small>{userLabel}</small>
+            </div>
+          </div>
+        </section>
         {!phoneDevice && (
           <div className="event-device-notice" role="note">
             <Smartphone size={21} />
@@ -246,23 +297,58 @@ function EventPicker({
             <strong>No scanning events are assigned to this account.</strong>
           </div>
         )}
-        <div className="event-list">
-          {events.map((event) => (
-            <button type="button" key={event.id} onClick={() => onSelect(event)}>
-              <span className="event-card-icon">
-                <TicketCheck size={20} />
-              </span>
-              <span className="event-card-copy">
-                <strong>{humanLabel(event.name, 'Untitled event')}</strong>
-                <span>{formatEventTime(event.starts_at)}</span>
-                <span>
-                  <MapPin size={13} /> {humanLabel(event.venue_name, 'Venue to be announced')}
-                </span>
-              </span>
-              <ChevronRight size={19} />
-            </button>
-          ))}
-        </div>
+        {!loading && !error && displayEvents.length > 0 && (
+          <section className="assigned-events" aria-labelledby="assigned-events-heading">
+            <div className="event-list-heading">
+              <div>
+                <h2 id="assigned-events-heading">Your events</h2>
+                <p>
+                  {displayEvents.length} {displayEvents.length === 1 ? 'event' : 'events'} assigned
+                  to you
+                </p>
+              </div>
+              <span>Ready to scan</span>
+            </div>
+            <ul className="event-list">
+              {displayEvents.map(({ event, name, venue, address, date, option }) => (
+                <li key={event.id}>
+                  <button
+                    type="button"
+                    aria-label={`Select ${name}, ${formatEventTime(event.starts_at)}, ${venue}`}
+                    onClick={() => onSelect(event)}
+                  >
+                    <span className="event-date" aria-hidden="true">
+                      <small>{date.month}</small>
+                      <strong>{date.day}</strong>
+                    </span>
+                    <span className="event-card-copy">
+                      <span className="event-card-status">
+                        <span>
+                          <i /> Ready to scan
+                        </span>
+                        {option && <em>{option}</em>}
+                      </span>
+                      <strong className="event-card-title">{name}</strong>
+                      <span className="event-card-time">
+                        <Clock3 size={14} /> {date.timing}
+                      </span>
+                      <span className="event-card-venue">
+                        <MapPin size={15} />
+                        <span>
+                          <b>{venue}</b>
+                          {address && address !== venue && <small>{address}</small>}
+                        </span>
+                      </span>
+                    </span>
+                    <span className="event-card-action">
+                      Select event <ChevronRight size={18} />
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </main>
     </div>
   );

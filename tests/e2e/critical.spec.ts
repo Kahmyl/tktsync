@@ -280,7 +280,7 @@ async function mockSelector(page: Page, options: SelectorMockOptions = {}) {
 async function mockScannerAPI(
   page: Page,
   outcomes: Array<string | 'NETWORK'> = [],
-  event = scannerEvent,
+  events = [scannerEvent],
 ) {
   let scans = 0;
   const authorizations: string[] = [];
@@ -290,7 +290,7 @@ async function mockScannerAPI(
     const url = new URL(request.url());
     if (request.method() === 'GET' && url.pathname === '/api/v1/admission/events') {
       authorizations.push(request.headers()['authorization'] ?? '');
-      await json(route, 200, { items: [event] });
+      await json(route, 200, { items: events });
       return;
     }
     if (request.method() === 'POST' && url.pathname === '/api/v1/admission/scans') {
@@ -473,17 +473,35 @@ test('Scanner signs in with Supabase, selects an authorized Event, and signs out
   await mockOperatorAuth(page);
   const eventUUID = '1c56ee8e-8c04-458a-957c-7ad81ad58342';
   const venueUUID = '9ccb9148-a76a-4e87-bf78-dd429f501bd3';
-  const mocked = await mockScannerAPI(page, [], {
-    ...scannerEvent,
-    name: `Reservation Event ${eventUUID}`,
-    venue_name: `Reservation Venue ${venueUUID}`,
-  });
+  const mocked = await mockScannerAPI(
+    page,
+    [],
+    [
+      {
+        ...scannerEvent,
+        name: `Reservation Event ${eventUUID}`,
+        venue_name: `Reservation Venue ${venueUUID}`,
+      },
+      {
+        ...scannerEvent,
+        id: 'evt_second',
+        name: 'Reservation Event 901e5f65-7fe4-4080-9e1d-53fc0a4d0843',
+        venue_name: 'Reservation Venue 4ed775b9-0b5c-481a-8340-3709deb83aed',
+      },
+    ],
+  );
   await page.goto('http://127.0.0.1:4175');
   await expect(page.getByRole('heading', { name: 'Scanner sign in' })).toBeVisible();
   await expect(page.getByText('Use a phone to scan tickets', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Event ID')).toHaveCount(0);
   await signIn(page);
-  await page.getByRole('button', { name: /Reservation Event/ }).click();
+  await expect(page.getByRole('heading', { name: 'Your events' })).toBeVisible();
+  await expect(page.getByText('2 events assigned to you')).toBeVisible();
+  await expect(page.getByText('Option 1 of 2')).toBeVisible();
+  await page
+    .getByRole('button', { name: /Reservation Event/ })
+    .first()
+    .click();
   await expect(page.getByText('Reservation Venue').first()).toBeVisible();
   await expect(page.getByText('Use a phone to scan tickets', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open camera' })).toHaveCount(0);
