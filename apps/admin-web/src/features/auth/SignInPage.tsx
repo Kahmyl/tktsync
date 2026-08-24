@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useOperator } from '../../auth/OperatorSession';
 import { Button, Field, InlineNotice, Input, Logo } from '../../components/ui';
 
@@ -9,7 +9,8 @@ export function SignInPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [validation, setValidation] = useState<{ email?: string; password?: string }>({});
-  if (!auth.loading && auth.authenticated) return <Navigate to="/" replace />;
+  if (!auth.loading && auth.authenticated)
+    return <Navigate to={auth.requiresPasswordSetup ? '/set-password' : '/'} replace />;
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const errors: typeof validation = {};
@@ -58,6 +59,9 @@ export function SignInPage() {
                 onChange={(event) => setPassword(event.target.value)}
               />
             </Field>
+            <Link className="text-link password-recovery-link" to="/forgot-password">
+              Forgot password?
+            </Link>
             {auth.error ? <InlineNotice tone="error">{auth.error}</InlineNotice> : null}
             <Button type="submit" busy={auth.loading} className="sign-in-button">
               Sign in

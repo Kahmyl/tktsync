@@ -134,6 +134,7 @@ func TestLoadAcceptsCompleteProductionConfiguration(t *testing.T) {
 		"APP_ENV": "production", "DATABASE_URL": "postgres://example", "DB_STATEMENT_TIMEOUT": "65s",
 		"SUPABASE_JWKS_URL":   "https://identity.acme.internal/.well-known/jwks.json",
 		"SUPABASE_JWT_ISSUER": "https://identity.acme.internal/auth/v1", "SUPABASE_JWT_AUDIENCE": "authenticated",
+		"SUPABASE_URL": "https://identity.acme.internal", "SUPABASE_SECRET_KEY": "production-secret-key", "ADMIN_INVITE_REDIRECT_URL": "https://admin.acme.internal",
 		"SELECTION_KEYRING_ACTIVE_VERSION": "1", "SELECTION_KEYRING_KEYS": "production-selection-keyring",
 		"RESERVATION_KEYRING_ACTIVE_VERSION": "1", "RESERVATION_KEYRING_KEYS": "production-reservation-keyring",
 		"QR_KEYRING_ACTIVE_VERSION": "1", "QR_KEYRING_KEYS": "production-qr-keyring",
@@ -153,6 +154,7 @@ func TestLoadRejectsInsecureProductionBrowserOrigin(t *testing.T) {
 	values := map[string]string{
 		"APP_ENV": "production", "DATABASE_URL": "postgres://example", "DB_STATEMENT_TIMEOUT": "65s",
 		"SUPABASE_JWKS_URL": "https://identity.acme.internal/jwks", "SUPABASE_JWT_ISSUER": "https://identity.acme.internal/auth/v1", "SUPABASE_JWT_AUDIENCE": "authenticated",
+		"SUPABASE_URL": "https://identity.acme.internal", "SUPABASE_SECRET_KEY": "production-secret-key", "ADMIN_INVITE_REDIRECT_URL": "https://admin.acme.internal",
 		"SELECTION_KEYRING_ACTIVE_VERSION": "1", "SELECTION_KEYRING_KEYS": "production-selection-keyring", "RESERVATION_KEYRING_ACTIVE_VERSION": "1", "RESERVATION_KEYRING_KEYS": "production-reservation-keyring", "QR_KEYRING_ACTIVE_VERSION": "1", "QR_KEYRING_KEYS": "production-qr-keyring",
 		"PARTNER_CREDENTIAL_REPLAY_KEY": "production-replay-protection-key", "SELECTOR_BASE_URL": "https://select.acme.internal/s", "BROWSER_ALLOWED_ORIGINS": "http://localhost:5173",
 	}
@@ -167,6 +169,7 @@ func TestLoadRejectsProductionPlaceholder(t *testing.T) {
 		"APP_ENV": "production", "DATABASE_URL": "postgres://example", "DB_STATEMENT_TIMEOUT": "65s",
 		"SUPABASE_JWKS_URL":   "https://example.supabase.co/auth/v1/.well-known/jwks.json",
 		"SUPABASE_JWT_ISSUER": "https://identity.acme.internal/auth/v1", "SUPABASE_JWT_AUDIENCE": "authenticated",
+		"SUPABASE_URL": "https://identity.acme.internal", "SUPABASE_SECRET_KEY": "production-secret-key", "ADMIN_INVITE_REDIRECT_URL": "https://admin.acme.internal",
 		"SELECTION_KEYRING_ACTIVE_VERSION": "1", "SELECTION_KEYRING_KEYS": "production-selection-keyring", "RESERVATION_KEYRING_ACTIVE_VERSION": "1", "RESERVATION_KEYRING_KEYS": "production-reservation-keyring", "QR_KEYRING_ACTIVE_VERSION": "1", "QR_KEYRING_KEYS": "production-qr-keyring",
 		"PARTNER_CREDENTIAL_REPLAY_KEY": "production-replay-protection-key", "SELECTOR_BASE_URL": "https://select.acme.internal/s", "BROWSER_ALLOWED_ORIGINS": "https://admin.acme.internal",
 	}

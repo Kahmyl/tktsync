@@ -116,6 +116,23 @@ func run(ctx context.Context) error {
 	webhookService := webhook.NewService(resources.Transactions, webhookBox, resources.Config.Webhook.EncryptionKeyVersion, resources.Config.Environment != "production")
 	reportingService := reporting.NewService(resources.Database)
 	metricsObserver := reporting.NewObserver()
+	if resources.Config.Environment == "production" {
+		if err := adminapi.ValidateProductionIdentityAdmin(
+			resources.Config.Supabase.URL,
+			resources.Config.Supabase.SecretKey,
+			resources.Config.Supabase.InviteRedirectURL,
+		); err != nil {
+			return fmt.Errorf("configure Supabase identity administration: %w", err)
+		}
+	}
+	identityAdmin, err := adminapi.NewSupabaseIdentityAdmin(
+		resources.Config.Supabase.URL,
+		resources.Config.Supabase.SecretKey,
+		resources.Config.Supabase.InviteRedirectURL,
+	)
+	if err != nil {
+		return fmt.Errorf("configure Supabase identity administration: %w", err)
+	}
 
 	adminHandler, err := adminapi.New(
 		adminapi.Dependencies{
@@ -138,6 +155,7 @@ func run(ctx context.Context) error {
 			ReplayProtector:    replayProtector,
 			ReportingService:   reportingService,
 			MetricsObserver:    metricsObserver,
+			IdentityAdmin:      identityAdmin,
 		},
 	)
 	if err != nil {

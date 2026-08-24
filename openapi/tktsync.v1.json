@@ -17,6 +17,103 @@
         }
       }
     },
+    "/api/v1/admin/users": {
+      "get": {
+        "operationId": "adminListPlatformAdmins",
+        "security": [{ "AdminBearer": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/AdminQuery" },
+          { "$ref": "#/components/parameters/AdminState" },
+          { "$ref": "#/components/parameters/AdminLimit" },
+          { "$ref": "#/components/parameters/AdminOffset" },
+          { "$ref": "#/components/parameters/XRequestID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Platform Admin users",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PlatformAdminUserPage" }
+              }
+            }
+          },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      },
+      "post": {
+        "operationId": "adminCreatePlatformAdmin",
+        "security": [{ "AdminBearer": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/IdempotencyKey" },
+          { "$ref": "#/components/parameters/XRequestID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreatePlatformAdminRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Platform Admin created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PlatformAdminUser" }
+              }
+            }
+          },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/disable": {
+      "post": {
+        "operationId": "adminDisablePlatformAdmin",
+        "security": [{ "AdminBearer": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/AdminUserID" },
+          { "$ref": "#/components/parameters/IdempotencyKey" },
+          { "$ref": "#/components/parameters/XRequestID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AdminReasonRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/AdminReadResponse" },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/enable": {
+      "post": {
+        "operationId": "adminEnablePlatformAdmin",
+        "security": [{ "AdminBearer": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/AdminUserID" },
+          { "$ref": "#/components/parameters/IdempotencyKey" },
+          { "$ref": "#/components/parameters/XRequestID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AdminReasonRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/AdminReadResponse" },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    },
     "/api/v1/admin/tickets": {
       "get": {
         "operationId": "adminListTickets",
@@ -4988,6 +5085,12 @@
         "required": false,
         "schema": { "type": "integer", "minimum": 0, "default": 0 }
       },
+      "AdminUserID": {
+        "name": "user_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "pattern": "^usr_" }
+      },
       "XRequestID": {
         "name": "X-Request-ID",
         "in": "header",
@@ -5221,6 +5324,53 @@
               }
             }
           }
+        }
+      },
+      "PlatformAdminUser": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "email", "display_name", "state", "role", "is_current_user"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^usr_" },
+          "email": { "type": ["string", "null"], "format": "email" },
+          "display_name": { "type": ["string", "null"] },
+          "state": { "type": "string", "enum": ["ACTIVE", "DISABLED"] },
+          "role": { "type": "string", "const": "PLATFORM_ADMIN" },
+          "is_current_user": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "invitation_sent": { "type": "boolean" }
+        }
+      },
+      "PlatformAdminUserPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "total", "limit", "offset"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/PlatformAdminUser" }
+          },
+          "total": { "type": "integer", "minimum": 0 },
+          "limit": { "type": "integer", "minimum": 1 },
+          "offset": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "CreatePlatformAdminRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["email", "display_name"],
+        "properties": {
+          "email": { "type": "string", "format": "email", "maxLength": 254 },
+          "display_name": { "type": "string", "minLength": 1, "maxLength": 160 }
+        }
+      },
+      "AdminReasonRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["reason"],
+        "properties": {
+          "reason": { "type": "string", "minLength": 1, "maxLength": 500 }
         }
       },
       "CreateVenueRequest": {

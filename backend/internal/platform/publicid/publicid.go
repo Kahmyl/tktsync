@@ -25,6 +25,7 @@ const (
 	Partner           Kind = "ptr"
 	SelectionSession  Kind = "sel"
 	WebhookEndpoint   Kind = "wh"
+	User              Kind = "usr"
 )
 
 var ErrInvalid = errors.New("invalid public identifier")

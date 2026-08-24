@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createClient, type Session } from '@supabase/supabase-js';
 
+function nameFromEmail(email: string | undefined) {
+  const local = (email ?? '').split('@')[0]?.replace(/\d+$/g, '') ?? '';
+  const words = local
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+  return words.join(' ') || 'Operator';
+}
+
 export function useOperatorSession() {
   const url = String(import.meta.env.VITE_SUPABASE_URL ?? '').trim();
   const anonKey = String(import.meta.env.VITE_SUPABASE_ANON_KEY ?? '').trim();
@@ -95,18 +104,56 @@ export function useOperatorSession() {
     return true;
   };
 
+  const sendPasswordReset = async (email: string) => {
+    if (!client) {
+      setError('Operator authentication is not configured for this deployment.');
+      return false;
+    }
+    setError('');
+    setLoading(true);
+    const { error: resetError } = await client.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/set-password`,
+    });
+    setLoading(false);
+    if (resetError) {
+      setError(resetError.message);
+      return false;
+    }
+    return true;
+  };
+
+  const updatePassword = async (password: string) => {
+    if (!client) {
+      setError('Operator authentication is not configured for this deployment.');
+      return false;
+    }
+    setError('');
+    setLoading(true);
+    const { error: updateError } = await client.auth.updateUser({
+      password,
+      data: { tktsync_password_setup_required: false },
+    });
+    setLoading(false);
+    if (updateError) {
+      setError(updateError.message);
+      return false;
+    }
+    return true;
+  };
+
   const metadata = session?.user.user_metadata ?? {};
   const displayName = String(
     metadata.full_name ??
       metadata.name ??
       metadata.display_name ??
-      session?.user.email ??
-      'Operator',
+      nameFromEmail(session?.user.email),
   ).trim();
+  const requiresPasswordSetup = metadata.tktsync_password_setup_required === true;
 
   return {
     token: session?.access_token ?? '',
     authenticated: Boolean(session?.access_token),
+    requiresPasswordSetup,
     userLabel: session?.user.email ?? session?.user.id ?? 'Operator',
     user: session?.user
       ? {
@@ -119,5 +166,7 @@ export function useOperatorSession() {
     error,
     signIn,
     signOut,
+    sendPasswordReset,
+    updatePassword,
   };
 }

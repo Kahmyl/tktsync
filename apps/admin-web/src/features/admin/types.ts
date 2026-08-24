@@ -73,6 +73,18 @@ export interface PartnerSummary {
   disabled_at: string | null;
 }
 
+export interface PlatformAdminUser {
+  id: string;
+  email: string | null;
+  display_name: string | null;
+  state: 'ACTIVE' | 'DISABLED';
+  role: 'PLATFORM_ADMIN';
+  is_current_user: boolean;
+  created_at?: string;
+  updated_at?: string;
+  invitation_sent?: boolean;
+}
+
 export interface PartnerDetail {
   id: string;
   name: string;

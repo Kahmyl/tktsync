@@ -12,6 +12,7 @@ import type {
   PageResult,
   PartnerDetail,
   PartnerSummary,
+  PlatformAdminUser,
   SalesReport,
   TicketSummary,
   VenueSummary,
@@ -83,6 +84,14 @@ function headers(token: string, idempotencyKey?: string) {
 export const adminApi = {
   dashboard: (token: string) =>
     result<DashboardData>(client.GET('/api/v1/admin/dashboard', { headers: headers(token) })),
+
+  users: (token: string, query = '', state = '') =>
+    result<PageResult<PlatformAdminUser>>(
+      client.GET('/api/v1/admin/users', {
+        headers: headers(token),
+        params: { query: { query: query || undefined, state: state || undefined, limit: 100 } },
+      }),
+    ),
 
   events: (token: string, query = '', state = '') =>
     result<PageResult<EventSummary>>(
@@ -375,6 +384,44 @@ export const adminApi = {
         params: { header: { 'Idempotency-Key': idempotencyKey } },
         body: { name },
       }),
+    ),
+  createPlatformAdmin: (
+    token: string,
+    idempotencyKey: string,
+    body: { email: string; display_name: string },
+  ) =>
+    result<PlatformAdminUser>(
+      client.POST('/api/v1/admin/users', {
+        headers: headers(token, idempotencyKey),
+        params: { header: { 'Idempotency-Key': idempotencyKey } },
+        body,
+      }),
+    ),
+  setPlatformAdminState: (
+    token: string,
+    idempotencyKey: string,
+    userId: string,
+    enabled: boolean,
+    reason: string,
+  ) =>
+    result<{ id: string; state: 'ACTIVE' | 'DISABLED' }>(
+      enabled
+        ? client.POST('/api/v1/admin/users/{user_id}/enable', {
+            headers: headers(token, idempotencyKey),
+            params: {
+              path: { user_id: userId },
+              header: { 'Idempotency-Key': idempotencyKey },
+            },
+            body: { reason },
+          })
+        : client.POST('/api/v1/admin/users/{user_id}/disable', {
+            headers: headers(token, idempotencyKey),
+            params: {
+              path: { user_id: userId },
+              header: { 'Idempotency-Key': idempotencyKey },
+            },
+            body: { reason },
+          }),
     ),
   setPartnerState: (token: string, idempotencyKey: string, partnerId: string, enabled: boolean) =>
     result<Record<string, unknown>>(

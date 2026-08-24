@@ -5,6 +5,7 @@ const AUTH_ORIGIN = 'http://localhost:48081';
 const ACCESS_TOKEN =
   'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJhZG1pbi1vcGVyYXRvciIsImF1ZCI6ImF1dGhlbnRpY2F0ZWQiLCJleHAiOjQxMDI0NDQ4MDB9.';
 const NOW = '2026-08-23T14:00:00Z';
+const MACHINE_UUID = '7467aa88-7976-4b27-b578-8b3268dc42a4';
 
 const corsHeaders = {
   'access-control-allow-origin': '*',
@@ -42,11 +43,26 @@ async function preflight(route: Route) {
   return true;
 }
 
-async function mockOperatorAuth(page: Page) {
+async function mockOperatorAuth(page: Page, requiresPasswordSetup = false) {
+  const mutations: Array<{ method: string; path: string; url: string; body?: unknown }> = [];
+  const authOperator = requiresPasswordSetup
+    ? {
+        ...operator,
+        user_metadata: { ...operator.user_metadata, tktsync_password_setup_required: true },
+      }
+    : operator;
   await page.route(`${AUTH_ORIGIN}/**`, async (route) => {
     if (await preflight(route)) return;
     const request = route.request();
     const pathname = new URL(request.url()).pathname;
+    if (request.method() !== 'GET') {
+      mutations.push({
+        method: request.method(),
+        path: pathname,
+        url: request.url(),
+        body: request.postData() ? request.postDataJSON() : undefined,
+      });
+    }
     if (pathname === '/auth/v1/token' && request.method() === 'POST') {
       await json(route, 200, {
         access_token: ACCESS_TOKEN,
@@ -54,12 +70,26 @@ async function mockOperatorAuth(page: Page) {
         expires_in: 3600,
         expires_at: 4102444800,
         refresh_token: 'e2e-refresh-token',
-        user: operator,
+        user: authOperator,
       });
       return;
     }
-    if (pathname === '/auth/v1/user') {
-      await json(route, 200, operator);
+    if (pathname === '/auth/v1/user' && request.method() === 'GET') {
+      await json(route, 200, authOperator);
+      return;
+    }
+    if (pathname === '/auth/v1/user' && request.method() === 'PUT') {
+      await json(route, 200, {
+        ...authOperator,
+        user_metadata: {
+          ...authOperator.user_metadata,
+          tktsync_password_setup_required: false,
+        },
+      });
+      return;
+    }
+    if (pathname === '/auth/v1/recover' && request.method() === 'POST') {
+      await json(route, 200, {});
       return;
     }
     if (pathname === '/auth/v1/logout') {
@@ -68,6 +98,7 @@ async function mockOperatorAuth(page: Page) {
     }
     await json(route, 404, { message: `Unexpected auth request: ${pathname}` });
   });
+  return { mutations };
 }
 
 async function signIn(page: Page) {
@@ -89,17 +120,29 @@ type MutationRecord = {
 
 async function mockAdminApi(page: Page) {
   let eventId = 'evt_festival';
-  let eventName = 'Festival Night';
+  let eventName = `Festival Night ${MACHINE_UUID}`;
   let eventState = 'DRAFT';
   let layoutState: 'DRAFT' | 'PUBLISHED' = 'DRAFT';
-  let partnerName = 'Seed Partner';
+  let partnerName = `Seed Partner ${MACHINE_UUID}`;
   let partnerAccess: Array<Record<string, unknown>> = [];
   let credentials: Array<Record<string, unknown>> = [];
+  let administrators: Array<Record<string, unknown>> = [
+    {
+      id: 'usr_current',
+      email: 'amina@example.com',
+      display_name: 'Amina Okafor',
+      state: 'ACTIVE',
+      role: 'PLATFORM_ADMIN',
+      is_current_user: true,
+      created_at: NOW,
+      updated_at: NOW,
+    },
+  ];
   const mutations: MutationRecord[] = [];
 
   const venue = {
     id: 'ven_civic',
-    name: 'Civic Arena',
+    name: `Civic Arena ${MACHINE_UUID}`,
     address_text: '12 Marina Road, Lagos',
     created_at: NOW,
     updated_at: NOW,
@@ -199,6 +242,32 @@ async function mockAdminApi(page: Page) {
           },
         ],
       });
+      return;
+    }
+    if (method === 'GET' && path === '/api/v1/admin/users') {
+      await json(route, 200, {
+        items: administrators,
+        total: administrators.length,
+        limit: 100,
+        offset: 0,
+      });
+      return;
+    }
+    if (method === 'POST' && path === '/api/v1/admin/users') {
+      const body = request.postDataJSON() as { email: string; display_name: string };
+      const administrator = {
+        id: 'usr_invited',
+        email: body.email,
+        display_name: body.display_name,
+        state: 'ACTIVE',
+        role: 'PLATFORM_ADMIN',
+        is_current_user: false,
+        invitation_sent: true,
+        created_at: NOW,
+        updated_at: NOW,
+      };
+      administrators = [administrator, ...administrators];
+      await json(route, 201, administrator);
       return;
     }
     if (method === 'GET' && path === '/api/v1/admin/events') {
@@ -469,6 +538,7 @@ test('Admin signs in, reviews authoritative operations, creates an event, and ch
   await expect(sidebarSignOut.locator('.avatar')).toHaveCount(0);
 
   await expect(page.getByText('Festival Night').first()).toBeVisible();
+  await expect(page.locator('body')).not.toContainText(MACHINE_UUID);
   await expect(page.getByText('284').first()).toBeVisible();
 
   await page.getByRole('link', { name: 'Events', exact: true }).click();
@@ -539,6 +609,7 @@ test('Admin edits a venue, creates a partner, reveals one credential once, grant
   await expect(page.getByText('Enabled', { exact: true })).toBeVisible();
 
   await page.getByRole('link', { name: 'Tickets', exact: true }).click();
+  await expect(page.locator('body')).not.toContainText('tkt_e2e');
   await page.locator('.desktop-table tbody tr').first().click();
   await page.getByRole('button', { name: 'Reissue credential' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Reissue credential' }).click();
@@ -567,6 +638,67 @@ test('Admin account popover uses session identity and signs out', async ({ page 
   await expect(page.getByText('amina@example.com', { exact: true }).last()).toBeVisible();
   await page.getByRole('button', { name: 'Log out' }).click();
   await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+});
+
+test('Platform Admin invites another administrator with a name and email', async ({ page }) => {
+  await mockOperatorAuth(page);
+  const state = await mockAdminApi(page);
+  await signIn(page);
+
+  await page.getByRole('link', { name: 'Administrators' }).click();
+  await expect(page.getByRole('heading', { name: 'Administrators' })).toBeVisible();
+  await page.getByRole('button', { name: 'Add administrator' }).first().click();
+  await page.getByLabel('Display name').fill('Ada Okafor');
+  await page.getByLabel('Work email').fill('ada@example.com');
+  await page.getByRole('dialog').getByRole('button', { name: 'Invite administrator' }).click();
+
+  await expect(page.getByText('Invitation sent to ada@example.com')).toBeVisible();
+  await expect(page.getByText('Ada Okafor', { exact: true })).toBeVisible();
+  await expect(page.getByText('ada@example.com', { exact: true })).toBeVisible();
+  const mutation = state.mutations.find((entry) => entry.path === '/api/v1/admin/users');
+  expect(mutation?.body).toEqual({ email: 'ada@example.com', display_name: 'Ada Okafor' });
+  expect(mutation?.idempotencyKey).toBeTruthy();
+});
+
+test('Invited administrator creates a reusable password before continuing', async ({ page }) => {
+  const authState = await mockOperatorAuth(page, true);
+  await mockAdminApi(page);
+  await page.goto('http://127.0.0.1:4173/sign-in');
+  await page.getByLabel('Email', { exact: true }).fill('amina@example.com');
+  await page.getByLabel('Password', { exact: true }).fill('temporary-invite-session');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Create your password' })).toBeVisible();
+  await expect(page).toHaveURL(/\/set-password$/);
+  await page.getByLabel('New password').fill('correct horse battery staple');
+  await page.getByLabel('Confirm password').fill('correct horse battery staple');
+  await page.getByRole('button', { name: 'Save password' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Password created' })).toBeVisible();
+  expect(
+    authState.mutations.find((entry) => entry.method === 'PUT' && entry.path === '/auth/v1/user')
+      ?.body,
+  ).toMatchObject({
+    password: 'correct horse battery staple',
+    data: { tktsync_password_setup_required: false },
+  });
+});
+
+test('Signed-out administrator can request a password recovery link', async ({ page }) => {
+  const authState = await mockOperatorAuth(page);
+  await page.goto('http://127.0.0.1:4173/sign-in');
+  await page.getByRole('link', { name: 'Forgot password?' }).click();
+  await expect(page.getByRole('heading', { name: 'Reset your password' })).toBeVisible();
+  await expect(page).toHaveURL(/\/forgot-password$/);
+  await page.getByLabel('Email').fill('amina@example.com');
+  await page.getByRole('button', { name: 'Send reset link' }).click();
+
+  await expect(page.getByText(/password-reset link has been sent/)).toBeVisible();
+  const recovery = authState.mutations.find((entry) => entry.path === '/auth/v1/recover');
+  expect(recovery?.body).toMatchObject({ email: 'amina@example.com' });
+  expect(new URL(recovery?.url ?? '').searchParams.get('redirect_to')).toBe(
+    'http://127.0.0.1:4173/set-password',
+  );
 });
 
 test('Admin mobile drawer provides usable navigation', async ({ page }) => {

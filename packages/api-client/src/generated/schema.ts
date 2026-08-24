@@ -20,6 +20,54 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/admin/users': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['adminListPlatformAdmins'];
+    put?: never;
+    post: operations['adminCreatePlatformAdmin'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/users/{user_id}/disable': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['adminDisablePlatformAdmin'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/users/{user_id}/enable': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['adminEnablePlatformAdmin'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/admin/tickets': {
     parameters: {
       query?: never;
@@ -1347,6 +1395,36 @@ export interface components {
         } | null;
       };
     };
+    PlatformAdminUser: {
+      id: string;
+      /** Format: email */
+      email: string | null;
+      display_name: string | null;
+      /** @enum {string} */
+      state: 'ACTIVE' | 'DISABLED';
+      /** @constant */
+      role: 'PLATFORM_ADMIN';
+      is_current_user: boolean;
+      /** Format: date-time */
+      created_at?: string;
+      /** Format: date-time */
+      updated_at?: string;
+      invitation_sent?: boolean;
+    };
+    PlatformAdminUserPage: {
+      items: components['schemas']['PlatformAdminUser'][];
+      total: number;
+      limit: number;
+      offset: number;
+    };
+    CreatePlatformAdminRequest: {
+      /** Format: email */
+      email: string;
+      display_name: string;
+    };
+    AdminReasonRequest: {
+      reason: string;
+    };
     CreateVenueRequest: {
       name: string;
       address_text?: string;
@@ -2134,6 +2212,7 @@ export interface components {
     AdminEventQuery: string;
     AdminLimit: number;
     AdminOffset: number;
+    AdminUserID: string;
     /** @description Optional client request/correlation UUID. */
     XRequestID: string;
     /** @description Durable idempotency key scoped to the authenticated actor and operation. */
@@ -2170,6 +2249,113 @@ export interface operations {
       cookie?: never;
     };
     requestBody?: never;
+    responses: {
+      200: components['responses']['AdminReadResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminListPlatformAdmins: {
+    parameters: {
+      query?: {
+        query?: components['parameters']['AdminQuery'];
+        state?: components['parameters']['AdminState'];
+        limit?: components['parameters']['AdminLimit'];
+        offset?: components['parameters']['AdminOffset'];
+      };
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Platform Admin users */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PlatformAdminUserPage'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminCreatePlatformAdmin: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreatePlatformAdminRequest'];
+      };
+    };
+    responses: {
+      /** @description Platform Admin created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PlatformAdminUser'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminDisablePlatformAdmin: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        user_id: components['parameters']['AdminUserID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdminReasonRequest'];
+      };
+    };
+    responses: {
+      200: components['responses']['AdminReadResponse'];
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  adminEnablePlatformAdmin: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Durable idempotency key scoped to the authenticated actor and operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey'];
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        user_id: components['parameters']['AdminUserID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdminReasonRequest'];
+      };
+    };
     responses: {
       200: components['responses']['AdminReadResponse'];
       default: components['responses']['ErrorResponse'];

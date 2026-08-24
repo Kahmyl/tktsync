@@ -48,6 +48,7 @@ type Dependencies struct {
 	ReplayProtector    *ReplayProtector
 	ReportingService   *reporting.Service
 	MetricsObserver    *reporting.Observer
+	IdentityAdmin      IdentityAdmin
 }
 
 type Handler struct {
@@ -64,6 +65,7 @@ type Handler struct {
 	replayProtector *ReplayProtector
 	reporting       *reporting.Service
 	metricsObserver *reporting.Observer
+	identityAdmin   IdentityAdmin
 	idempotency     idempotency.Store
 	mux             *http.ServeMux
 }
@@ -95,6 +97,7 @@ func New(
 		replayProtector: deps.ReplayProtector,
 		reporting:       deps.ReportingService,
 		metricsObserver: deps.MetricsObserver,
+		identityAdmin:   deps.IdentityAdmin,
 		mux:             http.NewServeMux(),
 	}
 	if h.reporting == nil {
@@ -115,6 +118,7 @@ func (h *Handler) ServeHTTP(
 
 func (h *Handler) registerRoutes() {
 	h.registerReadModelRoutes()
+	h.registerUserManagementRoutes()
 
 	h.mux.HandleFunc(
 		"POST /api/v1/admin/venues",

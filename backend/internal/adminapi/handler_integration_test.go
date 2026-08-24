@@ -58,6 +58,7 @@ func TestAdminHTTPIdempotencyAndCredentialReplay(
 
 	userID := uuid.New()
 	subject := uuid.NewString()
+	managedAdminSubject := uuid.NewString()
 
 	if _, err := pool.Exec(
 		ctx,
@@ -124,9 +125,11 @@ func TestAdminHTTPIdempotencyAndCredentialReplay(
 				_ context.Context,
 				token string,
 			) (auth.HumanPrincipal, error) {
+				if token == "managed-admin-token" {
+					return auth.HumanPrincipal{Provider: "supabase", Subject: managedAdminSubject}, nil
+				}
 				if token != "integration-token" {
-					return auth.HumanPrincipal{},
-						io.EOF
+					return auth.HumanPrincipal{}, io.EOF
 				}
 
 				return auth.HumanPrincipal{
@@ -138,6 +141,9 @@ func TestAdminHTTPIdempotencyAndCredentialReplay(
 			EventService:    eventsvc.NewService(runner),
 			PartnerService:  partnersvc.NewService(runner),
 			ReplayProtector: protector,
+			IdentityAdmin: adminapi.IdentityAdminFunc(func(_ context.Context, email, _ string) (adminapi.IdentityUser, bool, error) {
+				return adminapi.IdentityUser{ID: uuid.MustParse(managedAdminSubject), Email: email}, true, nil
+			}),
 		},
 	)
 	if err != nil {
@@ -463,10 +469,102 @@ func TestAdminHTTPIdempotencyAndCredentialReplay(
 		t.Fatalf("partner read leaked credential secret material: %s", partnerRead.Body.String())
 	}
 
+	newAdmin := perform(
+		t,
+		handler,
+		http.MethodPost,
+		"/api/v1/admin/users",
+		uuid.NewString(),
+		map[string]any{
+			"email":        "added-admin@example.com",
+			"display_name": "Configuration HTTP Added Admin",
+		},
+	)
+	if newAdmin.Code != http.StatusCreated {
+		t.Fatalf("create Platform Admin status = %d body=%s", newAdmin.Code, newAdmin.Body.String())
+	}
+	var newAdminBody struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(newAdmin.Body.Bytes(), &newAdminBody); err != nil {
+		t.Fatalf("decode Platform Admin: %v", err)
+	}
+	if _, err := publicid.Parse(newAdminBody.ID, publicid.User); err != nil {
+		t.Fatalf("Platform Admin response has invalid public ID %q: %v", newAdminBody.ID, err)
+	}
+
+	adminList := perform(t, handler, http.MethodGet, "/api/v1/admin/users?query=added-admin%40example.com", "", nil)
+	if adminList.Code != http.StatusOK || !strings.Contains(adminList.Body.String(), newAdminBody.ID) {
+		t.Fatalf("Platform Admin list status = %d body=%s", adminList.Code, adminList.Body.String())
+	}
+
+	disabled := perform(
+		t,
+		handler,
+		http.MethodPost,
+		"/api/v1/admin/users/"+newAdminBody.ID+"/disable",
+		uuid.NewString(),
+		map[string]any{"reason": "Access review test"},
+	)
+	if disabled.Code != http.StatusOK || !strings.Contains(disabled.Body.String(), "DISABLED") {
+		t.Fatalf("disable Platform Admin status = %d body=%s", disabled.Code, disabled.Body.String())
+	}
+	disabledAdminRequest := httptest.NewRequest(http.MethodGet, "/api/v1/admin/users", nil)
+	disabledAdminRequest.Header.Set("Authorization", "Bearer managed-admin-token")
+	disabledAdminResponse := httptest.NewRecorder()
+	handler.ServeHTTP(disabledAdminResponse, disabledAdminRequest)
+	if disabledAdminResponse.Code != http.StatusForbidden {
+		t.Fatalf("disabled Platform Admin authorization status = %d body=%s", disabledAdminResponse.Code, disabledAdminResponse.Body.String())
+	}
+
+	enabled := perform(
+		t,
+		handler,
+		http.MethodPost,
+		"/api/v1/admin/users/"+newAdminBody.ID+"/enable",
+		uuid.NewString(),
+		map[string]any{"reason": "Access restored test"},
+	)
+	if enabled.Code != http.StatusOK || !strings.Contains(enabled.Body.String(), "ACTIVE") {
+		t.Fatalf("enable Platform Admin status = %d body=%s", enabled.Code, enabled.Body.String())
+	}
+	enabledAdminRequest := httptest.NewRequest(http.MethodGet, "/api/v1/admin/users", nil)
+	enabledAdminRequest.Header.Set("Authorization", "Bearer managed-admin-token")
+	enabledAdminResponse := httptest.NewRecorder()
+	handler.ServeHTTP(enabledAdminResponse, enabledAdminRequest)
+	if enabledAdminResponse.Code != http.StatusOK {
+		t.Fatalf("enabled Platform Admin authorization status = %d body=%s", enabledAdminResponse.Code, enabledAdminResponse.Body.String())
+	}
+
+	selfDisable := perform(
+		t,
+		handler,
+		http.MethodPost,
+		"/api/v1/admin/users/"+publicid.Encode(publicid.User, userID)+"/disable",
+		uuid.NewString(),
+		map[string]any{"reason": "Must be rejected"},
+	)
+	if selfDisable.Code != http.StatusBadRequest {
+		t.Fatalf("self-disable status = %d body=%s", selfDisable.Code, selfDisable.Body.String())
+	}
+
+	newAdminID, _ := publicid.Parse(newAdminBody.ID, publicid.User)
+	var adminAuditCount int
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*) FROM audit_events
+		WHERE entity_type='APP_USER' AND entity_id=$1
+		  AND operation IN ('PLATFORM_ADMIN_CREATED','PLATFORM_ADMIN_DISABLED','PLATFORM_ADMIN_ENABLED')
+	`, newAdminID).Scan(&adminAuditCount); err != nil {
+		t.Fatalf("count Platform Admin audit events: %v", err)
+	}
+	if adminAuditCount != 3 {
+		t.Fatalf("Platform Admin audit event count = %d, want 3", adminAuditCount)
+	}
+
 	unauthorizedRequest := httptest.NewRequest(http.MethodGet, "/api/v1/admin/dashboard", nil)
 	unauthorizedResponse := httptest.NewRecorder()
 	handler.ServeHTTP(unauthorizedResponse, unauthorizedRequest)
-	if unauthorizedResponse.Code != http.StatusUnauthorized {
+	if unauthorizedResponse.Code != http.StatusForbidden {
 		t.Fatalf("unauthorized dashboard status = %d body=%s", unauthorizedResponse.Code, unauthorizedResponse.Body.String())
 	}
 }

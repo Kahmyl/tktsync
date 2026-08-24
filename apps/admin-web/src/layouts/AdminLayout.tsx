@@ -11,6 +11,7 @@ import {
   Plug,
   ScanLine,
   Settings,
+  ShieldCheck,
   Ticket,
   Users,
   X,
@@ -45,6 +46,10 @@ const navGroups: Array<{ title: string; items: NavItem[] }> = [
     ],
   },
   { title: 'Insights', items: [{ label: 'Reports', to: '/reports', icon: ChartNoAxesColumn }] },
+  {
+    title: 'Administration',
+    items: [{ label: 'Administrators', to: '/users', icon: ShieldCheck }],
+  },
 ];
 
 function routeMeta(pathname: string) {
@@ -64,6 +69,7 @@ function routeMeta(pathname: string) {
   if (pathname === '/admissions') return { title: 'Admissions', group: 'Operations' };
   if (pathname === '/integrations') return { title: 'Integrations', group: 'Partners' };
   if (pathname === '/reports') return { title: 'Reports', group: 'Insights' };
+  if (pathname === '/users') return { title: 'Administrators', group: 'Administration' };
   return { title: 'Account', group: 'Account' };
 }
 

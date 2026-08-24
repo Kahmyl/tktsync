@@ -5,6 +5,8 @@ import { AdminApiError, adminApi } from './api';
 
 export const adminKeys = {
   dashboard: ['admin', 'dashboard'] as const,
+  usersRoot: ['admin', 'users'] as const,
+  users: (query = '', state = '') => ['admin', 'users', query, state] as const,
   events: (query = '', state = '') => ['admin', 'events', query, state] as const,
   event: (id: string) => ['admin', 'event', id] as const,
   configuration: (id: string) => ['admin', 'event', id, 'configuration'] as const,
@@ -31,6 +33,14 @@ function useToken() {
 export function useDashboard() {
   const token = useToken();
   return useQuery({ queryKey: adminKeys.dashboard, queryFn: () => adminApi.dashboard(token) });
+}
+
+export function usePlatformAdmins(query = '', state = '') {
+  const token = useToken();
+  return useQuery({
+    queryKey: adminKeys.users(query, state),
+    queryFn: () => adminApi.users(token, query, state),
+  });
 }
 
 export function useEvents(query = '', state = '') {

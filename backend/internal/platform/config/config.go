@@ -59,12 +59,14 @@ type Logging struct {
 }
 
 type Supabase struct {
-	URL           string
-	AnonKey       string
-	JWTIssuer     string
-	JWKSURL       string
-	JWTAudience   string
-	JWTAlgorithms []string
+	URL               string
+	AnonKey           string
+	SecretKey         string
+	InviteRedirectURL string
+	JWTIssuer         string
+	JWKSURL           string
+	JWTAudience       string
+	JWTAlgorithms     []string
 }
 
 type HMACKeyring struct {
@@ -325,12 +327,14 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 			Format: strings.ToLower(get("LOG_FORMAT", "json")),
 		},
 		Supabase: Supabase{
-			URL:           get("SUPABASE_URL", ""),
-			AnonKey:       get("SUPABASE_ANON_KEY", ""),
-			JWTIssuer:     get("SUPABASE_JWT_ISSUER", ""),
-			JWKSURL:       get("SUPABASE_JWKS_URL", ""),
-			JWTAudience:   get("SUPABASE_JWT_AUDIENCE", ""),
-			JWTAlgorithms: splitCSV(get("SUPABASE_JWT_ALGORITHMS", "ES256,RS256")),
+			URL:               get("SUPABASE_URL", ""),
+			AnonKey:           get("SUPABASE_ANON_KEY", ""),
+			SecretKey:         get("SUPABASE_SECRET_KEY", ""),
+			InviteRedirectURL: get("ADMIN_INVITE_REDIRECT_URL", "http://localhost:54470/set-password"),
+			JWTIssuer:         get("SUPABASE_JWT_ISSUER", ""),
+			JWKSURL:           get("SUPABASE_JWKS_URL", ""),
+			JWTAudience:       get("SUPABASE_JWT_AUDIENCE", ""),
+			JWTAlgorithms:     splitCSV(get("SUPABASE_JWT_ALGORITHMS", "ES256,RS256")),
 		},
 		Keyrings: Keyrings{
 			Selection: HMACKeyring{

@@ -853,6 +853,9 @@ ol {
   grid-template-columns: minmax(240px, 430px) minmax(170px, 220px);
   gap: 10px;
 }
+.inline-notice + .admin-user-filters {
+  margin-top: 18px;
+}
 .filters.three {
   grid-template-columns: minmax(260px, 1fr) 220px 170px;
 }
@@ -1537,6 +1540,10 @@ td small.table-subline,
   font-size: 1.5rem;
   font-weight: 650;
 }
+.sign-in-card .form-stack > h1 {
+  font-size: 1.5rem;
+  font-weight: 650;
+}
 .sign-in-card > p {
   margin-top: 8px;
   color: var(--muted-foreground);
@@ -1548,8 +1555,20 @@ td small.table-subline,
   display: grid;
   gap: 20px;
 }
+.sign-in-card > .form-stack {
+  margin-top: 24px;
+}
 .sign-in-button {
   width: 100%;
+}
+.password-recovery-link {
+  justify-self: end;
+  margin-top: -8px;
+  font-size: 0.75rem;
+}
+.centered-link {
+  justify-self: center;
+  font-size: 0.75rem;
 }
 .mobile-sign-in-logo {
   display: none;

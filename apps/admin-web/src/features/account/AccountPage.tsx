@@ -1,5 +1,5 @@
 import { LogOut } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useOperator } from '../../auth/OperatorSession';
 import {
   Button,
@@ -61,6 +61,21 @@ export function AccountPage() {
               <LogOut size={16} />
               Sign out
             </Button>
+          </PanelBody>
+        </Panel>
+        <Panel>
+          <SectionHeading
+            title="Password"
+            description="Change the password used for administrator sign-in"
+          />
+          <div className="panel-divider" />
+          <PanelBody className="form-stack">
+            <p className="muted-copy">
+              Choose a strong, unique password. You’ll remain signed in after changing it.
+            </p>
+            <Link className="button button-secondary button-normal" to="/set-password">
+              Change password
+            </Link>
           </PanelBody>
         </Panel>
       </div>

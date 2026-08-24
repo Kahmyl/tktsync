@@ -102,6 +102,8 @@ services:
       <<: *backend-environment
       API_HOST: 0.0.0.0
       API_PORT: 8080
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY:-}
+      ADMIN_INVITE_REDIRECT_URL: ${ADMIN_INVITE_REDIRECT_URL:-http://localhost:${ADMIN_HOST_PORT:-54470}/set-password}
     depends_on:
       seed:
         condition: service_completed_successfully

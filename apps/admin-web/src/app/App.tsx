@@ -4,6 +4,8 @@ import { LoadingState } from '../components/ui';
 import { AccountPage } from '../features/account/AccountPage';
 import { AdmissionsPage } from '../features/admissions/AdmissionsPage';
 import { SignInPage } from '../features/auth/SignInPage';
+import { ForgotPasswordPage } from '../features/auth/ForgotPasswordPage';
+import { SetPasswordPage } from '../features/auth/SetPasswordPage';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { CreateEventPage } from '../features/events/CreateEventPage';
 import { EventDetailPage } from '../features/events/EventDetailPage';
@@ -15,6 +17,7 @@ import { ReportsPage } from '../features/reports/ReportsPage';
 import { TicketsPage } from '../features/tickets/TicketsPage';
 import { VenueDetailPage } from '../features/venues/VenueDetailPage';
 import { VenuesListPage } from '../features/venues/VenuesListPage';
+import { UsersPage } from '../features/users/UsersPage';
 import { AdminLayout } from '../layouts/AdminLayout';
 
 function ProtectedAdmin() {
@@ -26,6 +29,7 @@ function ProtectedAdmin() {
       </div>
     );
   if (!auth.authenticated) return <Navigate to="/sign-in" replace />;
+  if (auth.requiresPasswordSetup) return <Navigate to="/set-password" replace />;
   return <AdminLayout />;
 }
 
@@ -33,6 +37,8 @@ export function App() {
   return (
     <Routes>
       <Route path="/sign-in" element={<SignInPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/set-password" element={<SetPasswordPage />} />
       <Route element={<ProtectedAdmin />}>
         <Route index element={<DashboardPage />} />
         <Route path="events" element={<EventsListPage />} />
@@ -46,6 +52,7 @@ export function App() {
         <Route path="admissions" element={<AdmissionsPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="integrations" element={<IntegrationsPage />} />
+        <Route path="users" element={<UsersPage />} />
         <Route path="account" element={<AccountPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
