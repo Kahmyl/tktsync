@@ -162,6 +162,36 @@ func TestReportingPreservesCommercialIssuanceAndCapacitySemantics(t *testing.T) 
 	_ = issuance
 }
 
+func TestInventoryReportReturnsZerosWithoutMaterializedInventory(t *testing.T) {
+	f := newFixture(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	var venueID uuid.UUID
+	if err := f.pool.QueryRow(ctx, `SELECT venue_id FROM events WHERE id=$1`, f.eventID).Scan(&venueID); err != nil {
+		t.Fatal(err)
+	}
+	emptyEventID, err := eventsvc.NewService(f.runner).Create(ctx, f.userID, eventsvc.CreateInput{
+		VenueID:      venueID,
+		Name:         "Unconfigured reporting event " + uuid.NewString(),
+		TimezoneName: "UTC",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := reporting.NewService(f.pool).Inventory(ctx, emptyEventID, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Event.ID != publicid.Encode(publicid.Event, emptyEventID) || report.Event.State != "DRAFT" {
+		t.Fatalf("unexpected Event context: %+v", report.Event)
+	}
+	if report.Reserved != (reporting.InventoryDimensions{}) || report.GA != (reporting.InventoryDimensions{}) || report.Total != (reporting.InventoryDimensions{}) {
+		t.Fatalf("empty Event inventory was not all zero: %+v", report)
+	}
+}
+
 func TestReportingAuditPaginationAccreditationCSVAndCancellationHistory(t *testing.T) {
 	f := newFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)

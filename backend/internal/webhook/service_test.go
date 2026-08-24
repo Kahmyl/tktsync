@@ -4,7 +4,20 @@ import (
 	"encoding/base64"
 	"net"
 	"testing"
+	"time"
 )
+
+func TestDeliveryRetryDelayIsBoundedAndJittered(t *testing.T) {
+	if got := deliveryRetryDelay(1, 0); got != time.Second {
+		t.Fatalf("first retry minimum=%s, want 1s", got)
+	}
+	if low, high := deliveryRetryDelay(4, 0), deliveryRetryDelay(4, 1); low != 6400*time.Millisecond || high != 9600*time.Millisecond {
+		t.Fatalf("attempt four jitter range=%s..%s", low, high)
+	}
+	if got := deliveryRetryDelay(100, 1); got != 5*time.Minute {
+		t.Fatalf("maximum retry=%s, want 5m", got)
+	}
+}
 
 func TestProductionDestinationValidationRejectsSSRFAddresses(
 	t *testing.T,

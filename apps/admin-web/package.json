@@ -11,10 +11,13 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.3",
     "@tanstack/react-query": "^5.102.1",
     "@tktsync/api-client": "workspace:*",
     "@tktsync/ui": "workspace:*",
+    "lucide-react": "^1.33.0",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^7.18.2"
   }
 }

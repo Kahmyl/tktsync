@@ -11,11 +11,7 @@ func TestDisabledRealtimeFailsClosed(
 	t *testing.T,
 ) {
 	handler :=
-		New(
-			nil,
-			nil,
-			false,
-		)
+		New(nil, nil, nil, nil, false)
 
 	request :=
 		httptest.NewRequest(
@@ -57,10 +53,7 @@ func TestRealtimeDefaultsEnabledForExplicitHandlerUse(
 	t *testing.T,
 ) {
 	handler :=
-		New(
-			nil,
-			nil,
-		)
+		New(nil, nil, nil, nil)
 
 	request :=
 		httptest.NewRequest(

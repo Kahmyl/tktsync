@@ -59,12 +59,14 @@ type Logging struct {
 }
 
 type Supabase struct {
-	URL           string
-	AnonKey       string
-	JWTIssuer     string
-	JWKSURL       string
-	JWTAudience   string
-	JWTAlgorithms []string
+	URL               string
+	AnonKey           string
+	SecretKey         string
+	InviteRedirectURL string
+	JWTIssuer         string
+	JWKSURL           string
+	JWTAudience       string
+	JWTAlgorithms     []string
 }
 
 type HMACKeyring struct {
@@ -79,13 +81,15 @@ type Keyrings struct {
 }
 
 type Worker struct {
-	PollInterval         time.Duration
-	ShutdownTimeout      time.Duration
-	Concurrency          int
-	ReservationBatchSize int
-	OutboxBatchSize      int
-	WebhookBatchSize     int
-	WebhookTimeout       time.Duration
+	PollInterval           time.Duration
+	ShutdownTimeout        time.Duration
+	ReservationConcurrency int
+	OutboxConcurrency      int
+	WebhookConcurrency     int
+	ReservationBatchSize   int
+	OutboxBatchSize        int
+	WebhookBatchSize       int
+	WebhookTimeout         time.Duration
 }
 
 type Telemetry struct {
@@ -95,8 +99,9 @@ type Telemetry struct {
 }
 
 type Realtime struct {
-	Enabled       bool
-	ChannelPrefix string
+	Enabled        bool
+	ChannelPrefix  string
+	MaxConnections int
 }
 
 type Webhook struct {
@@ -195,7 +200,7 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	statementTimeout, err := positiveDuration("DB_STATEMENT_TIMEOUT", "30s")
+	statementTimeout, err := positiveDuration("DB_STATEMENT_TIMEOUT", "65s")
 	if err != nil {
 		return Config{}, err
 	}
@@ -223,7 +228,15 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 	if err != nil || workerShutdown <= 0 {
 		return Config{}, errors.New("WORKER_SHUTDOWN_TIMEOUT must be a positive duration")
 	}
-	workerConcurrency, err := positiveInt("WORKER_CONCURRENCY", "4", 256)
+	reservationConcurrency, err := positiveInt("WORKER_RESERVATION_CONCURRENCY", "2", 256)
+	if err != nil {
+		return Config{}, err
+	}
+	outboxConcurrency, err := positiveInt("WORKER_OUTBOX_CONCURRENCY", "2", 256)
+	if err != nil {
+		return Config{}, err
+	}
+	webhookConcurrency, err := positiveInt("WORKER_WEBHOOK_CONCURRENCY", "4", 256)
 	if err != nil {
 		return Config{}, err
 	}
@@ -252,6 +265,10 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 	realtimeEnabled, err := strconv.ParseBool(get("REALTIME_ENABLED", "false"))
 	if err != nil {
 		return Config{}, errors.New("REALTIME_ENABLED must be true or false")
+	}
+	realtimeMaxConnections, err := positiveInt("REALTIME_MAX_CONNECTIONS", "1000", 100000)
+	if err != nil {
+		return Config{}, err
 	}
 
 	webhookEnabled, err := strconv.ParseBool(get("WEBHOOK_ENABLED", "false"))
@@ -288,7 +305,7 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 	}
 
 	cfg := Config{
-		Environment:                get("APP_ENV", "development"),
+		Environment:                strings.ToLower(strings.TrimSpace(get("APP_ENV", "development"))),
 		PartnerCredentialReplayKey: get("PARTNER_CREDENTIAL_REPLAY_KEY", ""),
 		HTTP: HTTP{
 			Host: get("API_HOST", "127.0.0.1"), Port: port,
@@ -310,12 +327,14 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 			Format: strings.ToLower(get("LOG_FORMAT", "json")),
 		},
 		Supabase: Supabase{
-			URL:           get("SUPABASE_URL", ""),
-			AnonKey:       get("SUPABASE_ANON_KEY", ""),
-			JWTIssuer:     get("SUPABASE_JWT_ISSUER", ""),
-			JWKSURL:       get("SUPABASE_JWKS_URL", ""),
-			JWTAudience:   get("SUPABASE_JWT_AUDIENCE", ""),
-			JWTAlgorithms: splitCSV(get("SUPABASE_JWT_ALGORITHMS", "ES256,RS256")),
+			URL:               get("SUPABASE_URL", ""),
+			AnonKey:           get("SUPABASE_ANON_KEY", ""),
+			SecretKey:         get("SUPABASE_SECRET_KEY", ""),
+			InviteRedirectURL: get("ADMIN_INVITE_REDIRECT_URL", "http://localhost:54470/set-password"),
+			JWTIssuer:         get("SUPABASE_JWT_ISSUER", ""),
+			JWKSURL:           get("SUPABASE_JWKS_URL", ""),
+			JWTAudience:       get("SUPABASE_JWT_AUDIENCE", ""),
+			JWTAlgorithms:     splitCSV(get("SUPABASE_JWT_ALGORITHMS", "ES256,RS256")),
 		},
 		Keyrings: Keyrings{
 			Selection: HMACKeyring{
@@ -332,15 +351,20 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 			},
 		},
 		Worker: Worker{
-			PollInterval:    poll,
-			ShutdownTimeout: workerShutdown,
-			Concurrency:     workerConcurrency, ReservationBatchSize: reservationBatch,
-			OutboxBatchSize: outboxBatch, WebhookBatchSize: webhookBatch,
-			WebhookTimeout: webhookTimeout,
+			PollInterval:           poll,
+			ShutdownTimeout:        workerShutdown,
+			ReservationConcurrency: reservationConcurrency,
+			OutboxConcurrency:      outboxConcurrency,
+			WebhookConcurrency:     webhookConcurrency,
+			ReservationBatchSize:   reservationBatch,
+			OutboxBatchSize:        outboxBatch,
+			WebhookBatchSize:       webhookBatch,
+			WebhookTimeout:         webhookTimeout,
 		},
 		Realtime: Realtime{
-			Enabled:       realtimeEnabled,
-			ChannelPrefix: get("REALTIME_CHANNEL_PREFIX", "tktsync"),
+			Enabled:        realtimeEnabled,
+			ChannelPrefix:  get("REALTIME_CHANNEL_PREFIX", "tktsync"),
+			MaxConnections: realtimeMaxConnections,
 		},
 		Webhook: Webhook{
 			Enabled:              webhookEnabled,
@@ -363,6 +387,12 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 	if cfg.Telemetry.Enabled && cfg.Telemetry.OTLPEndpoint == "" {
 		return Config{}, errors.New("OTEL_EXPORTER_OTLP_ENDPOINT is required when OTEL_ENABLED=true")
 	}
+	if cfg.HTTP.RequestTimeout >= cfg.Database.StatementTimeout {
+		return Config{}, errors.New("HTTP_REQUEST_TIMEOUT must be less than DB_STATEMENT_TIMEOUT")
+	}
+	if cfg.HTTP.LongRequestTimeout >= cfg.Database.StatementTimeout {
+		return Config{}, errors.New("HTTP_LONG_REQUEST_TIMEOUT must be less than DB_STATEMENT_TIMEOUT")
+	}
 
 	if cfg.Logging.Format != "json" && cfg.Logging.Format != "text" {
 		return Config{}, errors.New("LOG_FORMAT must be json or text")
@@ -378,7 +408,78 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 		return Config{}, errors.New("SUPABASE_JWT_ALGORITHMS must contain at least one algorithm")
 	}
 
+	switch cfg.Environment {
+	case "development", "test":
+	case "production":
+		if err := validateProduction(cfg); err != nil {
+			return Config{}, err
+		}
+	default:
+		return Config{}, errors.New("APP_ENV must be development, test, or production")
+	}
+
 	return cfg, nil
+}
+
+func validateProduction(cfg Config) error {
+	required := []struct {
+		name  string
+		value string
+	}{
+		{"SUPABASE_JWKS_URL", cfg.Supabase.JWKSURL},
+		{"SUPABASE_JWT_ISSUER", cfg.Supabase.JWTIssuer},
+		{"SUPABASE_JWT_AUDIENCE", cfg.Supabase.JWTAudience},
+		{"SELECTION_KEYRING_KEYS", cfg.Keyrings.Selection.Keys},
+		{"RESERVATION_KEYRING_KEYS", cfg.Keyrings.Reservation.Keys},
+		{"QR_KEYRING_KEYS", cfg.Keyrings.QR.Keys},
+		{"PARTNER_CREDENTIAL_REPLAY_KEY", cfg.PartnerCredentialReplayKey},
+	}
+	for _, item := range required {
+		if strings.TrimSpace(item.value) == "" {
+			return fmt.Errorf("%s is required in production", item.name)
+		}
+		if obviousPlaceholder(item.value) {
+			return fmt.Errorf("%s must not use a placeholder value in production", item.name)
+		}
+	}
+	if cfg.Keyrings.Selection.ActiveVersion <= 0 || cfg.Keyrings.Reservation.ActiveVersion <= 0 || cfg.Keyrings.QR.ActiveVersion <= 0 {
+		return errors.New("all HMAC keyring active versions are required in production")
+	}
+	for name, raw := range map[string]string{
+		"SUPABASE_JWKS_URL":   cfg.Supabase.JWKSURL,
+		"SUPABASE_JWT_ISSUER": cfg.Supabase.JWTIssuer,
+		"SELECTOR_BASE_URL":   cfg.SelectorBaseURL,
+	} {
+		if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(raw)), "https://") {
+			return fmt.Errorf("%s must use HTTPS in production", name)
+		}
+		if obviousPlaceholder(raw) {
+			return fmt.Errorf("%s must not use a placeholder value in production", name)
+		}
+	}
+	for _, origin := range cfg.BrowserOrigins {
+		if !strings.HasPrefix(strings.ToLower(origin), "https://") {
+			return errors.New("BROWSER_ALLOWED_ORIGINS must contain only HTTPS origins in production")
+		}
+	}
+	if cfg.Webhook.Enabled && (cfg.Webhook.EncryptionKeyVersion <= 0 || (strings.TrimSpace(cfg.Webhook.EncryptionKey) == "" && strings.TrimSpace(cfg.Webhook.EncryptionKeyring) == "")) {
+		return errors.New("webhook encryption key and active version are required when WEBHOOK_ENABLED=true in production")
+	}
+	for _, algorithm := range cfg.Supabase.JWTAlgorithms {
+		if algorithm != "ES256" && algorithm != "RS256" {
+			return fmt.Errorf("SUPABASE_JWT_ALGORITHMS contains unsupported production algorithm %q", algorithm)
+		}
+	}
+	return nil
+}
+
+func obviousPlaceholder(raw string) bool {
+	value := strings.ToLower(strings.TrimSpace(raw))
+	switch value {
+	case "example", "example-anon-key", "placeholder", "changeme", "change-me", "keys", "replay-key":
+		return true
+	}
+	return strings.Contains(value, "example.com") || strings.Contains(value, "example.supabase.co")
 }
 
 func optionalPositiveInt(raw string) (int, error) {

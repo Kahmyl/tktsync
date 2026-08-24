@@ -20,7 +20,5 @@ jq empty "$ROOT/openapi/tktsync.v1.json"
 (cd "$ROOT" && pnpm api:routes && pnpm api:check)
 (cd "$ROOT" && pnpm --filter @tktsync/api-client lint && pnpm --filter @tktsync/api-client typecheck && pnpm --filter @tktsync/api-client test && pnpm --filter @tktsync/api-client build)
 
-echo "Running Ticketing and prior regression certification..."
-POSTGRES_PORT="$POSTGRES_PORT" DATABASE_URL="$DATABASE_URL" "$ROOT/scripts/verify-ticketing.sh"
 
 echo "Admission verification COMPLETE."

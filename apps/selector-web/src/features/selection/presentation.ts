@@ -13,3 +13,20 @@ export function serverOffset(serverTime?: string, clientNow = Date.now()) {
   const parsed = Date.parse(serverTime);
   return Number.isFinite(parsed) ? parsed - clientNow : 0;
 }
+
+const uuidTokenPattern = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+const opaqueHexTokenPattern = /\b[0-9a-f]{24,}\b/gi;
+const publicIDTokenPattern =
+  /\b(?:evt|tkt|adm|usr|ven|sec|row|seat|cred|inv|ptr|lay|res|sal)_[a-z0-9_-]+\b/gi;
+
+export function humanLabel(value: string | null | undefined, fallback: string) {
+  const readable = (value ?? '')
+    .trim()
+    .replace(uuidTokenPattern, ' ')
+    .replace(opaqueHexTokenPattern, ' ')
+    .replace(publicIDTokenPattern, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/[\s·|:/–—-]+$/g, '')
+    .trim();
+  return readable || fallback;
+}

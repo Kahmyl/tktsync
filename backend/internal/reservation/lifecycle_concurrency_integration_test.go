@@ -239,9 +239,11 @@ func TestCancellationCleanupIsBoundedAndStateAware(t *testing.T) {
 	if err := eventsvc.NewService(f.runner).CancelEvent(ctx, f.userID, f.eventID, "Release cleanup"); err != nil {
 		t.Fatal(err)
 	}
-	materializer := reservation.NewMaterializer(f.pool, f.reservation, 50)
-	if err := materializer.RunOnce(ctx); err != nil {
-		t.Fatal(err)
+	materializer := reservation.NewMaterializer(f.pool, f.reservation, 10000)
+	for range 3 {
+		if err := materializer.RunOnce(ctx); err != nil {
+			t.Fatal(err)
+		}
 	}
 	for _, id := range []uuid.UUID{held.ReservationID, retry.ReservationID} {
 		var state, reason string
@@ -374,7 +376,7 @@ func TestRealtimeConcurrentConnectionsRemainAdvisory(t *testing.T) {
 	f := newFixture(t)
 	handler := realtimeapi.New(f.pool, func(context.Context, string) (auth.HumanPrincipal, error) {
 		return auth.HumanPrincipal{Provider: "reservation", Subject: f.userSubject}, nil
-	})
+	}, nil, realtimeapi.NewHub(32))
 	server := httptest.NewServer(handler)
 	defer server.Close()
 	const connections = 50

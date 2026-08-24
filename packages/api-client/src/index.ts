@@ -1,3 +1,5 @@
 export { createTktSyncClient } from './client.js';
+export { installBrowserTelemetry } from './browserTelemetry.js';
+export type { BrowserTelemetryOptions } from './browserTelemetry.js';
 export type { TktSyncClient } from './client.js';
 export type { components, operations, paths } from './generated/schema.js';

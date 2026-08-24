@@ -8,10 +8,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
+
+const RealtimeChannel = "tktsync_realtime"
 
 type QueryRower interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 }
 
 type Fact struct {
@@ -21,6 +25,14 @@ type Fact struct {
 	AggregateType string
 	AggregateID   *uuid.UUID
 	Payload       any
+}
+
+type realtimeNotice struct {
+	FactID        uuid.UUID  `json:"fact_id"`
+	EventID       uuid.UUID  `json:"event_id"`
+	FactType      string     `json:"fact_type"`
+	AggregateType string     `json:"aggregate_type"`
+	AggregateID   *uuid.UUID `json:"aggregate_id,omitempty"`
 }
 
 type Store struct{}
@@ -77,9 +89,31 @@ func (Store) Append(
 		fact.AggregateID,
 		json.RawMessage(raw),
 	).Scan(&id)
-
 	if err != nil {
 		return uuid.Nil, err
+	}
+
+	if fact.EventID != nil {
+		notice, marshalErr := json.Marshal(realtimeNotice{
+			FactID:        fact.FactID,
+			EventID:       *fact.EventID,
+			FactType:      fact.FactType,
+			AggregateType: fact.AggregateType,
+			AggregateID:   fact.AggregateID,
+		})
+		if marshalErr != nil {
+			return uuid.Nil, marshalErr
+		}
+		if len(notice) > 7000 {
+			return uuid.Nil, errors.New("realtime invalidation payload is too large")
+		}
+		if _, err = q.Exec(
+			ctx,
+			`SELECT pg_notify('tktsync_realtime', $1)`,
+			string(notice),
+		); err != nil {
+			return uuid.Nil, fmt.Errorf("publish realtime invalidation: %w", err)
+		}
 	}
 
 	return id, nil

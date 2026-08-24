@@ -23,14 +23,15 @@ type PoolSnapshot struct {
 	AcquireDuration                 time.Duration
 }
 type Options struct {
-	Readiness          *Readiness
-	RequestTimeout     time.Duration
-	LongRequestTimeout time.Duration
-	MaxBodyBytes       int64
-	MaxInFlight        int
-	MetricsEnabled     bool
-	MetricsToken       string
-	PoolStats          func() PoolSnapshot
+	Readiness              *Readiness
+	RequestTimeout         time.Duration
+	LongRequestTimeout     time.Duration
+	MaxBodyBytes           int64
+	MaxInFlight            int
+	RealtimeMaxConnections int
+	MetricsEnabled         bool
+	MetricsToken           string
+	PoolStats              func() PoolSnapshot
 }
 type Readiness struct{ draining atomic.Bool }
 
@@ -45,7 +46,8 @@ type RuntimeMetrics struct {
 	inFlight                                          atomic.Int64
 	requests, errors, panics, rejected, durationNanos atomic.Uint64
 	realtimeConnections                               atomic.Int64
-	realtimeConnects                                  atomic.Uint64
+	realtimeConnects, realtimeRejected                atomic.Uint64
+	latency                                           latencyHistogram
 }
 
 type contextKey string
@@ -106,7 +108,30 @@ func HandlerWithOptions(logger *slog.Logger, database Pinger, options Options, a
 			break
 		}
 	}
-	return requestLogging(logger, metrics, recoverPanics(logger, metrics, limitConcurrency(metrics, options.MaxInFlight, limitBody(options.MaxBodyBytes, requestDeadline(options.RequestTimeout, options.LongRequestTimeout, mux)))))
+	return requestLogging(
+		logger,
+		metrics,
+		recoverPanics(
+			logger,
+			metrics,
+			limitRealtimeConcurrency(
+				metrics,
+				options.RealtimeMaxConnections,
+				limitConcurrency(
+					metrics,
+					options.MaxInFlight,
+					limitBody(
+						options.MaxBodyBytes,
+						requestDeadline(
+							options.RequestTimeout,
+							options.LongRequestTimeout,
+							mux,
+						),
+					),
+				),
+			),
+		),
+	)
 }
 
 func WriteJSON(w http.ResponseWriter, status int, body any) {
@@ -159,14 +184,14 @@ func requestLogging(logger *slog.Logger, metrics *RuntimeMetrics, next http.Hand
 		w.Header().Set("X-Request-ID", requestID)
 		wrapped := &statusWriter{ResponseWriter: w}
 		metrics.requests.Add(1)
-		metrics.inFlight.Add(1)
-		if r.URL.Path == "/api/v1/realtime/stream" {
-			metrics.realtimeConnections.Add(1)
-			metrics.realtimeConnects.Add(1)
-			defer metrics.realtimeConnections.Add(-1)
+		realtime := r.URL.Path == "/api/v1/realtime/stream"
+		if !realtime {
+			metrics.inFlight.Add(1)
 		}
 		defer func() {
-			metrics.inFlight.Add(-1)
+			if !realtime {
+				metrics.inFlight.Add(-1)
+			}
 			elapsed := time.Since(started)
 			metrics.durationNanos.Add(uint64(elapsed))
 			status := wrapped.status
@@ -176,6 +201,12 @@ func requestLogging(logger *slog.Logger, metrics *RuntimeMetrics, next http.Hand
 			if status >= 500 {
 				metrics.errors.Add(1)
 			}
+			metrics.observeLatency(
+				r.Method,
+				routeClass(r.URL.Path),
+				status,
+				elapsed,
+			)
 			logger.InfoContext(r.Context(), "request completed", "request_id", requestID, "correlation_id", requestID, "operation", r.Method+" "+routeClass(r.URL.Path), "status", status, "duration", elapsed)
 		}()
 		next.ServeHTTP(wrapped, r)
@@ -187,7 +218,7 @@ func recoverPanics(logger *slog.Logger, metrics *RuntimeMetrics, next http.Handl
 		defer func() {
 			if recovered := recover(); recovered != nil {
 				metrics.panics.Add(1)
-				logger.ErrorContext(r.Context(), "request panic recovered", "request_id", RequestID(r.Context()), "operation", r.Method+" "+routeClass(r.URL.Path), "panic", fmt.Sprint(recovered), "stack", string(debug.Stack()))
+				logger.ErrorContext(r.Context(), "request panic recovered", "request_id", RequestID(r.Context()), "operation", r.Method+" "+routeClass(r.URL.Path), "panic_type", fmt.Sprintf("%T", recovered), "stack", string(debug.Stack()))
 				WriteError(w, r, apierror.New(apierror.CodeInternal, "an internal error occurred"))
 			}
 		}()
@@ -200,7 +231,8 @@ func limitConcurrency(metrics *RuntimeMetrics, maximum int, next http.Handler) h
 	}
 	slots := make(chan struct{}, maximum)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if isOperational(r.URL.Path) {
+		if isOperational(r.URL.Path) ||
+			r.URL.Path == "/api/v1/realtime/stream" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -215,6 +247,48 @@ func limitConcurrency(metrics *RuntimeMetrics, maximum int, next http.Handler) h
 		}
 	})
 }
+func limitRealtimeConcurrency(
+	metrics *RuntimeMetrics,
+	maximum int,
+	next http.Handler,
+) http.Handler {
+	if maximum <= 0 {
+		return next
+	}
+
+	slots := make(chan struct{}, maximum)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/realtime/stream" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		select {
+		case slots <- struct{}{}:
+			metrics.realtimeConnections.Add(1)
+			metrics.realtimeConnects.Add(1)
+			defer func() {
+				metrics.realtimeConnections.Add(-1)
+				<-slots
+			}()
+			next.ServeHTTP(w, r)
+		default:
+			metrics.realtimeRejected.Add(1)
+			w.Header().Set("Retry-After", "1")
+			WriteError(
+				w,
+				r,
+				apierror.WithStatus(
+					apierror.CodeAuthorityTemporarilyUnavailable,
+					"realtime connection capacity reached",
+					http.StatusServiceUnavailable,
+				),
+			)
+		}
+	})
+}
+
 func limitBody(maximum int64, next http.Handler) http.Handler {
 	if maximum <= 0 {
 		return next
@@ -283,7 +357,8 @@ func writeMetrics(w http.ResponseWriter, m *RuntimeMetrics, o Options) {
 	if requests > 0 {
 		avg = float64(m.durationNanos.Load()) / float64(requests) / float64(time.Second)
 	}
-	_, _ = fmt.Fprintf(w, "# TYPE tktsync_http_requests_total counter\ntktsync_http_requests_total %d\n# TYPE tktsync_http_errors_total counter\ntktsync_http_errors_total %d\n# TYPE tktsync_http_in_flight gauge\ntktsync_http_in_flight %d\n# TYPE tktsync_http_rejected_total counter\ntktsync_http_rejected_total %d\n# TYPE tktsync_http_panics_total counter\ntktsync_http_panics_total %d\n# TYPE tktsync_http_duration_average_seconds gauge\ntktsync_http_duration_average_seconds %.9f\n# TYPE tktsync_realtime_connections gauge\ntktsync_realtime_connections %d\n# TYPE tktsync_realtime_connects_total counter\ntktsync_realtime_connects_total %d\n# TYPE go_goroutines gauge\ngo_goroutines %d\n# TYPE go_heap_alloc_bytes gauge\ngo_heap_alloc_bytes %d\n# TYPE go_gc_cycles_total counter\ngo_gc_cycles_total %d\n", requests, m.errors.Load(), m.inFlight.Load(), m.rejected.Load(), m.panics.Load(), avg, m.realtimeConnections.Load(), m.realtimeConnects.Load(), runtime.NumGoroutine(), memory.HeapAlloc, memory.NumGC)
+	_, _ = fmt.Fprintf(w, "# TYPE tktsync_http_requests_total counter\ntktsync_http_requests_total %d\n# TYPE tktsync_http_errors_total counter\ntktsync_http_errors_total %d\n# TYPE tktsync_http_in_flight gauge\ntktsync_http_in_flight %d\n# TYPE tktsync_http_rejected_total counter\ntktsync_http_rejected_total %d\n# TYPE tktsync_http_panics_total counter\ntktsync_http_panics_total %d\n# TYPE tktsync_http_duration_average_seconds gauge\ntktsync_http_duration_average_seconds %.9f\n# TYPE tktsync_realtime_connections gauge\ntktsync_realtime_connections %d\n# TYPE tktsync_realtime_connects_total counter\ntktsync_realtime_connects_total %d\n# TYPE tktsync_realtime_rejected_total counter\ntktsync_realtime_rejected_total %d\n# TYPE go_goroutines gauge\ngo_goroutines %d\n# TYPE go_heap_alloc_bytes gauge\ngo_heap_alloc_bytes %d\n# TYPE go_gc_cycles_total counter\ngo_gc_cycles_total %d\n", requests, m.errors.Load(), m.inFlight.Load(), m.rejected.Load(), m.panics.Load(), avg, m.realtimeConnections.Load(), m.realtimeConnects.Load(), m.realtimeRejected.Load(), runtime.NumGoroutine(), memory.HeapAlloc, memory.NumGC)
+	m.writeLatency(w)
 	if o.PoolStats != nil {
 		s := o.PoolStats()
 		_, _ = fmt.Fprintf(w, "# TYPE tktsync_db_pool_connections gauge\ntktsync_db_pool_connections{state=\"acquired\"} %d\ntktsync_db_pool_connections{state=\"idle\"} %d\ntktsync_db_pool_connections{state=\"total\"} %d\ntktsync_db_pool_connections{state=\"max\"} %d\n# TYPE tktsync_db_pool_acquires_total counter\ntktsync_db_pool_acquires_total %d\n# TYPE tktsync_db_pool_empty_acquires_total counter\ntktsync_db_pool_empty_acquires_total %d\n# TYPE tktsync_db_pool_acquire_seconds_total counter\ntktsync_db_pool_acquire_seconds_total %.9f\n", s.Acquired, s.Idle, s.Total, s.Max, s.AcquireCount, s.EmptyAcquireCount, s.AcquireDuration.Seconds())

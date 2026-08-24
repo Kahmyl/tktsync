@@ -4,14 +4,17 @@ import (
 	"bytes"
 	"context"
 	"net/http"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tktsync/tktsync/backend/internal/platform/publicid"
 )
 
-type Observer struct {
+type metricCounters struct {
 	requests       atomic.Uint64
 	errors         atomic.Uint64
 	authAnomalies  atomic.Uint64
@@ -19,6 +22,14 @@ type Observer struct {
 	holdConflicts  atomic.Uint64
 	totalLatencyNS atomic.Uint64
 	maxLatencyNS   atomic.Uint64
+}
+
+type Observer struct {
+	process metricCounters
+	mu      sync.Mutex
+	events  map[string]*metricCounters
+	order   []string
+	limit   int
 }
 
 type RequestMetrics struct {
@@ -33,7 +44,9 @@ type RequestMetrics struct {
 	MaximumLatencyMS      float64 `json:"maximum_latency_ms"`
 }
 
-func NewObserver() *Observer { return &Observer{} }
+func NewObserver() *Observer {
+	return &Observer{events: make(map[string]*metricCounters), limit: 1024}
+}
 
 type statusWriter struct {
 	http.ResponseWriter
@@ -75,41 +88,92 @@ func (o *Observer) Middleware(next http.Handler) http.Handler {
 		if status == 0 {
 			status = http.StatusOK
 		}
-		o.requests.Add(1)
-		if status >= 400 {
-			o.errors.Add(1)
-		}
-		if status == http.StatusUnauthorized || status == http.StatusForbidden {
-			o.authAnomalies.Add(1)
-		}
-		if status == http.StatusConflict {
-			o.conflicts.Add(1)
-		}
-		if recorder.holdConflict {
-			o.holdConflicts.Add(1)
-		}
 		latency := uint64(time.Since(started))
-		o.totalLatencyNS.Add(latency)
-		for {
-			current := o.maxLatencyNS.Load()
-			if latency <= current || o.maxLatencyNS.CompareAndSwap(current, latency) {
-				break
+		o.process.observe(status, recorder.holdConflict, latency)
+		if eventID := eventIDFromPath(r.URL.Path); eventID != "" {
+			if counters := o.eventCounters(eventID); counters != nil {
+				counters.observe(status, recorder.holdConflict, latency)
 			}
 		}
 	})
 }
 
 func (o *Observer) Snapshot() RequestMetrics {
-	count := o.requests.Load()
+	return o.process.snapshot()
+}
+
+func (o *Observer) SnapshotEvent(eventID uuid.UUID) RequestMetrics {
+	key := publicid.Encode(publicid.Event, eventID)
+	o.mu.Lock()
+	counters := o.events[key]
+	o.mu.Unlock()
+	if counters == nil {
+		return RequestMetrics{}
+	}
+	return counters.snapshot()
+}
+
+func (o *Observer) eventCounters(eventID string) *metricCounters {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if counters := o.events[eventID]; counters != nil {
+		return counters
+	}
+	if len(o.events) >= o.limit {
+		oldest := o.order[0]
+		o.order = o.order[1:]
+		delete(o.events, oldest)
+	}
+	counters := &metricCounters{}
+	o.events[eventID] = counters
+	o.order = append(o.order, eventID)
+	return counters
+}
+
+func eventIDFromPath(path string) string {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	for i := 0; i+1 < len(parts); i++ {
+		if parts[i] == "events" && strings.HasPrefix(parts[i+1], "evt_") {
+			return parts[i+1]
+		}
+	}
+	return ""
+}
+
+func (c *metricCounters) observe(status int, holdConflict bool, latency uint64) {
+	c.requests.Add(1)
+	if status >= 400 {
+		c.errors.Add(1)
+	}
+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+		c.authAnomalies.Add(1)
+	}
+	if status == http.StatusConflict {
+		c.conflicts.Add(1)
+	}
+	if holdConflict {
+		c.holdConflicts.Add(1)
+	}
+	c.totalLatencyNS.Add(latency)
+	for {
+		current := c.maxLatencyNS.Load()
+		if latency <= current || c.maxLatencyNS.CompareAndSwap(current, latency) {
+			break
+		}
+	}
+}
+
+func (c *metricCounters) snapshot() RequestMetrics {
+	count := c.requests.Load()
 	average := float64(0)
 	errorRate := float64(0)
 	holdConflictRate := float64(0)
 	if count > 0 {
-		average = float64(o.totalLatencyNS.Load()) / float64(count) / float64(time.Millisecond)
-		errorRate = float64(o.errors.Load()) / float64(count)
-		holdConflictRate = float64(o.holdConflicts.Load()) / float64(count)
+		average = float64(c.totalLatencyNS.Load()) / float64(count) / float64(time.Millisecond)
+		errorRate = float64(c.errors.Load()) / float64(count)
+		holdConflictRate = float64(c.holdConflicts.Load()) / float64(count)
 	}
-	return RequestMetrics{RequestCount: count, ErrorCount: o.errors.Load(), AuthAnomalyCount: o.authAnomalies.Load(), ConflictResponseCount: o.conflicts.Load(), HoldConflictCount: o.holdConflicts.Load(), ErrorRate: errorRate, HoldConflictRate: holdConflictRate, AverageLatencyMS: average, MaximumLatencyMS: float64(o.maxLatencyNS.Load()) / float64(time.Millisecond)}
+	return RequestMetrics{RequestCount: count, ErrorCount: c.errors.Load(), AuthAnomalyCount: c.authAnomalies.Load(), ConflictResponseCount: c.conflicts.Load(), HoldConflictCount: c.holdConflicts.Load(), ErrorRate: errorRate, HoldConflictRate: holdConflictRate, AverageLatencyMS: average, MaximumLatencyMS: float64(c.maxLatencyNS.Load()) / float64(time.Millisecond)}
 }
 
 type Alert struct {
@@ -119,29 +183,29 @@ type Alert struct {
 	Value    int64  `json:"value"`
 }
 type OperationalMetrics struct {
-	GeneratedAt            time.Time        `json:"generated_at"`
-	Event                  EventContext     `json:"event"`
-	Requests               RequestMetrics   `json:"requests"`
-	ReservationStates      map[string]int64 `json:"reservation_states"`
-	ConfirmedSales         int64            `json:"confirmed_sales"`
-	ConfirmationRate       float64          `json:"confirmation_rate"`
-	OverdueReconciliations int64            `json:"overdue_reconciliations"`
-	DueReservationWork     int64            `json:"due_reservation_work"`
-	OldestWorkerLagSeconds int64            `json:"oldest_worker_lag_seconds"`
-	PendingOutbox          int64            `json:"pending_outbox"`
-	OldestOutboxLagSeconds int64            `json:"oldest_outbox_lag_seconds"`
-	WebhookFailures        int64            `json:"webhook_failures"`
-	WebhookDeadLetters     int64            `json:"webhook_dead_letters"`
-	WaitingDatabaseLocks   int64            `json:"waiting_database_locks"`
-	ScanOutcomes           map[string]int64 `json:"scan_outcomes"`
-	Alerts                 []Alert          `json:"alerts"`
-	Authority              string           `json:"authority"`
+	GeneratedAt                 time.Time        `json:"generated_at"`
+	Event                       EventContext     `json:"event"`
+	Requests                    RequestMetrics   `json:"requests"`
+	ReservationStates           map[string]int64 `json:"reservation_states"`
+	ConfirmedSales              int64            `json:"confirmed_sales"`
+	ConfirmationRate            float64          `json:"confirmation_rate"`
+	OverdueReconciliations      int64            `json:"overdue_reconciliations"`
+	DueReservationWork          int64            `json:"due_reservation_work"`
+	OldestWorkerLagSeconds      int64            `json:"oldest_worker_lag_seconds"`
+	PendingOutbox               int64            `json:"pending_outbox"`
+	OldestOutboxLagSeconds      int64            `json:"oldest_outbox_lag_seconds"`
+	WebhookFailures             int64            `json:"webhook_failures"`
+	WebhookDeadLetters          int64            `json:"webhook_dead_letters"`
+	ProcessWaitingDatabaseLocks int64            `json:"process_waiting_database_locks"`
+	ScanOutcomes                map[string]int64 `json:"scan_outcomes"`
+	Alerts                      []Alert          `json:"alerts"`
+	Authority                   string           `json:"authority"`
 }
 
 func (s *Service) Metrics(ctx context.Context, eventID uuid.UUID, observer *Observer) (OperationalMetrics, error) {
 	result := OperationalMetrics{ReservationStates: map[string]int64{}, ScanOutcomes: map[string]int64{}, Alerts: []Alert{}, Authority: "ADVISORY_DERIVED_READ"}
 	if observer != nil {
-		result.Requests = observer.Snapshot()
+		result.Requests = observer.SnapshotEvent(eventID)
 	}
 	err := s.readSnapshot(ctx, func(tx pgx.Tx) error {
 		var err error
@@ -186,7 +250,7 @@ func (s *Service) Metrics(ctx context.Context, eventID uuid.UUID, observer *Obse
 		if err := tx.QueryRow(ctx, `SELECT COUNT(*) FILTER (WHERE wd.state='PENDING' AND wd.attempt_count>0),COUNT(*) FILTER (WHERE wd.state='DEAD_LETTER') FROM webhook_deliveries wd JOIN outbox_events oe ON oe.id=wd.outbox_event_id WHERE oe.event_id=$1`, eventID).Scan(&result.WebhookFailures, &result.WebhookDeadLetters); err != nil {
 			return err
 		}
-		if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM pg_locks WHERE NOT granted AND database=(SELECT oid FROM pg_database WHERE datname=current_database())`).Scan(&result.WaitingDatabaseLocks); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM pg_locks WHERE NOT granted AND database=(SELECT oid FROM pg_database WHERE datname=current_database())`).Scan(&result.ProcessWaitingDatabaseLocks); err != nil {
 			return err
 		}
 		rows, err = tx.Query(ctx, `SELECT result,COUNT(*) FROM scan_attempts WHERE event_id=$1 GROUP BY result ORDER BY result`, eventID)
@@ -216,11 +280,11 @@ func (s *Service) Metrics(ctx context.Context, eventID uuid.UUID, observer *Obse
 	if result.WebhookDeadLetters > 0 {
 		result.Alerts = append(result.Alerts, Alert{Code: "WEBHOOK_DEAD_LETTER", Severity: "CRITICAL", Message: "Webhook deliveries are dead-lettered", Value: result.WebhookDeadLetters})
 	}
-	if result.WaitingDatabaseLocks > 0 {
-		result.Alerts = append(result.Alerts, Alert{Code: "DATABASE_LOCK_CONTENTION", Severity: "WARNING", Message: "Database sessions are waiting on locks", Value: result.WaitingDatabaseLocks})
+	if result.ProcessWaitingDatabaseLocks > 0 {
+		result.Alerts = append(result.Alerts, Alert{Code: "DATABASE_LOCK_CONTENTION", Severity: "WARNING", Message: "Process database sessions are waiting on locks", Value: result.ProcessWaitingDatabaseLocks})
 	}
 	if result.Requests.AuthAnomalyCount >= 10 {
-		result.Alerts = append(result.Alerts, Alert{Code: "AUTH_ANOMALY_VOLUME", Severity: "WARNING", Message: "Process observed at least 10 authorization failures", Value: int64(result.Requests.AuthAnomalyCount)})
+		result.Alerts = append(result.Alerts, Alert{Code: "AUTH_ANOMALY_VOLUME", Severity: "WARNING", Message: "Event routes observed at least 10 authorization failures", Value: int64(result.Requests.AuthAnomalyCount)})
 	}
 	return result, nil
 }

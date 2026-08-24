@@ -4,22 +4,71 @@ export type Offer = {
   price: { amount_minor: number; currency: string };
 };
 
-export type SelectableOffer = Offer & { label: string };
+export type SelectableOffer = Offer & {
+  kind: 'reserved' | 'ga';
+  label: string;
+  inventory_id: string;
+  section_id?: string;
+  section_name?: string;
+  row?: string;
+  seat?: string;
+};
+
+export type SelectionLine = { offer: SelectableOffer; quantity: number };
+
+export type Layout = {
+  event_id: string;
+  geometry?: unknown;
+  reserved_units: Array<{
+    inventory_id: string;
+    section_id?: string;
+    section_name?: string;
+    row?: string;
+    seat: string;
+    display_label?: string;
+  }>;
+  ga_pools: Array<{
+    inventory_id: string;
+    section_id?: string;
+    section_name?: string;
+    name: string;
+    capacity: number;
+  }>;
+};
 
 export type Availability = {
   reserved_units: Array<{
     inventory_id: string;
-    row: string;
+    section_id?: string;
+    row?: string;
     seat: string;
     sellability: string;
     offer?: Offer;
   }>;
-  ga_pools: Array<{ inventory_id: string; name: string; offers: Offer[] }>;
+  ga_pools: Array<{
+    inventory_id: string;
+    section_id?: string;
+    name: string;
+    offers: Offer[];
+  }>;
   server_time: string;
 };
 
-export type Session = { id: string; event_id: string; return_url: string; expires_at: string };
-export type EventView = { name: string; state: string; starts_at?: string };
+export type Session = {
+  id: string;
+  event_id: string;
+  return_url: string;
+  expires_at: string;
+};
+
+export type EventView = {
+  name: string;
+  state: string;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  venue_name?: string | null;
+  address_text?: string | null;
+};
 
 export type Hold = {
   id: string;

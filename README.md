@@ -1,68 +1,70 @@
 # TktSync
 
-TktSync is a pnpm monorepo with three React/Vite applications and one Go backend that builds separate API and worker executables. The bootstrap layer provides infrastructure; ordered migrations define the authoritative business schema.
+TktSync is a pnpm monorepo with three React/Vite applications and a Go backend that builds separate API and worker executables. Ordered PostgreSQL migrations define the authoritative business schema.
 
-## Prerequisites
+## Local product stack
 
-- Node.js 22+
-- pnpm 10+
-- Go 1.24+
-- Docker with Compose
-
-## Setup
+Docker Compose runs PostgreSQL, automatic migrations and application seeds, the API, worker, Admin, Selector, Scanner, and Partner developer documentation together. Docker with Compose is the only prerequisite for this path.
 
 ```sh
 cp .env.example .env
-pnpm install
-cd backend && go mod download && cd ..
-make db-up
-make db-migrate
+# Add Supabase public/JWT settings if Admin or Scanner login is needed.
+make local-up
 ```
 
-The example configuration contains local-only placeholders. Never commit `.env`, signing keys, database passwords, service-role credentials, or other secrets. Application logs must use identifiers and redacted error context rather than configuration values.
+With the default ports, open:
 
-## Run
+- API: http://localhost:58480 (`/health` and database-backed `/ready`)
+- Admin: http://localhost:54470
+- Selector: http://localhost:54471
+- Scanner: http://localhost:54472
+- Partner API docs: http://localhost:54473
+- PostgreSQL: `localhost:55439`
 
-Start every process with `make dev`, or run them independently:
+Migrations run after PostgreSQL becomes healthy, then the idempotent seed runs; the API and worker start only after both succeed. A normal cached startup should complete within 60 seconds, while a first image pull/build can take longer.
 
 ```sh
-make dev-api       # http://127.0.0.1:8080
-make dev-worker
-make dev-admin     # Vite selects an available local port
-make dev-selector
-make dev-scanner
+make local-ps
+make local-logs
+make local-down
+make local-seed   # rerun application defaults after changing operator settings
+make local-reset  # WARNING: destroys the local Compose database volume
 ```
 
-The API exposes `GET /health` for liveness and `GET /ready` for database-backed readiness. The worker verifies database connectivity before processing configured background work.
+Override any published port in `.env` or for one command without editing Compose, for example `DOCS_HOST_PORT=54474 make local-up`. The frontend API address is compiled from `API_HOST_PORT` during the image build. Partner docs are the public integration reference. Its Set Test Credential control is memory-only and clears on reload; local requests use a fixed same-origin proxy. Optional sandbox and production base URLs are display-only unless a safe execution path is configured, and production execution is disabled.
 
-## Development commands
+Admin and Scanner operator login use an external Supabase Auth/OIDC project. Set matching `SUPABASE_JWT_ISSUER`, `SUPABASE_JWKS_URL`, and browser-safe `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` values. To invite administrators from TktSync, also set the server-only `SUPABASE_SECRET_KEY` and add the exact `ADMIN_INVITE_REDIRECT_URL` (locally, `http://localhost:54470/set-password`) to Supabase Auth's allowed Redirect URLs. The secret key must never use a `VITE_*` name or be exposed to a browser.
+
+To authorize one local platform administrator, create a normal test user under Supabase Authentication, copy its User ID, and add it to `.env` as `LOCAL_OPERATOR_AUTH_SUBJECT`. The User ID is the JWT `sub`; it is not the user's email or access token. `LOCAL_OPERATOR_DISPLAY_NAME` controls the TktSync display name, and `LOCAL_OPERATOR_PLATFORM_ADMIN=true` adds the platform role. Run `make local-seed` or `make local-up`, then sign in through Admin or Scanner using that Supabase user's email and password. Supabase retains the password; the seed never receives or stores it. With no subject configured, seeding skips cleanly and the stack still starts.
+
+After the first Platform Admin can sign in, use **Administration → Administrators** and enter a trusted person's name and work email. TktSync securely asks Supabase to send the account invitation and grants the platform role; existing Supabase users receive the role without needing another account. An invited user must create a password before entering the application. The sign-in page supports password recovery, and Account settings supports password changes. Administrators can also disable and re-enable access, with every access change audited. TktSync never receives or stores passwords.
+
+Normal seeds contain only application defaults: the optional `app_users` identity mapping and platform role. They do not create Supabase users or any venue, event, partner, inventory, reservation, sale, ticket, admission, webhook, audit, or demo data.
+
+See the [local smoke checklist](docs/operations/local-smoke-checklist.md) for the short manual product check.
+
+## Source development
+
+For host-based development, install Node.js 22+, pnpm 10+, and Go 1.25+:
 
 ```sh
-make build
-make test
-make lint
-make typecheck
-make format-check
-
+make setup
 make db-up
-make db-down
 make db-migrate
-make db-reset       # removes the local database volume, restarts, and migrates
+make dev
 ```
 
-If port 5432 is already occupied, set `POSTGRES_PORT` and update the port in `DATABASE_URL` to the same value before starting the database.
+Useful repository gates are `make build`, `make test`, `make lint`, `make typecheck`, and `make format-check`. Migration files live in `migrations/`; production code never creates schema dynamically.
 
-`make setup` installs pinned pnpm dependencies and downloads Go modules. Migration files live in `migrations/`; production code never creates schema dynamically. The bootstrap migration deliberately creates no TktSync tables.
+Never commit `.env`, signing keys, database passwords, service-role credentials, or other secrets.
 
 ## Repository layout
 
-- `apps/` — Admin, selector, and scanner React applications
-- `backend/` — authoritative Go codebase and API/worker commands
-- `packages/` — shared UI primitives and the generated API client
+- `apps/` — Admin, Selector, Scanner, and Partner documentation React applications
+- `backend/` — authoritative Go API, worker, and domain code
+- `packages/` — shared UI primitives and generated API client
 - `migrations/` — ordered PostgreSQL migrations
 - `tests/` — integration, concurrency, end-to-end, and fixture conventions
 - `docs/` — architecture, API, operations, and implementation history
 
-## Documentation
-
-Start with the [documentation index](docs/README.md) for the governing policy and architecture, API integration contract, release operations, and historical implementation plan.
+Start with the [documentation index](docs/README.md) for governing policy and architecture.

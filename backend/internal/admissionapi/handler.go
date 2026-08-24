@@ -41,6 +41,7 @@ func New(deps Dependencies) (*Handler, error) {
 		return nil, errors.New("admission API dependencies are incomplete")
 	}
 	h := &Handler{db: deps.Database, transactions: deps.Transactions, humanAuth: deps.HumanAuth, admission: deps.Admission, mux: http.NewServeMux()}
+	h.mux.HandleFunc("GET /api/v1/admission/events", h.events)
 	h.mux.HandleFunc("POST /api/v1/admission/scans", h.scan)
 	return h, nil
 }
@@ -54,24 +55,15 @@ type scanRequest struct {
 }
 
 func (h *Handler) scan(w http.ResponseWriter, r *http.Request) {
-	if h.humanAuth == nil {
-		httpserver.WriteError(w, r, apierror.New(apierror.CodeAuthorityTemporarilyUnavailable, "human authentication is not configured"))
-		return
-	}
-	header := strings.TrimSpace(r.Header.Get("Authorization"))
-	if !strings.HasPrefix(header, "Bearer ") {
-		httpserver.WriteError(w, r, apierror.WithStatus(apierror.CodeNotAuthorized, "authentication is required", http.StatusUnauthorized))
-		return
-	}
-	principal, err := h.humanAuth(r.Context(), strings.TrimSpace(strings.TrimPrefix(header, "Bearer ")))
-	if err != nil {
-		httpserver.WriteError(w, r, apierror.WithStatus(apierror.CodeNotAuthorized, "authentication failed", http.StatusUnauthorized))
+	principal, authErr := h.authenticateHuman(r)
+	if authErr != nil {
+		httpserver.WriteError(w, r, authErr)
 		return
 	}
 	var request scanRequest
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
 	decoder.DisallowUnknownFields()
-	if err = decoder.Decode(&request); err != nil {
+	if err := decoder.Decode(&request); err != nil {
 		httpserver.WriteError(w, r, apierror.New(apierror.CodeValidation, "request body is invalid"))
 		return
 	}

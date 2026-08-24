@@ -21,8 +21,6 @@ echo "Running Reservation lifecycle certification..."
 )
 
 echo
-echo "Running inventory and allocation regression certification..."
-"$ROOT/scripts/verify-inventory-allocation.sh"
 
 echo
 echo "Checking Reservation implementation..."

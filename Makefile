@@ -1,11 +1,9 @@
 SHELL := /bin/sh
 -include .env
 
-DATABASE_URL ?= postgres://tktsync:tktsync@localhost:$${POSTGRES_PORT:-5432}/tktsync?sslmode=disable
-MIGRATE_IMAGE ?= migrate/migrate:v4.18.3
 LOAD_ENV = set -a; [ ! -f "$(CURDIR)/.env" ] || . "$(CURDIR)/.env"; set +a;
 
-.PHONY: setup dev dev-api dev-worker dev-admin dev-selector dev-scanner build test lint typecheck format-check benchmark-runtime db-up db-down db-migrate db-reset verify-schema verify-platform-foundation verify-event-configuration verify-inventory-allocation verify-api-contract verify-reservations verify-ticketing verify-admissions verify-async-delivery verify-selection verify-reporting verify-fresh-database certify-partner-integration verify-release
+.PHONY: setup dev dev-api dev-worker dev-admin dev-selector dev-scanner dev-docs build test lint typecheck format-check benchmark-runtime local-up local-down local-logs local-ps local-seed local-reset db-up db-down db-migrate db-reset verify-schema verify-platform-foundation verify-event-configuration verify-inventory-allocation verify-api-contract verify-reservations verify-ticketing verify-admissions verify-async-delivery verify-selection verify-reporting verify-fresh-database certify-partner-integration verify-release
 
 setup:
 	pnpm install --frozen-lockfile
@@ -28,6 +26,9 @@ dev-selector:
 
 dev-scanner:
 	pnpm --filter @tktsync/scanner-web dev
+
+dev-docs:
+	pnpm --filter @tktsync/docs-web dev
 
 build:
 	cd backend && go build -o bin/api ./cmd/api && go build -o bin/worker ./cmd/worker
@@ -54,6 +55,26 @@ benchmark-runtime:
 	cd backend && RUNTIME_BENCHMARK=true go test ./internal/platform/httpserver -run TestRuntimeLoadProfile -count=1 -v
 	cd backend && go test ./internal/platform/httpserver -run '^$$' -bench BenchmarkHTTPRuntimeHealth -benchmem -count=3
 
+local-up:
+	docker compose up -d --build --wait --wait-timeout 60
+
+local-down:
+	docker compose down --remove-orphans
+
+local-logs:
+	docker compose logs -f --tail=100
+
+local-ps:
+	docker compose ps --all
+
+local-seed:
+	docker compose run --rm seed
+
+local-reset:
+	@echo "WARNING: removing the TktSync local Compose database volume and all local data"
+	docker compose down -v --remove-orphans
+	docker compose up -d --build --wait --wait-timeout 60
+
 db-up:
 	docker compose up -d --wait postgres
 
@@ -61,10 +82,11 @@ db-down:
 	docker compose down
 
 db-migrate:
-	docker run --rm --network host -v "$(CURDIR)/migrations:/migrations:ro" $(MIGRATE_IMAGE) -path=/migrations -database "$(DATABASE_URL)" up
+	docker compose run --rm migrate
 
 db-reset:
-	docker compose down -v
+	@echo "WARNING: removing the TktSync local Compose database volume and all local data"
+	docker compose down -v --remove-orphans
 	docker compose up -d --wait postgres
 	$(MAKE) db-migrate
 

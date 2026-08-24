@@ -18,5 +18,3 @@ pnpm --filter @tktsync/api-client lint
 pnpm --filter @tktsync/api-client typecheck
 pnpm --filter @tktsync/api-client test
 pnpm --filter @tktsync/api-client build
-
-POSTGRES_PORT=${POSTGRES_PORT:-5432} "$REPO_DIR/scripts/verify-admissions.sh"

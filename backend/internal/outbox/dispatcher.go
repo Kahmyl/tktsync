@@ -3,6 +3,9 @@ package outbox
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"math/rand/v2"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,13 +16,14 @@ import (
 type Dispatcher struct {
 	transactions *database.Runner
 	batchSize    int
+	retryDelay   func(int) time.Duration
 }
 
 func NewDispatcher(transactions *database.Runner, batchSize int) *Dispatcher {
 	if batchSize <= 0 {
 		batchSize = 100
 	}
-	return &Dispatcher{transactions: transactions, batchSize: batchSize}
+	return &Dispatcher{transactions: transactions, batchSize: batchSize, retryDelay: jitteredRetryDelay}
 }
 
 type dispatchFact struct {
@@ -30,27 +34,36 @@ type dispatchFact struct {
 	AggregateType string
 	AggregateID   *uuid.UUID
 	Payload       json.RawMessage
+	Attempt       int
 }
 
 func (d *Dispatcher) RunOnce(ctx context.Context) error {
+	_, err := d.RunOnceWithProgress(ctx)
+	return err
+}
+
+func (d *Dispatcher) RunOnceWithProgress(ctx context.Context) (bool, error) {
+	worked := false
 	for i := 0; i < d.batchSize; i++ {
 		processed, err := d.processOne(ctx)
 		if err != nil {
-			return err
+			return worked, err
 		}
 		if !processed {
-			return nil
+			return worked, nil
 		}
+		worked = true
 	}
-	return nil
+	return worked, nil
 }
 
 func (d *Dispatcher) processOne(ctx context.Context) (bool, error) {
 	processed := false
 	var claimedID uuid.UUID
+	claimedAttempt := 0
 	err := d.transactions.Run(ctx, func(tx pgx.Tx) error {
 		var fact dispatchFact
-		err := tx.QueryRow(ctx, `SELECT id,fact_id,event_id,fact_type,aggregate_type,aggregate_id,payload FROM outbox_events WHERE processed_at IS NULL AND (next_attempt_at IS NULL OR next_attempt_at<=clock_timestamp()) ORDER BY enqueue_sequence FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&fact.ID, &fact.FactID, &fact.EventID, &fact.FactType, &fact.AggregateType, &fact.AggregateID, &fact.Payload)
+		err := tx.QueryRow(ctx, `SELECT id,fact_id,event_id,fact_type,aggregate_type,aggregate_id,payload,attempt_count FROM outbox_events WHERE processed_at IS NULL AND (next_attempt_at IS NULL OR next_attempt_at<=clock_timestamp()) ORDER BY enqueue_sequence FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&fact.ID, &fact.FactID, &fact.EventID, &fact.FactType, &fact.AggregateType, &fact.AggregateID, &fact.Payload, &fact.Attempt)
 		if err == pgx.ErrNoRows {
 			return nil
 		}
@@ -58,6 +71,7 @@ func (d *Dispatcher) processOne(ctx context.Context) (bool, error) {
 			return err
 		}
 		claimedID = fact.ID
+		claimedAttempt = fact.Attempt + 1
 		processed = true
 		partnerIDs, err := eligiblePartners(ctx, tx, fact)
 		if err != nil {
@@ -82,10 +96,14 @@ func (d *Dispatcher) processOne(ctx context.Context) (bool, error) {
 		if len(message) > 512 {
 			message = message[:512]
 		}
-		_ = d.transactions.Run(ctx, func(tx pgx.Tx) error {
-			_, updateErr := tx.Exec(ctx, `UPDATE outbox_events SET attempt_count=attempt_count+1,next_attempt_at=clock_timestamp()+interval '5 seconds',last_error=$2 WHERE id=$1 AND processed_at IS NULL`, claimedID, message)
+		retryErr := d.transactions.Run(ctx, func(tx pgx.Tx) error {
+			delay := d.retryDelay(claimedAttempt)
+			_, updateErr := tx.Exec(ctx, `UPDATE outbox_events SET attempt_count=attempt_count+1,next_attempt_at=clock_timestamp()+$3::interval,last_error=$2 WHERE id=$1 AND processed_at IS NULL`, claimedID, message, fmt.Sprintf("%f seconds", delay.Seconds()))
 			return updateErr
 		})
+		if retryErr != nil {
+			err = errors.Join(err, fmt.Errorf("schedule outbox retry: %w", retryErr))
+		}
 	}
 	return processed, err
 }
@@ -126,13 +144,27 @@ func eligiblePartners(ctx context.Context, tx pgx.Tx, fact dispatchFact) ([]uuid
 	return ids, rows.Err()
 }
 
-func retryDelay(attempt int) time.Duration {
+func retryDelay(attempt int, random float64) time.Duration {
 	if attempt < 1 {
 		attempt = 1
 	}
-	delay := time.Second * time.Duration(1<<min(attempt-1, 8))
+	if random < 0 {
+		random = 0
+	} else if random > 1 {
+		random = 1
+	}
+	base := time.Second * time.Duration(1<<min(attempt-1, 9))
+	if base > 5*time.Minute {
+		base = 5 * time.Minute
+	}
+	delay := time.Duration(float64(base) * (0.8 + 0.4*random))
+	if delay < time.Second {
+		return time.Second
+	}
 	if delay > 5*time.Minute {
 		return 5 * time.Minute
 	}
 	return delay
 }
+
+func jitteredRetryDelay(attempt int) time.Duration { return retryDelay(attempt, rand.Float64()) }

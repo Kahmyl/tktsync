@@ -1,190 +1,61 @@
-import { useMemo, useRef, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { createTktSyncClient } from '@tktsync/api-client';
-import {
-  Button,
-  FormField,
-  InlineNotice,
-  Metric,
-  PageHeader,
-  Panel,
-  ProductShell,
-  StatusPill,
-  Spinner,
-} from '@tktsync/ui';
-import { workflows, type Workflow } from '../features/workflows/catalog';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { useOperator } from '../auth/OperatorSession';
+import { LoadingState } from '../components/ui';
+import { AccountPage } from '../features/account/AccountPage';
+import { AdmissionsPage } from '../features/admissions/AdmissionsPage';
+import { SignInPage } from '../features/auth/SignInPage';
+import { ForgotPasswordPage } from '../features/auth/ForgotPasswordPage';
+import { SetPasswordPage } from '../features/auth/SetPasswordPage';
+import { DashboardPage } from '../features/dashboard/DashboardPage';
+import { CreateEventPage } from '../features/events/CreateEventPage';
+import { EventDetailPage } from '../features/events/EventDetailPage';
+import { EventsListPage } from '../features/events/EventsListPage';
+import { IntegrationsPage } from '../features/integrations/IntegrationsPage';
+import { PartnerDetailPage } from '../features/partners/PartnerDetailPage';
+import { PartnersListPage } from '../features/partners/PartnersListPage';
+import { ReportsPage } from '../features/reports/ReportsPage';
+import { TicketsPage } from '../features/tickets/TicketsPage';
+import { VenueDetailPage } from '../features/venues/VenueDetailPage';
+import { VenuesListPage } from '../features/venues/VenuesListPage';
+import { UsersPage } from '../features/users/UsersPage';
+import { AdminLayout } from '../layouts/AdminLayout';
 
-type ApiResult = { status: number; data: unknown; error?: unknown };
+function ProtectedAdmin() {
+  const auth = useOperator();
+  if (auth.loading)
+    return (
+      <div className="full-loading">
+        <LoadingState rows={6} />
+      </div>
+    );
+  if (!auth.authenticated) return <Navigate to="/sign-in" replace />;
+  if (auth.requiresPasswordSetup) return <Navigate to="/set-password" replace />;
+  return <AdminLayout />;
+}
 
 export function App() {
-  const [active, setActive] = useState(workflows[0]!);
-  const [path, setPath] = useState(active.path);
-  const [body, setBody] = useState(active.body);
-  const [token, setToken] = useState(() => sessionStorage.getItem('tktsync.admin.token') ?? '');
-  const [result, setResult] = useState<ApiResult>();
-  const intentKeys = useRef(new Map<string, string>());
-  const client = useMemo(() => createTktSyncClient(import.meta.env.VITE_API_BASE_URL ?? ''), []);
-  const command = useMutation({
-    retry: false,
-    mutationFn: (
-      executeRequest: () => Promise<{ data?: unknown; error?: unknown; response: Response }>,
-    ) => executeRequest(),
-  });
-  const busy = command.isPending;
-  const select = (item: Workflow) => {
-    setActive(item);
-    setPath(item.path);
-    setBody(item.body);
-    setResult(undefined);
-  };
-  const execute = async () => {
-    setResult(undefined);
-    sessionStorage.setItem('tktsync.admin.token', token);
-    try {
-      const request = client.request as unknown as (
-        method: string,
-        path: string,
-        options: Record<string, unknown>,
-      ) => Promise<{ data?: unknown; error?: unknown; response: Response }>;
-      const intent = `${active.method}:${path}:${body}`;
-      const key = intentKeys.current.get(intent) ?? crypto.randomUUID();
-      intentKeys.current.set(intent, key);
-      const response = await command.mutateAsync(() =>
-        request(active.method, path, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Idempotency-Key': key,
-            'X-Request-ID': crypto.randomUUID(),
-          },
-          body: active.method === 'GET' ? undefined : JSON.parse(body),
-        }),
-      );
-      intentKeys.current.delete(intent);
-      setResult({ status: response.response.status, data: response.data, error: response.error });
-    } catch (error) {
-      setResult({
-        status: 0,
-        data: null,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  };
-  const groups = [...new Set(workflows.map((item) => item.group))];
   return (
-    <ProductShell
-      product="Control room"
-      eyebrow="TktSync Admin"
-      actions={
-        <>
-          <StatusPill tone={token ? 'success' : 'warning'}>
-            {token ? 'Authenticated' : 'Session required'}
-          </StatusPill>
-          <Button className="secondary hide-mobile" onClick={() => setToken('')}>
-            Clear session
-          </Button>
-        </>
-      }
-      navigation={
-        <aside className="admin-nav">
-          {groups.map((group) => (
-            <div key={group}>
-              <span>{group}</span>
-              {workflows
-                .filter((item) => item.group === group)
-                .map((item) => (
-                  <button
-                    className={active.title === item.title ? 'active' : ''}
-                    key={item.title}
-                    onClick={() => select(item)}
-                  >
-                    {item.title}
-                  </button>
-                ))}
-            </div>
-          ))}
-        </aside>
-      }
-    >
-      <PageHeader
-        title={active.title}
-        description={active.description}
-        actions={
-          <Button onClick={execute} disabled={busy || !token}>
-            {busy ? (
-              <>
-                <Spinner label="Sending command" /> Sending…
-              </>
-            ) : (
-              `${active.method} command`
-            )}
-          </Button>
-        }
-      />
-      <div className="metrics">
-        <Metric label="Authority" value="PostgreSQL" detail="Live source of truth" />
-        <Metric label="Contract" value="82 routes" detail="Runtime parity certified" />
-        <Metric label="Realtime" value="Advisory" detail="Always re-fetch state" />
-        <Metric label="Command safety" value="Idempotent" detail="Fresh key per intent" />
-      </div>
-      <div className="workspace">
-        <Panel
-          title="Operation"
-          description="Commands are sent through the generated OpenAPI client. Replace path placeholders with public IDs."
-        >
-          <div className="form-stack">
-            <FormField
-              label="Admin bearer"
-              hint="Held in sessionStorage only for this browser tab."
-            >
-              <input
-                type="password"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="Paste human bearer token"
-                autoComplete="off"
-              />
-            </FormField>
-            <div className="method-path">
-              <strong>{active.method}</strong>
-              <FormField label="Contract path">
-                <input value={path} onChange={(e) => setPath(e.target.value)} />
-              </FormField>
-            </div>
-            {active.method !== 'GET' && (
-              <FormField label="JSON request">
-                <textarea
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  spellCheck={false}
-                />
-              </FormField>
-            )}
-            <InlineNotice title="Authority check">
-              Roles and event scope are evaluated by the API for every request. Knowing a resource
-              ID does not grant access.
-            </InlineNotice>
-          </div>
-        </Panel>
-        <Panel
-          title="Response"
-          description="Machine-readable results stay visible while you reconcile the authoritative state."
-        >
-          {result ? (
-            <>
-              <StatusPill tone={result.status >= 200 && result.status < 300 ? 'success' : 'danger'}>
-                {result.status || 'Client error'}
-              </StatusPill>
-              <pre className="response">{JSON.stringify(result.error ?? result.data, null, 2)}</pre>
-            </>
-          ) : (
-            <div className="empty-state">
-              <span>↗</span>
-              <strong>No command sent</strong>
-              <p>Complete the operation form and send a command.</p>
-            </div>
-          )}
-        </Panel>
-      </div>
-    </ProductShell>
+    <Routes>
+      <Route path="/sign-in" element={<SignInPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/set-password" element={<SetPasswordPage />} />
+      <Route element={<ProtectedAdmin />}>
+        <Route index element={<DashboardPage />} />
+        <Route path="events" element={<EventsListPage />} />
+        <Route path="events/new" element={<CreateEventPage />} />
+        <Route path="events/:eventId" element={<EventDetailPage />} />
+        <Route path="venues" element={<VenuesListPage />} />
+        <Route path="venues/:venueId" element={<VenueDetailPage />} />
+        <Route path="partners" element={<PartnersListPage />} />
+        <Route path="partners/:partnerId" element={<PartnerDetailPage />} />
+        <Route path="tickets" element={<TicketsPage />} />
+        <Route path="admissions" element={<AdmissionsPage />} />
+        <Route path="reports" element={<ReportsPage />} />
+        <Route path="integrations" element={<IntegrationsPage />} />
+        <Route path="users" element={<UsersPage />} />
+        <Route path="account" element={<AccountPage />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }

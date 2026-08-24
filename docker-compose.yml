@@ -1,3 +1,51 @@
+x-backend-environment: &backend-environment
+  APP_ENV: development
+  DATABASE_URL: postgres://tktsync:tktsync@postgres:5432/tktsync?sslmode=disable
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  LOG_FORMAT: ${LOG_FORMAT:-json}
+  SUPABASE_URL: ${SUPABASE_URL:-}
+  SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+  SUPABASE_JWT_ISSUER: ${SUPABASE_JWT_ISSUER:-}
+  SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL:-}
+  SUPABASE_JWT_AUDIENCE: ${SUPABASE_JWT_AUDIENCE:-authenticated}
+  SUPABASE_JWT_ALGORITHMS: ${SUPABASE_JWT_ALGORITHMS:-ES256,RS256}
+  SELECTION_KEYRING_ACTIVE_VERSION: ${SELECTION_KEYRING_ACTIVE_VERSION:-}
+  SELECTION_KEYRING_KEYS: ${SELECTION_KEYRING_KEYS:-}
+  RESERVATION_KEYRING_ACTIVE_VERSION: ${RESERVATION_KEYRING_ACTIVE_VERSION:-}
+  RESERVATION_KEYRING_KEYS: ${RESERVATION_KEYRING_KEYS:-}
+  QR_KEYRING_ACTIVE_VERSION: ${QR_KEYRING_ACTIVE_VERSION:-}
+  QR_KEYRING_KEYS: ${QR_KEYRING_KEYS:-}
+  PARTNER_CREDENTIAL_REPLAY_KEY: ${PARTNER_CREDENTIAL_REPLAY_KEY:-}
+  REALTIME_ENABLED: ${REALTIME_ENABLED:-false}
+  REALTIME_MAX_CONNECTIONS: ${REALTIME_MAX_CONNECTIONS:-1000}
+  REALTIME_CHANNEL_PREFIX: ${REALTIME_CHANNEL_PREFIX:-tktsync}
+  WEBHOOK_ENABLED: ${WEBHOOK_ENABLED:-false}
+  WEBHOOK_ENCRYPTION_KEY_VERSION: ${WEBHOOK_ENCRYPTION_KEY_VERSION:-}
+  WEBHOOK_ENCRYPTION_KEY: ${WEBHOOK_ENCRYPTION_KEY:-}
+  WEBHOOK_ENCRYPTION_KEYRING: ${WEBHOOK_ENCRYPTION_KEYRING:-}
+  OTEL_ENABLED: ${OTEL_ENABLED:-false}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  OTEL_TRACE_SAMPLE_RATIO: ${OTEL_TRACE_SAMPLE_RATIO:-0.1}
+  SELECTOR_BASE_URL: http://localhost:${SELECTOR_HOST_PORT:-54471}/s
+  BROWSER_ALLOWED_ORIGINS: http://localhost:${ADMIN_HOST_PORT:-54470},http://localhost:${SELECTOR_HOST_PORT:-54471},http://localhost:${SCANNER_HOST_PORT:-54472}
+
+x-frontend-build: &frontend-build
+  context: .
+  dockerfile: Dockerfile.frontend
+  args: &frontend-build-args
+    VITE_API_BASE_URL: http://localhost:${API_HOST_PORT:-58480}
+    VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+    VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
+    VITE_BROWSER_TELEMETRY_ENDPOINT: ${VITE_BROWSER_TELEMETRY_ENDPOINT:-}
+
+x-frontend-healthcheck: &frontend-healthcheck
+  test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/healthz]
+  interval: 10s
+  start_interval: 1s
+  timeout: 2s
+  retries: 15
+  start_period: 10s
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -6,14 +54,139 @@ services:
       POSTGRES_PASSWORD: tktsync
       POSTGRES_DB: tktsync
     ports:
-      - '${POSTGRES_PORT:-5432}:5432'
+      - ${POSTGRES_PORT:-55439}:5432
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U tktsync -d tktsync']
-      interval: 2s
+      test: [CMD-SHELL, pg_isready -U tktsync -d tktsync]
+      interval: 5s
+      start_interval: 1s
       timeout: 3s
-      retries: 15
+      retries: 20
+      start_period: 10s
     volumes:
-      - tktsync-postgres:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
+
+  migrate:
+    image: migrate/migrate:v4.18.3
+    command:
+      - -path=/migrations
+      - -database=postgres://tktsync:tktsync@postgres:5432/tktsync?sslmode=disable
+      - up
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: no
+    volumes:
+      - ./migrations:/migrations:ro
+
+  seed:
+    image: postgres:17-alpine
+    command: [sh, /scripts/seed-local.sh]
+    environment:
+      DATABASE_URL: postgres://tktsync:tktsync@postgres:5432/tktsync?sslmode=disable
+      LOCAL_OPERATOR_AUTH_SUBJECT: ${LOCAL_OPERATOR_AUTH_SUBJECT:-}
+      LOCAL_OPERATOR_DISPLAY_NAME: ${LOCAL_OPERATOR_DISPLAY_NAME:-Local Platform Admin}
+      LOCAL_OPERATOR_PLATFORM_ADMIN: ${LOCAL_OPERATOR_PLATFORM_ADMIN:-true}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: no
+    volumes:
+      - ./seeds:/seeds:ro
+      - ./scripts/seed-local.sh:/scripts/seed-local.sh:ro
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      <<: *backend-environment
+      API_HOST: 0.0.0.0
+      API_PORT: 8080
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY:-}
+      ADMIN_INVITE_REDIRECT_URL: ${ADMIN_INVITE_REDIRECT_URL:-http://localhost:${ADMIN_HOST_PORT:-54470}/set-password}
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    ports:
+      - ${API_HOST_PORT:-58480}:8080
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/ready]
+      interval: 10s
+      start_interval: 1s
+      timeout: 2s
+      retries: 20
+      start_period: 10s
+    stop_grace_period: 15s
+    restart: no
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      <<: *backend-environment
+      WORKER_POLL_INTERVAL: ${WORKER_POLL_INTERVAL:-5s}
+      WORKER_SHUTDOWN_TIMEOUT: ${WORKER_SHUTDOWN_TIMEOUT:-10s}
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    stop_grace_period: 15s
+    restart: no
+
+  admin:
+    build:
+      <<: *frontend-build
+      args:
+        <<: *frontend-build-args
+        APP_PACKAGE: '@tktsync/admin-web'
+        APP_DIRECTORY: admin-web
+    ports:
+      - ${ADMIN_HOST_PORT:-54470}:8080
+    healthcheck: *frontend-healthcheck
+    restart: no
+
+  selector:
+    build:
+      <<: *frontend-build
+      args:
+        <<: *frontend-build-args
+        APP_PACKAGE: '@tktsync/selector-web'
+        APP_DIRECTORY: selector-web
+    ports:
+      - ${SELECTOR_HOST_PORT:-54471}:8080
+    healthcheck: *frontend-healthcheck
+    restart: no
+
+  scanner:
+    build:
+      <<: *frontend-build
+      args:
+        <<: *frontend-build-args
+        APP_PACKAGE: '@tktsync/scanner-web'
+        APP_DIRECTORY: scanner-web
+    ports:
+      - ${SCANNER_HOST_PORT:-54472}:8080
+    healthcheck: *frontend-healthcheck
+    restart: no
+
+  docs:
+    build:
+      <<: *frontend-build
+      args:
+        <<: *frontend-build-args
+        APP_PACKAGE: '@tktsync/docs-web'
+        APP_DIRECTORY: docs-web
+        NGINX_CONFIG: nginx-docs.conf
+        VITE_DOCS_LOCAL_API_BASE_URL: http://localhost:${API_HOST_PORT:-58480}
+        VITE_DOCS_SANDBOX_API_BASE_URL: ${DOCS_SANDBOX_API_BASE_URL:-}
+        VITE_DOCS_PRODUCTION_API_BASE_URL: ${DOCS_PRODUCTION_API_BASE_URL:-}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - ${DOCS_HOST_PORT:-54473}:8080
+    healthcheck: *frontend-healthcheck
+    restart: no
 
 volumes:
-  tktsync-postgres:
+  postgres-data:

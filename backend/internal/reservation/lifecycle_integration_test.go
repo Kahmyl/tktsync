@@ -739,9 +739,11 @@ func TestReservationCheckoutRetryReconciliationAndTokenRecovery(
 		)
 	}
 
-	tampered := created.Token[:len(
-		created.Token,
-	)-1] + "A"
+	replacement := "A"
+	if created.Token[len(created.Token)-1] == 'A' {
+		replacement = "B"
+	}
+	tampered := created.Token[:len(created.Token)-1] + replacement
 
 	_, err = f.reservation.BeginCheckout(
 		ctx,

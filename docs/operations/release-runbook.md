@@ -47,3 +47,5 @@ Rotate selection, Reservation, QR, webhook-encryption, and human-auth verificati
 - Realtime unavailable: clients re-fetch authoritative state; realtime failure alone does not change inventory or transaction outcomes.
 
 Every incident action that changes business state must use an authorized domain command and leave audit evidence. Direct SQL repair requires an exceptional, reviewed recovery procedure.
+
+`pnpm api:routes` parses Go AST call expressions for literal `net/http` `Handle`/`HandleFunc` registrations, rejects duplicate or dynamic API patterns, and compares the resulting method/path set with OpenAPI. This is stronger than scanning arbitrary source strings and remains fast in CI. It verifies registration parity, not handler reachability under every runtime configuration; browser and integration tests cover configured routing behavior.

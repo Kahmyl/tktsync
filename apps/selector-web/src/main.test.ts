@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { queryClient } from './features/selection/queryClient';
 import { consumeCapability } from './features/selection/capability';
 import { clearIntentKey, getIntentKey } from './features/selection/idempotency';
-import { remaining, serverOffset } from './features/selection/presentation';
+import { humanLabel, remaining, serverOffset } from './features/selection/presentation';
 
 describe('selector security and timer', () => {
   it('uses short-lived server state and non-retrying mutations', () => {
@@ -21,6 +21,12 @@ describe('selector security and timer', () => {
   });
   it('uses server-aligned absolute expiry countdown semantics', () => {
     expect(remaining('2026-08-22T10:02:05Z', Date.parse('2026-08-22T10:00:00Z'))).toBe('02:05');
+  });
+  it('does not present machine identifiers as buyer-facing names', () => {
+    expect(humanLabel('Summer Show 7467aa88-7976-4b27-b578-8b3268dc42a4', 'Event')).toBe(
+      'Summer Show',
+    );
+    expect(humanLabel('Seat seat_Wo9YQvZ', 'Seat')).toBe('Seat');
   });
 });
 

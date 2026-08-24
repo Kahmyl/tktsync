@@ -67,11 +67,85 @@ func TestAdmissionHTTPIdempotencyReplayAndConflict(t *testing.T) {
 	}
 }
 
+func TestAdmissionHTTPListsOnlyAuthenticatedOperatorEvents(t *testing.T) {
+	f := newFixture(t)
+	handler, err := admissionapi.New(admissionapi.Dependencies{
+		Database: f.pool, Transactions: f.runner,
+		HumanAuth: func(context.Context, string) (auth.HumanPrincipal, error) {
+			return auth.HumanPrincipal{Provider: "reservation", Subject: f.userSubject}, nil
+		},
+		Admission: admission.NewService(f.runner, admissionKeyring(t)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	unauthenticated := httptest.NewRecorder()
+	handler.ServeHTTP(unauthenticated, httptest.NewRequest(http.MethodGet, "/api/v1/admission/events", nil))
+	if unauthenticated.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated status=%d body=%s", unauthenticated.Code, unauthenticated.Body.String())
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/admission/events", nil)
+	request.Header.Set("Authorization", "Bearer operator-session")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+	}
+	if response.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("Cache-Control=%q", response.Header().Get("Cache-Control"))
+	}
+	var body struct {
+		Items []struct {
+			ID        string  `json:"id"`
+			Name      string  `json:"name"`
+			VenueName string  `json:"venue_name"`
+			StartsAt  *string `json:"starts_at"`
+		} `json:"items"`
+	}
+	if err = json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	wantID := publicEventID(f.eventID)
+	for _, item := range body.Items {
+		if item.ID == wantID {
+			if item.Name == "" || item.VenueName == "" {
+				t.Fatalf("event missing buyer-facing fields: %+v", item)
+			}
+			return
+		}
+	}
+	t.Fatalf("authorized event %s missing from response: %s", wantID, response.Body.String())
+}
+
 func publicEventID(id uuid.UUID) string { return publicid.Encode(publicid.Event, id) }
 
 func confirmedAdmissionTicket(t *testing.T, ctx context.Context, f fixture, seat string) (uuid.UUID, string) {
 	t.Helper()
 	created, err := f.reservation.Create(ctx, reservation.CreateInput{EventID: f.eventID, PartnerID: f.partnerID, Items: []reservation.ItemInput{{InventoryKind: reservation.InventoryReserved, InventoryID: f.seatIDs[seat], Quantity: 1, SourceKind: reservation.SourceShared}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkout, err := f.reservation.BeginCheckout(ctx, f.partnerID, created.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	confirmed, err := f.reservation.Confirm(ctx, f.partnerID, created.Token, reservation.ConfirmInput{CheckoutAttemptID: checkout.CheckoutAttemptID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ticketID := confirmed.Tickets[0].TicketID
+	credential, err := f.reservation.RecoverActiveCredential(ctx, f.partnerID, ticketID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ticketID, credential.QRPayload
+}
+
+func confirmedAdmissionGATicket(t *testing.T, ctx context.Context, f fixture) (uuid.UUID, string) {
+	t.Helper()
+	created, err := f.reservation.Create(ctx, reservation.CreateInput{EventID: f.eventID, PartnerID: f.partnerID, Items: []reservation.ItemInput{{InventoryKind: reservation.InventoryGA, InventoryID: f.gaMainID, Quantity: 1, SourceKind: reservation.SourceShared}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,6 +195,15 @@ func TestAdmissionLifecycleAndCredentialStates(t *testing.T) {
 	}
 	if second.Result != "TICKET_ALREADY_ADMITTED" || second.PreviousAdmittedAt == nil {
 		t.Fatalf("second=%+v", second)
+	}
+
+	_, gaPayload := confirmedAdmissionGATicket(t, ctx, f)
+	gaAdmission, err := service.ValidateAndAdmit(ctx, admission.ScanInput{EventID: f.eventID, Credential: gaPayload, GateReference: "gate-ga", ScannerUserID: f.userID, IdempotencyOperationID: admissionOperation(t, ctx, f, "ga-display")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gaAdmission.Result != "ADMITTED" || gaAdmission.TicketDisplay.Section != "GA Main" || gaAdmission.TicketDisplay.Row != "" || gaAdmission.TicketDisplay.Seat != "" {
+		t.Fatalf("GA admission display=%+v", gaAdmission)
 	}
 	reversed, err := service.Reverse(ctx, f.userID, *first.AdmissionID, "operator correction")
 	if err != nil {

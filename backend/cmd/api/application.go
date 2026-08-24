@@ -86,6 +86,24 @@ func run(ctx context.Context) error {
 		)
 	selectionService := selection.NewService(resources.Database, resources.Transactions, resources.SelectionKeys, resources.Config.SelectorBaseURL)
 
+	realtimeHub := realtimeapi.NewHub(32)
+	if resources.Config.Realtime.Enabled {
+		listener := realtimeapi.NewListener(
+			resources.Database,
+			realtimeHub,
+			resources.Logger,
+		)
+		go func() {
+			if listenErr := listener.Run(ctx); listenErr != nil && ctx.Err() == nil {
+				resources.Logger.Error(
+					"realtime listener stopped",
+					"operation", "realtime.listen",
+					"error", listenErr,
+				)
+			}
+		}()
+	}
+
 	admissionService := admission.NewService(
 		resources.Transactions,
 		resources.QRKeys,
@@ -98,6 +116,23 @@ func run(ctx context.Context) error {
 	webhookService := webhook.NewService(resources.Transactions, webhookBox, resources.Config.Webhook.EncryptionKeyVersion, resources.Config.Environment != "production")
 	reportingService := reporting.NewService(resources.Database)
 	metricsObserver := reporting.NewObserver()
+	if resources.Config.Environment == "production" {
+		if err := adminapi.ValidateProductionIdentityAdmin(
+			resources.Config.Supabase.URL,
+			resources.Config.Supabase.SecretKey,
+			resources.Config.Supabase.InviteRedirectURL,
+		); err != nil {
+			return fmt.Errorf("configure Supabase identity administration: %w", err)
+		}
+	}
+	identityAdmin, err := adminapi.NewSupabaseIdentityAdmin(
+		resources.Config.Supabase.URL,
+		resources.Config.Supabase.SecretKey,
+		resources.Config.Supabase.InviteRedirectURL,
+	)
+	if err != nil {
+		return fmt.Errorf("configure Supabase identity administration: %w", err)
+	}
 
 	adminHandler, err := adminapi.New(
 		adminapi.Dependencies{
@@ -120,6 +155,7 @@ func run(ctx context.Context) error {
 			ReplayProtector:    replayProtector,
 			ReportingService:   reportingService,
 			MetricsObserver:    metricsObserver,
+			IdentityAdmin:      identityAdmin,
 		},
 	)
 	if err != nil {
@@ -183,6 +219,13 @@ func run(ctx context.Context) error {
 		realtimeapi.New(
 			resources.Database,
 			realtimeapi.HumanAuthenticator(humanAuth),
+			func(
+				ctx context.Context,
+				token string,
+			) (selection.Session, error) {
+				return selectionService.Authenticate(ctx, token)
+			},
+			realtimeHub,
 			resources.Config.Realtime.Enabled,
 		),
 	)
@@ -192,13 +235,14 @@ func run(ctx context.Context) error {
 		resources.Logger,
 		resources.Database,
 		httpserver.Options{
-			Readiness:          readiness,
-			RequestTimeout:     resources.Config.HTTP.RequestTimeout,
-			LongRequestTimeout: resources.Config.HTTP.LongRequestTimeout,
-			MaxBodyBytes:       resources.Config.HTTP.MaxBodyBytes,
-			MaxInFlight:        resources.Config.HTTP.MaxInFlight,
-			MetricsEnabled:     resources.Config.HTTP.MetricsEnabled,
-			MetricsToken:       resources.Config.HTTP.MetricsToken,
+			Readiness:              readiness,
+			RequestTimeout:         resources.Config.HTTP.RequestTimeout,
+			LongRequestTimeout:     resources.Config.HTTP.LongRequestTimeout,
+			MaxBodyBytes:           resources.Config.HTTP.MaxBodyBytes,
+			MaxInFlight:            resources.Config.HTTP.MaxInFlight,
+			RealtimeMaxConnections: resources.Config.Realtime.MaxConnections,
+			MetricsEnabled:         resources.Config.HTTP.MetricsEnabled,
+			MetricsToken:           resources.Config.HTTP.MetricsToken,
 			PoolStats: func() httpserver.PoolSnapshot {
 				stat := resources.Database.Stat()
 				return httpserver.PoolSnapshot{Acquired: stat.AcquiredConns(), Idle: stat.IdleConns(), Total: stat.TotalConns(), Max: stat.MaxConns(), AcquireCount: uint64(stat.AcquireCount()), EmptyAcquireCount: uint64(stat.EmptyAcquireCount()), AcquireDuration: stat.AcquireDuration()}

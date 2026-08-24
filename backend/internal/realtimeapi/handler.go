@@ -9,24 +9,32 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tktsync/tktsync/backend/internal/auth"
 	"github.com/tktsync/tktsync/backend/internal/platform/apierror"
 	"github.com/tktsync/tktsync/backend/internal/platform/httpserver"
 	"github.com/tktsync/tktsync/backend/internal/platform/publicid"
+	"github.com/tktsync/tktsync/backend/internal/selection"
 )
 
 type HumanAuthenticator func(context.Context, string) (auth.HumanPrincipal, error)
+type SelectionAuthenticator func(context.Context, string) (selection.Session, error)
+
 type Handler struct {
-	db        *pgxpool.Pool
-	humanAuth HumanAuthenticator
-	heartbeat time.Duration
-	enabled   bool
+	db            *pgxpool.Pool
+	humanAuth     HumanAuthenticator
+	selectionAuth SelectionAuthenticator
+	hub           *Hub
+	heartbeat     time.Duration
+	enabled       bool
 }
 
 func New(
 	db *pgxpool.Pool,
 	humanAuth HumanAuthenticator,
+	selectionAuth SelectionAuthenticator,
+	hub *Hub,
 	enabled ...bool,
 ) *Handler {
 	isEnabled := true
@@ -35,10 +43,12 @@ func New(
 	}
 
 	return &Handler{
-		db:        db,
-		humanAuth: humanAuth,
-		heartbeat: 15 * time.Second,
-		enabled:   isEnabled,
+		db:            db,
+		humanAuth:     humanAuth,
+		selectionAuth: selectionAuth,
+		hub:           hub,
+		heartbeat:     15 * time.Second,
+		enabled:       isEnabled,
 	}
 }
 
@@ -63,63 +73,105 @@ func (h *Handler) stream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.humanAuth == nil {
-		httpserver.WriteError(w, r, apierror.New(apierror.CodeAuthorityTemporarilyUnavailable, "human authentication is not configured"))
+	if h.hub == nil {
+		httpserver.WriteError(
+			w,
+			r,
+			apierror.New(
+				apierror.CodeAuthorityTemporarilyUnavailable,
+				"realtime streaming is unavailable",
+			),
+		)
 		return
 	}
-	header := strings.TrimSpace(r.Header.Get("Authorization"))
-	if !strings.HasPrefix(header, "Bearer ") {
-		httpserver.WriteError(w, r, apierror.WithStatus(apierror.CodeNotAuthorized, "authentication is required", http.StatusUnauthorized))
-		return
-	}
-	principal, err := h.humanAuth(r.Context(), strings.TrimSpace(strings.TrimPrefix(header, "Bearer ")))
+
+	eventID, err := publicid.Parse(
+		strings.TrimSpace(r.URL.Query().Get("event_id")),
+		publicid.Event,
+	)
 	if err != nil {
-		httpserver.WriteError(w, r, apierror.WithStatus(apierror.CodeNotAuthorized, "authentication failed", http.StatusUnauthorized))
+		httpserver.WriteError(
+			w,
+			r,
+			apierror.New(apierror.CodeValidation, "event_id is invalid"),
+		)
 		return
 	}
-	eventID, err := publicid.Parse(strings.TrimSpace(r.URL.Query().Get("event_id")), publicid.Event)
-	if err != nil {
-		httpserver.WriteError(w, r, apierror.New(apierror.CodeValidation, "event_id is invalid"))
-		return
-	}
+
 	audience := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("audience")))
-	roles := []string{"EVENT_MANAGER", "BOX_OFFICE", "GATE_SUPERVISOR", "VIEWER"}
-	if audience == "scanner" {
-		roles = []string{"SCANNER", "GATE_SUPERVISOR", "EVENT_MANAGER"}
-	} else if audience != "admin" {
-		httpserver.WriteError(w, r, apierror.New(apierror.CodeValidation, "audience must be admin or scanner"))
-		return
-	}
-	authorizer := auth.NewAuthorizer(h.db)
-	user, err := authorizer.ResolveHuman(r.Context(), principal)
+	token, err := bearer(r)
 	if err != nil {
 		httpserver.WriteError(w, r, err)
 		return
 	}
-	if err = authorizer.RequireHumanEventRole(r.Context(), user.ID, eventID, roles...); err != nil {
-		httpserver.WriteError(w, r, err)
+
+	switch audience {
+	case "admin", "scanner":
+		if err = h.authorizeHuman(r, token, eventID, audience); err != nil {
+			httpserver.WriteError(w, r, err)
+			return
+		}
+	case "selection":
+		if h.selectionAuth == nil {
+			httpserver.WriteError(
+				w,
+				r,
+				apierror.New(
+					apierror.CodeAuthorityTemporarilyUnavailable,
+					"selection authentication is not configured",
+				),
+			)
+			return
+		}
+		session, authErr := h.selectionAuth(r.Context(), token)
+		if authErr != nil || session.EventID != eventID {
+			httpserver.WriteError(
+				w,
+				r,
+				apierror.WithStatus(
+					apierror.CodeNotAuthorized,
+					"selection capability is invalid or expired",
+					http.StatusUnauthorized,
+				),
+			)
+			return
+		}
+	default:
+		httpserver.WriteError(
+			w,
+			r,
+			apierror.New(
+				apierror.CodeValidation,
+				"audience must be admin, scanner, or selection",
+			),
+		)
 		return
 	}
+
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		httpserver.WriteError(w, r, errors.New("streaming is unavailable"))
 		return
 	}
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
-	var sequence int64
-	if err = h.db.QueryRow(r.Context(), `SELECT COALESCE(MAX(enqueue_sequence),0) FROM outbox_events WHERE processed_at IS NOT NULL`).Scan(&sequence); err != nil {
-		httpserver.WriteError(w, r, err)
-		return
-	}
-	writeSSE(w, "resync", map[string]any{"reason": "connected", "server_time": time.Now().UTC()})
+
+	events, unsubscribe := h.hub.Subscribe(eventID)
+	defer unsubscribe()
+
+	writeSSE(w, "resync", map[string]any{
+		"reason":      "connected",
+		"event_id":    publicid.Encode(publicid.Event, eventID),
+		"server_time": time.Now().UTC(),
+	})
 	flusher.Flush()
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
+
 	heartbeat := time.NewTicker(h.heartbeat)
 	defer heartbeat.Stop()
+
 	for {
 		select {
 		case <-r.Context().Done():
@@ -127,30 +179,110 @@ func (h *Handler) stream(w http.ResponseWriter, r *http.Request) {
 		case <-heartbeat.C:
 			_, _ = fmt.Fprint(w, ": heartbeat\n\n")
 			flusher.Flush()
-		case <-ticker.C:
-			rows, queryErr := h.db.Query(r.Context(), `SELECT enqueue_sequence,fact_id,fact_type,created_at FROM outbox_events WHERE processed_at IS NOT NULL AND event_id=$1 AND enqueue_sequence>$2 ORDER BY enqueue_sequence LIMIT 100`, eventID, sequence)
-			if queryErr != nil {
-				return
+		case fact := <-events:
+			if fact.Resync {
+				writeSSE(w, "resync", map[string]any{
+					"reason":   "subscriber_backpressure",
+					"event_id": publicid.Encode(publicid.Event, eventID),
+				})
+				flusher.Flush()
+				continue
 			}
-			for rows.Next() {
-				var next int64
-				var factID [16]byte
-				var factType string
-				var created time.Time
-				if scanErr := rows.Scan(&next, &factID, &factType, &created); scanErr != nil {
-					rows.Close()
-					return
-				}
-				sequence = next
-				if audience == "scanner" && !strings.HasPrefix(factType, "event.") {
+
+			switch audience {
+			case "scanner":
+				if !strings.HasPrefix(fact.FactType, "event.") {
 					continue
 				}
-				writeSSE(w, "invalidate", map[string]any{"id": publicid.Encode(publicid.EventFact, factID), "type": factType, "event_id": publicid.Encode(publicid.Event, eventID), "occurred_at": created})
+				writeHumanInvalidation(w, fact)
+			case "admin":
+				writeHumanInvalidation(w, fact)
+			case "selection":
+				eventType := "availability.changed"
+				if strings.HasPrefix(fact.FactType, "event.") {
+					eventType = "event.changed"
+				}
+				writeSSE(w, "invalidate", map[string]any{
+					"type":     eventType,
+					"event_id": publicid.Encode(publicid.Event, fact.EventID),
+				})
 			}
-			rows.Close()
+
 			flusher.Flush()
 		}
 	}
+}
+
+func (h *Handler) authorizeHuman(
+	r *http.Request,
+	token string,
+	eventID uuid.UUID,
+	audience string,
+) error {
+	if h.humanAuth == nil {
+		return apierror.New(
+			apierror.CodeAuthorityTemporarilyUnavailable,
+			"human authentication is not configured",
+		)
+	}
+
+	principal, err := h.humanAuth(r.Context(), token)
+	if err != nil {
+		return apierror.WithStatus(
+			apierror.CodeNotAuthorized,
+			"authentication failed",
+			http.StatusUnauthorized,
+		)
+	}
+
+	roles := []string{"EVENT_MANAGER", "BOX_OFFICE", "GATE_SUPERVISOR", "VIEWER"}
+	if audience == "scanner" {
+		roles = []string{"SCANNER", "GATE_SUPERVISOR", "EVENT_MANAGER"}
+	}
+
+	authorizer := auth.NewAuthorizer(h.db)
+	user, err := authorizer.ResolveHuman(r.Context(), principal)
+	if err != nil {
+		return err
+	}
+
+	return authorizer.RequireHumanEventRole(
+		r.Context(),
+		user.ID,
+		eventID,
+		roles...,
+	)
+}
+
+func bearer(r *http.Request) (string, error) {
+	header := strings.TrimSpace(r.Header.Get("Authorization"))
+	if !strings.HasPrefix(header, "Bearer ") {
+		return "", apierror.WithStatus(
+			apierror.CodeNotAuthorized,
+			"authentication is required",
+			http.StatusUnauthorized,
+		)
+	}
+
+	token := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
+	if token == "" {
+		return "", apierror.WithStatus(
+			apierror.CodeNotAuthorized,
+			"authentication is required",
+			http.StatusUnauthorized,
+		)
+	}
+
+	return token, nil
+}
+
+func writeHumanInvalidation(w http.ResponseWriter, fact Fact) {
+	body := map[string]any{
+		"id":       publicid.Encode(publicid.EventFact, fact.FactID),
+		"type":     fact.FactType,
+		"event_id": publicid.Encode(publicid.Event, fact.EventID),
+	}
+	writeSSE(w, "invalidate", body)
 }
 
 func writeSSE(w http.ResponseWriter, event string, value any) {
