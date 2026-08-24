@@ -57,7 +57,9 @@ func (h *Handler) listRestrictions(w http.ResponseWriter, r *http.Request) {
 		httpserver.WriteError(w, r, err)
 		return
 	}
-	if _, err = h.authorizeRead(r, eventReadAuthorization(eventID)); err != nil {
+	// Restrictions expose operational channel and partner allocation details,
+	// so use the same Event Manager boundary as the corresponding mutations.
+	if _, err = h.authorizeRead(r, eventManagerAuthorization(eventID)); err != nil {
 		httpserver.WriteError(w, r, err)
 		return
 	}

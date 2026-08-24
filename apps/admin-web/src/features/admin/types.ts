@@ -196,6 +196,13 @@ export interface InventoryItem {
   kind: 'RESERVED' | 'GA';
   id: string;
   snapshot_object_key: string;
+  section_object_key: string;
+  section_name: string;
+  row_label: string | null;
+  table_label: string | null;
+  seat_label: string | null;
+  area_name: string;
+  display_label: string;
   label: string;
   quantity: number;
   price_tier_id: string | null;

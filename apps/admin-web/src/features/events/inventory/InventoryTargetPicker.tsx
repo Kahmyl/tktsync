@@ -15,56 +15,66 @@ export function InventoryTargetPicker({
   value,
   onChange,
   allowEntireEvent = false,
+  mode = 'restriction',
 }: {
   inventory: InventoryItem[];
   value: InventoryTargets;
   onChange: (value: InventoryTargets) => void;
   allowEntireEvent?: boolean;
+  mode?: 'pricing' | 'restriction';
 }) {
   const [scope, setScope] = useState('section');
   const [search, setSearch] = useState('');
-  const sections = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          inventory.map((item) =>
-            humanName(
-              item.label.split(' · ')[0],
-              item.kind === 'GA' ? 'General admission' : 'Reserved seating',
-            ),
-          ),
-        ),
-      ),
-    [inventory],
-  );
+  const sections = useMemo(() => {
+    const byKey = new Map<string, string>();
+    inventory.forEach((item) => byKey.set(item.section_object_key, item.section_name));
+    return Array.from(byKey, ([key, name]) => ({ key, name }));
+  }, [inventory]);
+  const displayLabel = (item: InventoryItem) =>
+    item.kind === 'GA'
+      ? humanName(item.area_name || item.section_name, 'General admission')
+      : [
+          item.section_name,
+          item.row_label && `Row ${item.row_label}`,
+          item.table_label,
+          item.seat_label && `Seat ${item.seat_label}`,
+        ]
+          .filter(Boolean)
+          .join(' · ');
   const filtered = inventory.filter((item) =>
-    humanName(item.label, 'Inventory').toLowerCase().includes(search.toLowerCase()),
+    displayLabel(item).toLowerCase().includes(search.toLowerCase()),
   );
   const selectAll = () =>
     onChange({
-      reservedIds: inventory.filter((item) => item.kind === 'RESERVED').map((item) => item.id),
-      reservedKeys: inventory
-        .filter((item) => item.kind === 'RESERVED')
-        .map((item) => item.snapshot_object_key),
+      reservedIds:
+        mode === 'restriction'
+          ? inventory.filter((item) => item.kind === 'RESERVED').map((item) => item.id)
+          : [],
+      reservedKeys: [],
       ga: inventory
         .filter((item) => item.kind === 'GA')
         .map((item) => ({ id: item.id, key: item.snapshot_object_key, quantity: item.quantity })),
-      sectionKeys: [],
+      sectionKeys: Array.from(new Set(inventory.map((item) => item.section_object_key))),
     });
-  const chooseSection = (section: string) => {
-    const items = inventory.filter((item) => humanName(item.label, '').startsWith(section));
+  const chooseSection = (sectionKey: string) => {
+    const items = inventory.filter((item) => item.section_object_key === sectionKey);
     onChange({
-      reservedIds: items.filter((item) => item.kind === 'RESERVED').map((item) => item.id),
-      reservedKeys: items
-        .filter((item) => item.kind === 'RESERVED')
-        .map((item) => item.snapshot_object_key),
-      ga: items
-        .filter((item) => item.kind === 'GA')
-        .map((item) => ({ id: item.id, key: item.snapshot_object_key, quantity: item.quantity })),
-      // The inventory read model exposes seat/pool object keys, not the parent
-      // section object key. Apply the friendly area selection through those
-      // concrete targets so we never send seat keys as section scopes.
-      sectionKeys: [],
+      reservedIds:
+        mode === 'restriction'
+          ? items.filter((item) => item.kind === 'RESERVED').map((item) => item.id)
+          : [],
+      reservedKeys: [],
+      ga:
+        mode === 'restriction'
+          ? items
+              .filter((item) => item.kind === 'GA')
+              .map((item) => ({
+                id: item.id,
+                key: item.snapshot_object_key,
+                quantity: item.quantity,
+              }))
+          : [],
+      sectionKeys: mode === 'pricing' ? [sectionKey] : [],
     });
   };
   return (
@@ -89,8 +99,8 @@ export function InventoryTargetPicker({
           <Select value="" onChange={(event) => chooseSection(event.target.value)}>
             <option value="">Choose an area</option>
             {sections.map((section) => (
-              <option key={section} value={section}>
-                {section}
+              <option key={section.key} value={section.key}>
+                {humanName(section.name, 'Area')}
               </option>
             ))}
           </Select>
@@ -141,15 +151,10 @@ export function InventoryTargetPicker({
                       }
                     }}
                   />
-                  <span>
-                    {humanName(
-                      item.label,
-                      item.kind === 'GA' ? 'General admission' : 'Reserved seat',
-                    )}
-                  </span>
-                  {item.kind === 'GA' && checked ? (
+                  <span>{displayLabel(item)}</span>
+                  {mode === 'restriction' && item.kind === 'GA' && checked ? (
                     <Input
-                      aria-label={`${item.label} quantity`}
+                      aria-label={`${displayLabel(item)} quantity`}
                       type="number"
                       min="1"
                       max={item.quantity}
@@ -179,8 +184,9 @@ export function InventoryTargetPicker({
         </>
       ) : null}
       <small>
-        {value.reservedIds.length} reserved seats ·{' '}
-        {value.ga.reduce((sum, item) => sum + item.quantity, 0)} general-admission tickets selected
+        {value.sectionKeys.length
+          ? `${value.sectionKeys.length} area${value.sectionKeys.length === 1 ? '' : 's'} selected`
+          : `${value.reservedIds.length || value.reservedKeys.length} reserved seats · ${value.ga.length} general-admission area${value.ga.length === 1 ? '' : 's'} selected`}
       </small>
     </div>
   );

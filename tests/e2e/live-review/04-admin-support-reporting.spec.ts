@@ -154,6 +154,7 @@ test('04 Admin support and reporting', async ({ page }) => {
   );
 
   await test.step('Void Ticket B, prove policy denial, then deliberately enable and re-release it', async () => {
+    await configureEventPolicy(eventId, { allow_voided_inventory_rerelease: false });
     const row = page
       .getByRole('row')
       .filter({ hasText: ticketBDetail.data.display_label ?? 'Admission ticket' })

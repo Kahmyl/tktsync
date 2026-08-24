@@ -40,6 +40,18 @@ test('01 Admin platform setup', async ({ page }) => {
       await page.getByLabel('Email').fill(credentials.email);
       await page.getByLabel('Password').fill(credentials.password);
       await page.getByRole('button', { name: 'Sign in' }).click();
+      const retry = page.getByRole('button', { name: 'Try again' });
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        if (
+          await page
+            .getByRole('heading', { name: 'Upcoming events', exact: true })
+            .isVisible()
+            .catch(() => false)
+        )
+          break;
+        if (await retry.isVisible().catch(() => false)) await retry.click();
+        await page.waitForTimeout(2_000);
+      }
       await expect(
         page.getByRole('heading', { name: 'Upcoming events', exact: true }),
       ).toBeVisible();
@@ -111,14 +123,28 @@ test('01 Admin platform setup', async ({ page }) => {
       await page.getByRole('button', { name: 'New layout version', exact: true }).click();
       await expect(page.getByText('Draft', { exact: true }).first()).toBeVisible();
       await page.getByRole('button', { name: 'Edit draft' }).click();
-      const dialog = page.getByRole('dialog', { name: 'Edit draft layout' });
-      await dialog.getByLabel('Section name').fill('VIP');
-      await dialog.getByLabel('Seating type').selectOption('RESERVED');
-      await dialog.getByRole('button', { name: 'Add section' }).click();
-      await dialog.getByLabel('Section name').fill('Main Floor');
-      await dialog.getByLabel('Seating type').selectOption('GA');
-      await dialog.getByRole('button', { name: 'Add section' }).click();
-      await dialog.getByRole('button', { name: 'Save draft layout' }).click();
+      await page.getByRole('button', { name: 'Reserved section' }).click();
+      await page.getByLabel('Name').fill('VIP');
+      await page.getByLabel('Rows').fill('3');
+      await page.getByLabel('Seats per row').fill('6');
+      await page.getByLabel('Starting seat number').fill('10');
+      await page.getByRole('button', { name: 'General admission' }).click();
+      await page.getByLabel('Name').fill('Main Floor');
+      await page.getByLabel('Capacity').fill('100');
+      for (let move = 0; move < 12; move += 1)
+        await page.locator('g.layout-object.selected').press('Shift+ArrowRight');
+      await page.getByRole('button', { name: 'Table area' }).click();
+      await page.getByLabel('Name').fill('Banquet');
+      await page.getByLabel('Tables').fill('3');
+      await page.getByLabel('Seats per table').fill('4');
+      for (let move = 0; move < 20; move += 1)
+        await page.locator('g.layout-object.selected').press('Shift+ArrowRight');
+      await page.getByRole('button', { name: 'Stage', exact: true }).click();
+      await page.getByLabel('Name').fill('Main Stage');
+      await page.getByLabel('Rotation').selectOption('180');
+      for (let move = 0; move < 12; move += 1)
+        await page.locator('g.layout-object.selected').press('Shift+ArrowDown');
+      await page.getByRole('button', { name: 'Save draft' }).click();
 
       const layouts = await apiJSON<{ layout_versions: Array<{ id: string; state: string }> }>(
         `/api/v1/admin/venues/${venueId}/layout-versions`,
@@ -127,54 +153,20 @@ test('01 Admin platform setup', async ({ page }) => {
       layoutId = layouts.data.layout_versions.find((layout) => layout.state === 'DRAFT')?.id ?? '';
       expect(layoutId).toMatch(/^lay_/);
       await addEntity('layouts', layoutId);
+      await page.getByRole('button', { name: 'Close builder' }).click();
     }
-
-    // Current Admin UI intentionally exposes section composition but has no row/seat/capacity
-    // controls. Add that internal prerequisite through the real authenticated API, then return
-    // to the UI for publication and all subsequent workflow actions.
-    await apiJSON(`/api/v1/admin/venue-layouts/${layoutId}`, {
-      method: 'PATCH',
-      token,
-      idempotencyKey: randomUUID(),
-      body: {
-        geometry: { width: 900, height: 600 },
-        sections: [
-          { object_key: 'vip-1', name: 'VIP', kind: 'RESERVED', sort_order: 1 },
-          { object_key: 'main-floor-2', name: 'Main Floor', kind: 'GA', sort_order: 2 },
-        ],
-        rows: [{ object_key: 'vip-row-a', section_key: 'vip-1', label: 'A', sort_order: 1 }],
-        tables: [],
-        seats: [1, 2, 3, 4].map((seat, index) => ({
-          object_key: `vip-a-${seat}`,
-          section_key: 'vip-1',
-          row_key: 'vip-row-a',
-          seat_label: String(seat),
-          sort_order: index + 1,
-        })),
-        ga_zones: [
-          {
-            object_key: 'main-floor-zone',
-            section_key: 'main-floor-2',
-            name: 'Main Floor',
-            default_capacity: 5,
-          },
-        ],
-      },
-    });
-
     await page.reload();
-    await page.getByRole('button', { name: 'Publish' }).click();
+    await page.getByRole('button', { name: 'Edit draft' }).click();
+    await expect(page.getByText('18 seats')).toBeVisible();
+    await expect(page.getByText('12 seats')).toBeVisible();
+    await expect(page.getByText('100 capacity')).toBeVisible();
     const publishResponsePromise = page.waitForResponse(
       (response) =>
         response.url().endsWith(`/api/v1/admin/venue-layouts/${layoutId}/publish`) &&
         response.request().method() === 'POST',
     );
-    await page
-      .getByRole('dialog', { name: 'Publish layout' })
-      .getByRole('button', {
-        name: 'Publish layout',
-      })
-      .click();
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: 'Publish', exact: true }).click();
     const publishResponse = await publishResponsePromise;
     if (!publishResponse.ok()) {
       await recordIssue(
@@ -284,12 +276,17 @@ test('01 Admin platform setup', async ({ page }) => {
     const assignment = page.getByLabel('Price tier to assign');
     await expect(assignment).toBeVisible();
     await assignment.selectOption({ index: 1 });
+    await page.getByLabel('Apply to').selectOption('all');
     const assignmentResponsePromise = page.waitForResponse(
       (response) =>
         response.url().endsWith(`/api/v1/admin/events/${eventId}/pricing/assignments`) &&
         response.request().method() === 'POST',
     );
-    await page.getByRole('button', { name: 'Assign to all inventory' }).click();
+    await page.getByRole('button', { name: 'Review pricing assignment' }).click();
+    await page
+      .getByRole('dialog', { name: 'Apply pricing?' })
+      .getByRole('button', { name: 'Apply pricing' })
+      .click();
     expect((await assignmentResponsePromise).ok()).toBe(true);
     await page.getByRole('tab', { name: 'Inventory' }).click();
     await expect(

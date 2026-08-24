@@ -42,8 +42,8 @@ export function VenueDetailPage() {
     invalidate,
   });
   const publish = useIntentMutation({
-    intent: () => `${publishId}:publish`,
-    mutationFn: (token, key) => adminApi.publishLayout(token, key, publishId),
+    intent: (layoutId: string) => `${layoutId}:publish`,
+    mutationFn: (token, key, layoutId) => adminApi.publishLayout(token, key, layoutId),
     invalidate,
   });
 
@@ -67,7 +67,7 @@ export function VenueDetailPage() {
     }
   };
   const publishConfirmed = async () => {
-    await publish.mutateAsync(undefined);
+    await publish.mutateAsync(publishId);
     setPublishId('');
   };
 
@@ -86,9 +86,7 @@ export function VenueDetailPage() {
         onPublish={async (body) => {
           if (!window.confirm('Publish this layout? Published layouts cannot be edited.')) return;
           await replace.mutateAsync(body);
-          setPublishId(editLayout.id);
-          await publish.mutateAsync(undefined);
-          setPublishId('');
+          await publish.mutateAsync(editLayout.id);
           setEditLayout(null);
         }}
       />

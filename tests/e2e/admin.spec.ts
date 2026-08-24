@@ -608,10 +608,11 @@ test('Admin edits a venue, creates a partner, reveals one credential once, grant
   await page.getByRole('button', { name: 'Edit draft' }).click();
   await page.getByRole('button', { name: 'Reserved section' }).click();
   await page.getByLabel('Name').fill('Main Floor');
-  await page.getByRole('button', { name: 'Save draft' }).click();
-  await page.getByRole('button', { name: 'Close builder' }).click();
-  await page.getByRole('button', { name: 'Publish' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Publish layout' }).click();
+  await page.getByLabel('Rows').fill('3');
+  await page.getByLabel('Seats per row').fill('6');
+  await page.getByLabel('Starting seat number').fill('10');
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Publish', exact: true }).click();
   await expect(page.locator('tbody').getByText('Published', { exact: true })).toBeVisible();
 
   await page.getByRole('link', { name: 'Partners', exact: true }).first().click();
@@ -649,6 +650,16 @@ test('Admin edits a venue, creates a partner, reveals one credential once, grant
     ]),
   );
   expect(state.mutations.every((entry) => entry.idempotencyKey.length > 0)).toBe(true);
+  const replaceLayout = state.mutations.find(
+    (entry) => entry.method === 'PATCH' && entry.path === '/api/v1/admin/venue-layouts/lay_draft',
+  );
+  expect(replaceLayout?.body).toMatchObject({
+    sections: [{ object_key: 'reserved-section' }],
+  });
+  expect((replaceLayout?.body as { rows: unknown[] }).rows).toHaveLength(3);
+  expect(
+    (replaceLayout?.body as { seats: Array<{ seat_label: string }> }).seats[0]?.seat_label,
+  ).toBe('10');
 });
 
 test('Admin account popover uses session identity and signs out', async ({ page }) => {

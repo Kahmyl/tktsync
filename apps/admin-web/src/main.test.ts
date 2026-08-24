@@ -12,11 +12,102 @@ import {
 } from './lib/format';
 import { isEmailAddress } from './features/users/validation';
 import { passwordValidation } from './features/auth/password';
-import { stableKey, toLayout, type BuilderObject } from './features/venues/layout-builder/model';
+import {
+  fromLayout,
+  stableKey,
+  toLayout,
+  type BuilderObject,
+} from './features/venues/layout-builder/model';
+import type { VenueLayoutDetail } from './features/admin/types';
 
 describe('admin interaction policy', () => {
   it('never automatically retries mutations', () => {
     expect(queryClient.getDefaultOptions().mutations?.retry).toBe(false);
+  });
+
+  it('round-trips irregular authoritative structure when only geometry changes', () => {
+    const detail: VenueLayoutDetail = {
+      id: 'lay_draft',
+      venue_id: 'ven_1',
+      version_number: 2,
+      state: 'DRAFT',
+      created_at: '2026-08-24T00:00:00Z',
+      published_at: null,
+      retired_at: null,
+      geometry: {
+        objects: [
+          {
+            object_key: 'vip',
+            type: 'RESERVED',
+            label: 'VIP',
+            x: 10,
+            y: 20,
+            width: 300,
+            height: 180,
+          },
+        ],
+      },
+      sections: [
+        { object_key: 'vip', name: 'VIP', kind: 'RESERVED', sort_order: 0 },
+        { object_key: 'banquet', name: 'Banquet', kind: 'TABLE', sort_order: 1 },
+        { object_key: 'floor', name: 'Floor', kind: 'GA', sort_order: 2 },
+      ],
+      rows: [
+        { object_key: 'vip-row-a', section_key: 'vip', label: 'A', sort_order: 7 },
+        { object_key: 'vip-row-b', section_key: 'vip', label: 'B', sort_order: 9 },
+      ],
+      tables: [{ object_key: 'banquet-table-four', section_key: 'banquet', label: 'Table 4' }],
+      seats: [
+        {
+          object_key: 'vip-a-50',
+          section_key: 'vip',
+          row_key: 'vip-row-a',
+          seat_label: '50',
+          sort_order: 0,
+        },
+        {
+          object_key: 'vip-a-60',
+          section_key: 'vip',
+          row_key: 'vip-row-a',
+          seat_label: '60',
+          sort_order: 10,
+        },
+        {
+          object_key: 'vip-b-1',
+          section_key: 'vip',
+          row_key: 'vip-row-b',
+          seat_label: '1',
+          sort_order: 0,
+        },
+        {
+          object_key: 'banquet-four-2',
+          section_key: 'banquet',
+          table_key: 'banquet-table-four',
+          seat_label: '2',
+          sort_order: 1,
+        },
+      ],
+      ga_zones: [
+        {
+          object_key: 'floor-zone-original',
+          section_key: 'floor',
+          name: 'Main Floor',
+          default_capacity: 321,
+        },
+      ],
+    };
+    const objects = fromLayout(detail).map((item) =>
+      item.object_key === 'vip' ? { ...item, x: 44, y: 55 } : item,
+    );
+    const output = toLayout(objects);
+    expect(output.rows).toEqual(detail.rows);
+    expect(output.tables).toEqual(detail.tables);
+    expect(output.seats).toEqual(detail.seats);
+    expect(output.ga_zones).toEqual(detail.ga_zones);
+    expect(output.geometry.objects?.find((item) => item.object_key === 'vip')).toMatchObject({
+      x: 44,
+      y: 55,
+    });
   });
 
   it('uses operator-facing lifecycle copy', () => {

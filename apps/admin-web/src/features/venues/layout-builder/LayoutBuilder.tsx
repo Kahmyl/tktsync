@@ -47,21 +47,32 @@ export function LayoutBuilder({
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
   const update = (key: string, changes: Partial<BuilderObject>) => {
+    const regeneratesStructure = Object.keys(changes).some((field) =>
+      ['rows', 'seatsPerRow', 'startSeat', 'tables', 'seatsPerTable'].includes(field),
+    );
     setObjects((items) =>
-      items.map((item) => (item.object_key === key ? { ...item, ...changes } : item)),
+      items.map((item) =>
+        item.object_key === key
+          ? { ...item, ...changes, structural: regeneratesStructure ? undefined : item.structural }
+          : item,
+      ),
     );
     setDirty(true);
   };
   const add = (type: BuilderObject['type'], label: string) => {
     const object_key = stableKey(label, objects);
+    const orientation = ['STAGE', 'RING', 'FIELD'].includes(type);
+    const inventoryIndex = objects.filter((item) =>
+      ['RESERVED', 'GA', 'TABLE'].includes(item.type),
+    ).length;
     const next: BuilderObject = {
       object_key,
       type,
       label,
-      x: 80 + (objects.length % 4) * 60,
-      y: 70 + (objects.length % 4) * 50,
-      width: type === 'STAGE' ? 300 : 210,
-      height: type === 'STAGE' ? 75 : 150,
+      x: orientation ? 350 : 40 + (inventoryIndex % 3) * 310,
+      y: orientation ? 25 : 130 + Math.floor(inventoryIndex / 3) * 230,
+      width: orientation ? 300 : 270,
+      height: orientation ? 75 : 180,
       rows: 4,
       seatsPerRow: 10,
       startSeat: 1,

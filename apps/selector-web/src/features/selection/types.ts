@@ -11,6 +11,7 @@ export type SelectableOffer = Offer & {
   section_id?: string;
   section_name?: string;
   row?: string;
+  table?: string;
   seat?: string;
 };
 
@@ -34,7 +35,9 @@ export type Layout = {
     inventory_id: string;
     section_id?: string;
     section_name?: string;
+    section_object_key?: string;
     row?: string;
+    table?: string;
     seat: string;
     display_label?: string;
   }>;
@@ -42,6 +45,7 @@ export type Layout = {
     inventory_id: string;
     section_id?: string;
     section_name?: string;
+    section_object_key?: string;
     name: string;
     capacity: number;
   }>;

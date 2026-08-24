@@ -54,6 +54,7 @@ function SelectionLines({ lines }: { lines: SelectionLine[] }) {
               {offer.kind === 'reserved'
                 ? [
                     humanLabel(offer.row, '') ? `Row ${humanLabel(offer.row, '')}` : '',
+                    humanLabel(offer.table, '') ? humanLabel(offer.table, '') : '',
                     humanLabel(offer.seat, '') ? `Seat ${humanLabel(offer.seat, '')}` : '',
                   ]
                     .filter(Boolean)
@@ -260,13 +261,20 @@ export function SelectionPage() {
     [session.selectedLines],
   );
   const reservedSections = useMemo(() => {
-    const sections = new Map<string, Map<string, Layout['reserved_units']>>();
+    const sections = new Map<
+      string,
+      { name: string; rows: Map<string, Layout['reserved_units']> }
+    >();
     for (const unit of session.layout?.reserved_units ?? []) {
-      const section = humanLabel(unit.section_name, 'Reserved seating');
-      const rows = sections.get(section) ?? new Map();
-      const row = humanLabel(unit.row, '—');
+      const section = unit.section_object_key ?? unit.section_id ?? unit.section_name ?? 'reserved';
+      const current = sections.get(section) ?? {
+        name: humanLabel(unit.section_name, 'Reserved seating'),
+        rows: new Map(),
+      };
+      const rows = current.rows;
+      const row = humanLabel(unit.row || unit.table, '—');
       rows.set(row, [...(rows.get(row) ?? []), unit]);
-      sections.set(section, rows);
+      sections.set(section, current);
     }
     return sections;
   }, [session.layout]);
@@ -450,127 +458,182 @@ export function SelectionPage() {
         ) : (
           <div className="selector-grid">
             <div className="inventory-column">
-              {(session.layout?.geometry?.objects ?? [])
-                .filter((item) => ['STAGE', 'RING', 'FIELD'].includes(item.type))
-                .map((item) => (
-                  <div className="stage-mark" key={item.object_key}>
-                    {humanLabel(
-                      item.label,
-                      item.type === 'STAGE' ? 'Stage' : item.type === 'RING' ? 'Ring' : 'Field',
-                    )}{' '}
-                    · Audience orientation
-                  </div>
-                ))}
               {reservedSections.size > 0 &&
                 !(session.layout?.geometry?.objects ?? []).some((item) =>
                   ['STAGE', 'RING', 'FIELD'].includes(item.type),
                 ) && <div className="stage-mark">Event area</div>}
-              {[...reservedSections.entries()].map(([section, rows]) => (
-                <section className="seat-section" key={section} aria-label={section}>
-                  <div className="section-heading">
-                    <div>
-                      <h2>{section}</h2>
-                      <p>Reserved seating</p>
-                    </div>
-                  </div>
-                  <div className="seat-map-scroll">
-                    <div className="seat-rows">
-                      {[...rows.entries()].map(([row, units]) => (
-                        <div className="seat-row" key={row}>
-                          <span className="row-label">{row}</span>
-                          <div className="row-seats">
-                            {units.map((unit) => {
-                              const current = availabilityByInventory.get(unit.inventory_id);
-                              const offer = offerByInventory.get(unit.inventory_id);
-                              const selected = Boolean(offer && selectedIDs.has(offer.offer_id));
-                              const available = Boolean(current?.offer && offer);
-                              const readableRow = humanLabel(unit.row, '');
-                              const readableSeat = humanLabel(unit.seat, '');
-                              const location = [
-                                readableRow ? `Row ${readableRow}` : '',
-                                readableSeat ? `Seat ${readableSeat}` : '',
-                              ]
-                                .filter(Boolean)
-                                .join(' · ');
-                              const label = `${section}, ${location}, ${
-                                offer
-                                  ? formatMoney(offer.price.amount_minor, offer.price.currency)
-                                  : 'unavailable'
-                              }`;
-                              return (
-                                <button
-                                  key={unit.inventory_id}
-                                  type="button"
-                                  className={`seat ${selected ? 'selected' : available ? 'available' : 'unavailable'}`}
-                                  disabled={!available}
-                                  aria-label={label}
-                                  aria-pressed={selected}
-                                  onClick={() => offer && session.toggleReserved(offer)}
-                                >
-                                  <span>{readableSeat || '—'}</span>
-                                  {selected && <Check size={12} aria-hidden="true" />}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          <span className="row-label">{row}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </section>
-              ))}
-
-              {gaOffers.map((offer) => {
-                const line = session.selectedLines.find(
-                  (selection) => selection.offer.offer_id === offer.offer_id,
-                );
-                const quantity = line?.quantity ?? 0;
-                const max = offer.available_quantity ?? 0;
-                return (
-                  <section
-                    className="ga-card"
-                    key={offer.offer_id}
-                    aria-label={humanLabel(offer.label, 'General admission')}
-                  >
-                    <div className="ga-details">
-                      <span className="ga-icon">
-                        <Ticket size={19} />
-                      </span>
-                      <div>
-                        <h2>{humanLabel(offer.label, 'General admission')}</h2>
-                        <p>{humanLabel(offer.section_name, 'General admission')}</p>
-                        <strong>
-                          {formatMoney(offer.price.amount_minor, offer.price.currency)} each
-                        </strong>
-                        <small>{max} left</small>
+              <div className="spatial-map-scroll">
+                <div className="spatial-map" aria-label="Interactive venue floor plan">
+                  {(session.layout?.geometry?.objects ?? [])
+                    .filter((item) => ['STAGE', 'RING', 'FIELD'].includes(item.type))
+                    .map((item) => (
+                      <div
+                        className="spatial-orientation"
+                        key={item.object_key}
+                        style={{
+                          left: `${item.x / 10}%`,
+                          top: `${item.y / 6.5}%`,
+                          width: `${item.width / 10}%`,
+                          height: `${item.height / 6.5}%`,
+                          transform: `rotate(${item.rotation ?? 0}deg)`,
+                        }}
+                      >
+                        {humanLabel(item.label, item.type)}
                       </div>
-                    </div>
-                    <div
-                      className="quantity-control"
-                      aria-label={`${humanLabel(offer.label, 'Ticket')} quantity`}
-                    >
-                      <button
-                        type="button"
-                        aria-label={`Remove one ${humanLabel(offer.label, 'general admission')} ticket`}
-                        disabled={quantity === 0}
-                        onClick={() => session.setGAQuantity(offer, quantity - 1)}
+                    ))}
+                  {[...reservedSections.entries()].map(([sectionKey, sectionData]) => {
+                    const section = sectionData.name;
+                    const rows = sectionData.rows;
+                    const geo = session.layout?.geometry?.objects?.find(
+                      (item) => item.object_key === sectionKey,
+                    );
+                    return (
+                      <section
+                        className={`seat-section ${geo ? 'spatial-section' : 'spatial-fallback'}`}
+                        key={sectionKey}
+                        aria-label={section}
+                        style={
+                          geo
+                            ? {
+                                left: `${geo.x / 10}%`,
+                                top: `${geo.y / 6.5}%`,
+                                width: `${geo.width / 10}%`,
+                                height: `${geo.height / 6.5}%`,
+                                transform: `rotate(${geo.rotation ?? 0}deg)`,
+                              }
+                            : undefined
+                        }
                       >
-                        <Minus size={17} />
-                      </button>
-                      <output aria-live="polite">{quantity}</output>
-                      <button
-                        type="button"
-                        aria-label={`Add one ${humanLabel(offer.label, 'general admission')} ticket`}
-                        disabled={quantity >= max}
-                        onClick={() => session.setGAQuantity(offer, quantity + 1)}
+                        <div className="section-heading">
+                          <div>
+                            <h2>{section}</h2>
+                            <p>Reserved seating</p>
+                          </div>
+                        </div>
+                        <div className="seat-map-scroll">
+                          <div className="seat-rows">
+                            {[...rows.entries()].map(([row, units]) => (
+                              <div className="seat-row" key={row}>
+                                <span className="row-label">{row}</span>
+                                <div className="row-seats">
+                                  {units.map((unit) => {
+                                    const current = availabilityByInventory.get(unit.inventory_id);
+                                    const offer = offerByInventory.get(unit.inventory_id);
+                                    const selected = Boolean(
+                                      offer && selectedIDs.has(offer.offer_id),
+                                    );
+                                    const available = Boolean(current?.offer && offer);
+                                    const readableRow = humanLabel(unit.row, '');
+                                    const readableSeat = humanLabel(unit.seat, '');
+                                    const location = [
+                                      readableRow ? `Row ${readableRow}` : '',
+                                      unit.table ? humanLabel(unit.table, '') : '',
+                                      readableSeat ? `Seat ${readableSeat}` : '',
+                                    ]
+                                      .filter(Boolean)
+                                      .join(' · ');
+                                    const label = `${section}, ${location}, ${
+                                      offer
+                                        ? formatMoney(
+                                            offer.price.amount_minor,
+                                            offer.price.currency,
+                                          )
+                                        : 'unavailable'
+                                    }`;
+                                    return (
+                                      <button
+                                        key={unit.inventory_id}
+                                        type="button"
+                                        className={`seat ${selected ? 'selected' : available ? 'available' : 'unavailable'}`}
+                                        disabled={!available}
+                                        aria-label={label}
+                                        aria-pressed={selected}
+                                        onClick={() => offer && session.toggleReserved(offer)}
+                                      >
+                                        <span>{readableSeat || '—'}</span>
+                                        {selected && <Check size={12} aria-hidden="true" />}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                <span className="row-label">{row}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </section>
+                    );
+                  })}
+
+                  {gaOffers.map((offer) => {
+                    const line = session.selectedLines.find(
+                      (selection) => selection.offer.offer_id === offer.offer_id,
+                    );
+                    const quantity = line?.quantity ?? 0;
+                    const max = offer.available_quantity ?? 0;
+                    const pool = session.layout?.ga_pools.find(
+                      (item) => item.inventory_id === offer.inventory_id,
+                    );
+                    const geo = session.layout?.geometry?.objects?.find(
+                      (item) => item.object_key === pool?.section_object_key,
+                    );
+                    return (
+                      <section
+                        className={`ga-card ${geo ? 'spatial-ga' : 'spatial-fallback'}`}
+                        key={offer.offer_id}
+                        aria-label={humanLabel(offer.label, 'General admission')}
+                        style={
+                          geo
+                            ? {
+                                left: `${geo.x / 10}%`,
+                                top: `${geo.y / 6.5}%`,
+                                width: `${geo.width / 10}%`,
+                                height: `${geo.height / 6.5}%`,
+                                transform: `rotate(${geo.rotation ?? 0}deg)`,
+                              }
+                            : undefined
+                        }
                       >
-                        <Plus size={17} />
-                      </button>
-                    </div>
-                  </section>
-                );
-              })}
+                        <div className="ga-details">
+                          <span className="ga-icon">
+                            <Ticket size={19} />
+                          </span>
+                          <div>
+                            <h2>{humanLabel(offer.label, 'General admission')}</h2>
+                            <p>{humanLabel(offer.section_name, 'General admission')}</p>
+                            <strong>
+                              {formatMoney(offer.price.amount_minor, offer.price.currency)} each
+                            </strong>
+                            <small>{max} left</small>
+                          </div>
+                        </div>
+                        <div
+                          className="quantity-control"
+                          aria-label={`${humanLabel(offer.label, 'Ticket')} quantity`}
+                        >
+                          <button
+                            type="button"
+                            aria-label={`Remove one ${humanLabel(offer.label, 'general admission')} ticket`}
+                            disabled={quantity === 0}
+                            onClick={() => session.setGAQuantity(offer, quantity - 1)}
+                          >
+                            <Minus size={17} />
+                          </button>
+                          <output aria-live="polite">{quantity}</output>
+                          <button
+                            type="button"
+                            aria-label={`Add one ${humanLabel(offer.label, 'general admission')} ticket`}
+                            disabled={quantity >= max}
+                            onClick={() => session.setGAQuantity(offer, quantity + 1)}
+                          >
+                            <Plus size={17} />
+                          </button>
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
+              </div>
 
               <div className="seat-legend" aria-label="Seat status key">
                 <span>

@@ -103,33 +103,30 @@ async function prepareRuntime(rootEnv: string) {
     await writeFile(composeEnvPath, runtime, { mode: 0o600 });
   }
 
-  execFileSync(
-    'docker',
-    [
-      'compose',
-      '--env-file',
-      composeEnvPath,
-      '-f',
-      'docker-compose.yml',
-      '-f',
-      'tests/e2e/live-review/docker-compose.webhook-review.yml',
-      'up',
-      '-d',
-      '--build',
-      '--force-recreate',
-      '--wait',
-      '--wait-timeout',
-      '60',
-      'api',
-      'worker',
-      'docs',
-      'admin',
-      'selector',
-      'scanner',
-      'webhook-receiver',
-    ],
-    { cwd: repoRoot, stdio: 'ignore' },
-  );
+  const composeAction = [
+    'compose',
+    '--env-file',
+    composeEnvPath,
+    '-f',
+    'docker-compose.yml',
+    '-f',
+    'tests/e2e/live-review/docker-compose.webhook-review.yml',
+    'up',
+    '-d',
+    ...(process.env.LIVE_REVIEW_SKIP_BUILD === 'true' ? [] : ['--build']),
+    '--force-recreate',
+    '--wait',
+    '--wait-timeout',
+    '60',
+    'api',
+    'worker',
+    'docs',
+    'admin',
+    'selector',
+    'scanner',
+    'webhook-receiver',
+  ];
+  execFileSync('docker', composeAction, { cwd: repoRoot, stdio: 'ignore' });
 }
 
 async function createRealSession(supabaseURL: string, anonKey: string): Promise<SupabaseSession> {
@@ -268,10 +265,10 @@ function authorizeLocally(subject: string) {
       'tktsync',
       '-d',
       'tktsync',
-      '-c',
-      sql,
+      '-f',
+      '-',
     ],
-    { cwd: repoRoot, stdio: 'ignore' },
+    { cwd: repoRoot, input: sql, stdio: ['pipe', 'ignore', 'ignore'] },
   );
 }
 
@@ -326,6 +323,7 @@ export default async function globalSetup() {
   if (await exists(credentialPath)) {
     const session = await createPasswordSession(supabaseURL, anonKey);
     await writeAuthState(session, supabaseURL);
+    authorizeLocally(session.user.id);
     auth = 'real Supabase password session';
     authUI = 'real email/password; visible UI sign-in verified in Workflow 1';
   } else {

@@ -3,12 +3,13 @@ package reporting
 import (
 	"context"
 	"encoding/csv"
-	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tktsync/tktsync/backend/internal/platform/publicid"
 )
 
 type AccreditationSnapshot struct {
@@ -25,7 +26,7 @@ func (s *Service) WriteAccreditationCSV(ctx context.Context, eventID uuid.UUID, 
 			return err
 		}
 		rows, err := tx.Query(ctx, `
-			SELECT te.status,te.inventory_kind,es.name,riu.row_label,riu.seat_label,
+			SELECT te.id,te.status,te.inventory_kind,es.name,riu.row_label,riu.table_label,riu.seat_label,
 			       COALESCE(gp.name,''),tad.display_name,adm.status,adm.admitted_at,te.created_at
 			FROM ticket_entitlements te
 			LEFT JOIN reserved_inventory_units riu ON riu.id=te.reserved_inventory_unit_id
@@ -40,17 +41,17 @@ func (s *Service) WriteAccreditationCSV(ctx context.Context, eventID uuid.UUID, 
 		}
 		defer rows.Close()
 		csvw := csv.NewWriter(writer)
-		if err := csvw.Write([]string{"ticket", "attendee_name", "event", "section_or_area", "row", "seat", "ticket_status", "admission_status", "admission_timestamp", "issued_at"}); err != nil {
+		if err := csvw.Write([]string{"ticket", "attendee_name", "event", "section_or_area", "row", "table", "seat", "ticket_status", "admission_status", "admission_timestamp", "issued_at"}); err != nil {
 			return err
 		}
 		wrote := false
-		rowNumber := 0
 		for rows.Next() {
+			var ticketID uuid.UUID
 			var status, kind string
-			var section, row, seat, ga, displayName, admissionStatus *string
+			var section, row, table, seat, ga, displayName, admissionStatus *string
 			var admittedAt *time.Time
 			var issuedAt time.Time
-			if err := rows.Scan(&status, &kind, &section, &row, &seat, &ga, &displayName, &admissionStatus, &admittedAt, &issuedAt); err != nil {
+			if err := rows.Scan(&ticketID, &status, &kind, &section, &row, &table, &seat, &ga, &displayName, &admissionStatus, &admittedAt, &issuedAt); err != nil {
 				return err
 			}
 			wrote = true
@@ -58,11 +59,10 @@ func (s *Service) WriteAccreditationCSV(ctx context.Context, eventID uuid.UUID, 
 			if kind == "GA" {
 				area = valueOrEmpty(ga)
 			}
-			record := []string{fmt.Sprintf("Ticket %d", rowNumber+1), valueOrEmpty(displayName), snapshot.Event.Name, area, valueOrEmpty(row), valueOrEmpty(seat), status, valueOrEmpty(admissionStatus), timeOrEmpty(admittedAt), issuedAt.Format(time.RFC3339Nano)}
+			record := []string{publicid.Encode(publicid.Ticket, ticketID), safeCSV(valueOrEmpty(displayName)), safeCSV(snapshot.Event.Name), safeCSV(area), safeCSV(valueOrEmpty(row)), safeCSV(valueOrEmpty(table)), safeCSV(valueOrEmpty(seat)), safeCSV(status), safeCSV(valueOrEmpty(admissionStatus)), timeOrEmpty(admittedAt), issuedAt.Format(time.RFC3339Nano)}
 			if err := csvw.Write(record); err != nil {
 				return err
 			}
-			rowNumber++
 		}
 		if err := rows.Err(); err != nil {
 			return err
@@ -74,6 +74,13 @@ func (s *Service) WriteAccreditationCSV(ctx context.Context, eventID uuid.UUID, 
 		return csvw.Error()
 	})
 	return snapshot, err
+}
+func safeCSV(value string) string {
+	trimmed := strings.TrimLeft(value, " \t\r\n")
+	if trimmed != "" && strings.ContainsRune("=+-@", rune(trimmed[0])) {
+		return "'" + value
+	}
+	return value
 }
 func valueOrEmpty(value *string) string {
 	if value == nil {

@@ -59,6 +59,18 @@ export function LayoutCanvas({
             className={`layout-object ${orientation ? 'orientation-object' : ''} ${selected === item.object_key ? 'selected' : ''}`}
             onPointerDown={(event) => startDrag(event, item)}
             onClick={() => onSelect?.(item.object_key)}
+            onKeyDown={(event) => {
+              if (preview || !onMove || !event.key.startsWith('Arrow')) return;
+              event.preventDefault();
+              const step = event.shiftKey ? 20 : 5;
+              const x =
+                item.x +
+                (event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0);
+              const y =
+                item.y + (event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0);
+              onSelect?.(item.object_key);
+              onMove(item.object_key, Math.max(0, x), Math.max(0, y));
+            }}
             tabIndex={preview ? undefined : 0}
             role={preview ? undefined : 'button'}
             aria-label={`${item.label}, ${item.type.toLowerCase()}`}

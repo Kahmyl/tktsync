@@ -85,7 +85,17 @@ test('03 Scanner admission', async ({ page, context }) => {
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByRole('heading', { name: 'Choose an event to scan' })).toBeVisible();
     const retry = page.getByRole('button', { name: 'Try again' });
-    if (await retry.isVisible()) await retry.click();
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      if (
+        await page
+          .getByRole('heading', { name: 'Your events' })
+          .isVisible()
+          .catch(() => false)
+      )
+        break;
+      if (await retry.isVisible().catch(() => false)) await retry.click();
+      await page.waitForTimeout(2_000);
+    }
     await expect(page.getByRole('heading', { name: 'Your events' })).toBeVisible();
     await expect(page.getByLabel('Event ID')).toHaveCount(0);
     await expect(page.locator('body')).not.toContainText(
@@ -189,12 +199,17 @@ test('03 Scanner admission', async ({ page, context }) => {
   await test.step('Return a real wrong-Event decision with human-readable Event copy', async () => {
     await page.getByRole('button', { name: 'Scan next ticket' }).click();
     await changeEvent(page);
-    await chooseEvent(page, reviewNames.wrongEvent);
+    const otherEvent = page
+      .getByRole('region', { name: 'Your events' })
+      .getByRole('button', { name: /Select / })
+      .filter({ hasNotText: reviewNames.event })
+      .first();
+    await expect(otherEvent).toBeVisible();
+    const otherEventName = (await otherEvent.locator('.event-card-title').innerText()).trim();
+    await otherEvent.click();
     await manualScan(page, ticket2QR);
     await expect(page.getByRole('heading', { name: 'Wrong event' })).toBeVisible();
-    await expect(
-      page.getByText(`This ticket is not valid for ${reviewNames.wrongEvent}.`),
-    ).toBeVisible();
+    await expect(page.getByText(`This ticket is not valid for ${otherEventName}.`)).toBeVisible();
     await expect(page.locator('body')).not.toContainText(primaryEvent);
     await expect(page.locator('body')).not.toContainText(wrongEvent);
     await screenshot(page, '03-scanner-wrong-event');

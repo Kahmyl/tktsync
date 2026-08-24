@@ -109,6 +109,7 @@ export function useSelectionSession() {
             section_id: item.section_id,
             section_name: layoutItem?.section_name,
             row: item.row,
+            table: layoutItem && 'table' in layoutItem ? layoutItem.table : undefined,
             seat: item.seat,
             label: layoutItem?.section_name ?? 'Reserved seating',
           },

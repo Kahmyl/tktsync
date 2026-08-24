@@ -175,6 +175,24 @@ export function EventDetailPage() {
   };
   const primary = primaryAction(detail.state);
   const activeTiers = configuration?.price_tiers.filter((tier) => tier.state === 'ACTIVE') ?? [];
+  const pricingTargetDescription = (() => {
+    const inventory = workspace.inventory.data?.inventory ?? [];
+    if (priceTargets.sectionKeys.length === 1)
+      return humanName(
+        inventory.find((item) => item.section_object_key === priceTargets.sectionKeys[0])
+          ?.section_name,
+        'the selected area',
+      );
+    if (priceTargets.sectionKeys.length > 1) return 'the entire event';
+    if (priceTargets.reservedKeys.length)
+      return `${priceTargets.reservedKeys.length} selected seat${priceTargets.reservedKeys.length === 1 ? '' : 's'}`;
+    if (priceTargets.ga.length === 1)
+      return humanName(
+        inventory.find((item) => item.snapshot_object_key === priceTargets.ga[0]?.key)?.area_name,
+        'the selected general-admission area',
+      );
+    return 'the selected inventory';
+  })();
   const publishedLayouts =
     venue.layouts.data?.filter((layout) => layout.state === 'PUBLISHED') ?? [];
   const operationError =
@@ -229,9 +247,14 @@ export function EventDetailPage() {
       const url = URL.createObjectURL(exported.blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `${humanName(detail.name, 'event')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')}-accreditation-${new Date().toISOString().slice(0, 10)}.csv`;
+      const serverFilename = exported.disposition?.match(
+        /filename="?([A-Za-z0-9._-]+)"?(?:;|$)/i,
+      )?.[1];
+      anchor.download =
+        serverFilename ??
+        `${humanName(detail.name, 'event')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')}-accreditation-${new Date().toISOString().slice(0, 10)}.csv`;
       anchor.click();
       URL.revokeObjectURL(url);
     } finally {
@@ -577,6 +600,7 @@ export function EventDetailPage() {
                     value={priceTargets}
                     onChange={setPriceTargets}
                     allowEntireEvent
+                    mode="pricing"
                   />
                   <Button
                     disabled={
@@ -1012,8 +1036,7 @@ export function EventDetailPage() {
               activeTiers.find((tier) => tier.id === assignTierId)?.amount_minor ?? 0,
               activeTiers.find((tier) => tier.id === assignTierId)?.currency ?? 'NGN',
             )}{' '}
-            pricing to {priceTargets.reservedKeys.length} reserved seats and{' '}
-            {priceTargets.ga.length} general-admission areas?
+            pricing to {pricingTargetDescription}?
           </InlineNotice>
           {assign.error ? <ErrorState error={assign.error} /> : null}
         </div>

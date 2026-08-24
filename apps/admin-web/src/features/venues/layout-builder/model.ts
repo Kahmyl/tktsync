@@ -4,6 +4,7 @@ export type BuilderObject = {
   object_key: string;
   type: 'RESERVED' | 'GA' | 'TABLE' | 'STAGE' | 'RING' | 'FIELD';
   label: string;
+  sourceLabel?: string;
   x: number;
   y: number;
   width: number;
@@ -15,6 +16,7 @@ export type BuilderObject = {
   capacity?: number;
   tables?: number;
   seatsPerTable?: number;
+  structural?: Pick<ReplaceLayoutBody, 'rows' | 'tables' | 'seats' | 'ga_zones'>;
 };
 
 export function stableKey(label: string, existing: BuilderObject[]) {
@@ -42,6 +44,7 @@ export function fromLayout(layout: VenueLayoutDetail): BuilderObject[] {
       object_key: section.object_key,
       type: section.kind === 'MIXED_VISUAL' ? 'RESERVED' : section.kind,
       label: section.name,
+      sourceLabel: section.name,
       x: visual?.x ?? 70 + (index % 3) * 230,
       y: visual?.y ?? 80 + Math.floor(index / 3) * 180,
       width: visual?.width ?? 190,
@@ -63,6 +66,12 @@ export function fromLayout(layout: VenueLayoutDetail): BuilderObject[] {
             ),
           )
         : 6,
+      structural: {
+        rows: rows.map((row) => ({ ...row })),
+        tables: tables.map((table) => ({ ...table })),
+        seats: seats.map((seat) => ({ ...seat })),
+        ga_zones: zone ? [{ ...zone }] : [],
+      },
     } as BuilderObject;
   });
   const orientation = (layout.geometry?.objects ?? [])
@@ -88,6 +97,23 @@ export function toLayout(objects: BuilderObject[]): ReplaceLayoutBody {
   const seats: ReplaceLayoutBody['seats'] = [];
   const ga_zones: ReplaceLayoutBody['ga_zones'] = [];
   inventory.forEach((item) => {
+    if (item.structural) {
+      rows.push(...item.structural.rows);
+      tables.push(...item.structural.tables);
+      seats.push(...item.structural.seats);
+      ga_zones.push(
+        ...item.structural.ga_zones.map((zone) =>
+          item.type === 'GA' && item.label !== item.sourceLabel
+            ? {
+                ...zone,
+                name: item.label,
+                default_capacity: item.capacity ?? zone.default_capacity,
+              }
+            : zone,
+        ),
+      );
+      return;
+    }
     if (item.type === 'RESERVED') {
       for (let rowIndex = 0; rowIndex < (item.rows ?? 1); rowIndex += 1) {
         const label = rowLabel(rowIndex);
