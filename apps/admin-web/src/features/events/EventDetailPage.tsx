@@ -36,6 +36,8 @@ import {
   formatMoney,
   formatNumber,
   friendlyOperation,
+  humanGateReference,
+  humanName,
   timeAgo,
 } from '../../lib/format';
 import { adminApi } from '../admin/api';
@@ -215,8 +217,8 @@ export function EventDetailPage() {
   return (
     <>
       <PageHeader
-        title={detail.name}
-        description={`${venue.venue.data?.name ?? 'Venue'} · ${formatDateTime(detail.starts_at)}`}
+        title={humanName(detail.name, 'Untitled event')}
+        description={`${humanName(venue.venue.data?.name, 'Venue to be announced')} · ${formatDateTime(detail.starts_at)}`}
         eyebrow={<EventStatus state={detail.state as EventState} />}
         actions={
           <div className="event-actions">
@@ -306,7 +308,7 @@ export function EventDetailPage() {
                 <dl className="definition-grid">
                   <div>
                     <dt>Venue</dt>
-                    <dd>{venue.venue.data?.name ?? 'Loading venue…'}</dd>
+                    <dd>{humanName(venue.venue.data?.name, 'Loading venue…')}</dd>
                   </div>
                   <div>
                     <dt>Starts</dt>
@@ -425,8 +427,8 @@ export function EventDetailPage() {
                 <div>
                   <strong>Layout materialized</strong>
                   <p>
-                    Inventory was created from {configuration.layout.id}. Venue layout changes will
-                    not silently alter this event.
+                    Inventory was created from layout version {configuration.layout.version_number}.
+                    Venue layout changes will not silently alter this event.
                   </p>
                 </div>
               </div>
@@ -499,7 +501,7 @@ export function EventDetailPage() {
                     {configuration?.price_tiers.map((tier) => (
                       <tr key={tier.id}>
                         <td>
-                          <strong>{tier.name}</strong>
+                          <strong>{humanName(tier.name, 'Unnamed tier')}</strong>
                         </td>
                         <td className="num">{tier.code}</td>
                         <td className="num">{formatMoney(tier.amount_minor, tier.currency)}</td>
@@ -540,7 +542,8 @@ export function EventDetailPage() {
                     <option value="">Choose a tier</option>
                     {activeTiers.map((tier) => (
                       <option value={tier.id} key={tier.id}>
-                        {tier.name} · {formatMoney(tier.amount_minor, tier.currency)}
+                        {humanName(tier.name, 'Unnamed tier')} ·{' '}
+                        {formatMoney(tier.amount_minor, tier.currency)}
                       </option>
                     ))}
                   </Select>
@@ -595,7 +598,7 @@ export function EventDetailPage() {
                     {workspace.inventory.data.inventory.map((item) => (
                       <tr key={item.id}>
                         <td>
-                          <strong>{item.label}</strong>
+                          <strong>{humanName(item.label, 'Inventory unit')}</strong>
                         </td>
                         <td>{item.kind === 'GA' ? 'General admission' : 'Reserved seat'}</td>
                         <td className="align-right num">{formatNumber(item.quantity)}</td>
@@ -646,7 +649,7 @@ export function EventDetailPage() {
                       <tr key={item.partner_id}>
                         <td>
                           <Link className="record-link" to={`/partners/${item.partner_id}`}>
-                            <strong>{item.partner_name}</strong>
+                            <strong>{humanName(item.partner_name, 'Untitled partner')}</strong>
                           </Link>
                         </td>
                         <td>
@@ -729,7 +732,12 @@ export function EventDetailPage() {
                   <tbody>
                     {tickets.data.items.slice(0, 10).map((ticket) => (
                       <tr key={ticket.id}>
-                        <td className="num">{ticket.id}</td>
+                        <td>
+                          <strong>Admission ticket</strong>
+                          <small className="table-subline">
+                            Issued {formatDateTime(ticket.created_at)}
+                          </small>
+                        </td>
                         <td>{ticket.attendee_name ?? 'Not provided'}</td>
                         <td>{ticket.display_label ?? '—'}</td>
                         <td>
@@ -794,12 +802,10 @@ export function EventDetailPage() {
                           />
                         </td>
                         <td>
-                          <strong>
-                            {entry.attendee_name ?? entry.ticket_id ?? 'Unknown ticket'}
-                          </strong>
+                          <strong>{entry.attendee_name ?? 'Ticket holder not provided'}</strong>
                           <small className="table-subline">{entry.display_label}</small>
                         </td>
-                        <td>{entry.gate_reference ?? 'Unspecified'}</td>
+                        <td>{humanGateReference(entry.gate_reference)}</td>
                         <td>{formatDateTime(entry.occurred_at)}</td>
                       </tr>
                     ))}

@@ -14,7 +14,7 @@ import {
   Ticket,
   X,
 } from 'lucide-react';
-import { formatMoney, remaining } from './presentation';
+import { formatMoney, humanLabel, remaining } from './presentation';
 import type { Layout, SelectionLine } from './types';
 import { useSelectionSession } from './useSelectionSession';
 
@@ -49,10 +49,15 @@ function SelectionLines({ lines }: { lines: SelectionLine[] }) {
       {lines.map(({ offer, quantity }) => (
         <div className="selection-line" key={offer.offer_id}>
           <div>
-            <strong>{offer.label}</strong>
+            <strong>{humanLabel(offer.label, 'Ticket')}</strong>
             <span>
               {offer.kind === 'reserved'
-                ? [`Row ${offer.row}`, `Seat ${offer.seat}`].filter(Boolean).join(' · ')
+                ? [
+                    humanLabel(offer.row, '') ? `Row ${humanLabel(offer.row, '')}` : '',
+                    humanLabel(offer.seat, '') ? `Seat ${humanLabel(offer.seat, '')}` : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')
                 : `Quantity ${quantity}`}
             </span>
           </div>
@@ -257,9 +262,9 @@ export function SelectionPage() {
   const reservedSections = useMemo(() => {
     const sections = new Map<string, Map<string, Layout['reserved_units']>>();
     for (const unit of session.layout?.reserved_units ?? []) {
-      const section = unit.section_name ?? unit.section_id ?? 'Reserved seating';
+      const section = humanLabel(unit.section_name, 'Reserved seating');
       const rows = sections.get(section) ?? new Map();
-      const row = unit.row ?? '—';
+      const row = humanLabel(unit.row, '—');
       rows.set(row, [...(rows.get(row) ?? []), unit]);
       sections.set(section, rows);
     }
@@ -273,7 +278,7 @@ export function SelectionPage() {
         <Brand />
         {session.event && (
           <div className="selector-event-mini">
-            <strong>{session.event.name}</strong>
+            <strong>{humanLabel(session.event.name, 'Untitled event')}</strong>
             <span>{eventDate(session.event.starts_at)}</span>
           </div>
         )}
@@ -409,11 +414,11 @@ export function SelectionPage() {
         <section className="event-intro">
           <div>
             <p className="event-kicker">Choose your tickets</p>
-            <h1>{session.event?.name}</h1>
+            <h1>{humanLabel(session.event?.name, 'Untitled event')}</h1>
             <p className="event-date">{eventDate(session.event?.starts_at)}</p>
             {session.event?.venue_name && (
               <p className="event-venue">
-                <MapPin size={15} /> {session.event.venue_name}
+                <MapPin size={15} /> {humanLabel(session.event.venue_name, 'Venue to be announced')}
               </p>
             )}
           </div>
@@ -465,7 +470,12 @@ export function SelectionPage() {
                               const offer = offerByInventory.get(unit.inventory_id);
                               const selected = Boolean(offer && selectedIDs.has(offer.offer_id));
                               const available = Boolean(current?.offer && offer);
-                              const location = [`Row ${unit.row}`, `Seat ${unit.seat}`]
+                              const readableRow = humanLabel(unit.row, '');
+                              const readableSeat = humanLabel(unit.seat, '');
+                              const location = [
+                                readableRow ? `Row ${readableRow}` : '',
+                                readableSeat ? `Seat ${readableSeat}` : '',
+                              ]
                                 .filter(Boolean)
                                 .join(' · ');
                               const label = `${section}, ${location}, ${
@@ -483,7 +493,7 @@ export function SelectionPage() {
                                   aria-pressed={selected}
                                   onClick={() => offer && session.toggleReserved(offer)}
                                 >
-                                  <span>{unit.seat}</span>
+                                  <span>{readableSeat || '—'}</span>
                                   {selected && <Check size={12} aria-hidden="true" />}
                                 </button>
                               );
@@ -504,24 +514,31 @@ export function SelectionPage() {
                 const quantity = line?.quantity ?? 0;
                 const max = offer.available_quantity ?? 0;
                 return (
-                  <section className="ga-card" key={offer.offer_id} aria-label={offer.label}>
+                  <section
+                    className="ga-card"
+                    key={offer.offer_id}
+                    aria-label={humanLabel(offer.label, 'General admission')}
+                  >
                     <div className="ga-details">
                       <span className="ga-icon">
                         <Ticket size={19} />
                       </span>
                       <div>
-                        <h2>{offer.label}</h2>
-                        <p>{offer.section_name ?? 'General admission'}</p>
+                        <h2>{humanLabel(offer.label, 'General admission')}</h2>
+                        <p>{humanLabel(offer.section_name, 'General admission')}</p>
                         <strong>
                           {formatMoney(offer.price.amount_minor, offer.price.currency)} each
                         </strong>
                         <small>{max} left</small>
                       </div>
                     </div>
-                    <div className="quantity-control" aria-label={`${offer.label} quantity`}>
+                    <div
+                      className="quantity-control"
+                      aria-label={`${humanLabel(offer.label, 'Ticket')} quantity`}
+                    >
                       <button
                         type="button"
-                        aria-label={`Remove one ${offer.label} ticket`}
+                        aria-label={`Remove one ${humanLabel(offer.label, 'general admission')} ticket`}
                         disabled={quantity === 0}
                         onClick={() => session.setGAQuantity(offer, quantity - 1)}
                       >
@@ -530,7 +547,7 @@ export function SelectionPage() {
                       <output aria-live="polite">{quantity}</output>
                       <button
                         type="button"
-                        aria-label={`Add one ${offer.label} ticket`}
+                        aria-label={`Add one ${humanLabel(offer.label, 'general admission')} ticket`}
                         disabled={quantity >= max}
                         onClick={() => session.setGAQuantity(offer, quantity + 1)}
                       >

@@ -13,7 +13,7 @@ import {
   PageHeader,
   Panel,
 } from '../../components/ui';
-import { formatDate } from '../../lib/format';
+import { formatDate, humanName } from '../../lib/format';
 import { adminApi } from '../admin/api';
 import { adminKeys, useIntentMutation, useVenues } from '../admin/queries';
 
@@ -92,11 +92,11 @@ export function VenuesListPage() {
                   <tr key={venue.id}>
                     <td>
                       <Link className="record-link" to={`/venues/${venue.id}`}>
-                        <strong>{venue.name}</strong>
-                        <small className="num">{venue.id}</small>
+                        <strong>{humanName(venue.name, 'Untitled venue')}</strong>
+                        <small>{venue.address_text ?? 'Address not provided'}</small>
                       </Link>
                     </td>
-                    <td>{venue.address_text ?? 'No address provided'}</td>
+                    <td>{venue.address_text ?? 'Address not provided'}</td>
                     <td>{formatDate(venue.created_at)}</td>
                     <td className="align-right">
                       <Link className="text-link" to={`/venues/${venue.id}`}>

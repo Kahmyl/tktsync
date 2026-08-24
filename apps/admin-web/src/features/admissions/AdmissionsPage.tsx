@@ -16,7 +16,7 @@ import {
   StatusPill,
   Textarea,
 } from '../../components/ui';
-import { admissionLabel, formatDateTime } from '../../lib/format';
+import { admissionLabel, formatDateTime, humanGateReference, humanName } from '../../lib/format';
 import { adminApi } from '../admin/api';
 import {
   adminKeys,
@@ -106,7 +106,7 @@ export function AdmissionsPage() {
               <option value="">Select event</option>
               {events.data?.items.map((event) => (
                 <option value={event.id} key={event.id}>
-                  {event.name}
+                  {humanName(event.name, 'Untitled event')}
                 </option>
               ))}
             </Select>
@@ -173,12 +173,10 @@ export function AdmissionsPage() {
                         />
                       </td>
                       <td>
-                        <strong>
-                          {entry.attendee_name ?? entry.ticket_id ?? 'Unknown ticket'}
-                        </strong>
+                        <strong>{entry.attendee_name ?? 'Ticket holder not provided'}</strong>
                       </td>
                       <td>{entry.display_label ?? '—'}</td>
-                      <td>{entry.gate_reference ?? 'Unspecified'}</td>
+                      <td>{humanGateReference(entry.gate_reference)}</td>
                       <td>{formatDateTime(entry.occurred_at)}</td>
                       <td className="align-right">
                         {entry.admission_id && entry.admission_state === 'ACTIVE' ? (
@@ -212,7 +210,7 @@ export function AdmissionsPage() {
         }}
       >
         <div className="dialog-body form-stack">
-          <Field label="Ticket ID">
+          <Field label="Ticket reference" hint="Paste the ticket reference supplied by TktSync.">
             <Input
               id="manual-ticket"
               value={ticketId}

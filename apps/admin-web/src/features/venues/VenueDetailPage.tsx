@@ -18,7 +18,7 @@ import {
   Select,
   StatusPill,
 } from '../../components/ui';
-import { formatDateTime } from '../../lib/format';
+import { formatDateTime, humanName } from '../../lib/format';
 import { adminApi } from '../admin/api';
 import { adminKeys, useIntentMutation, useVenue } from '../admin/queries';
 
@@ -96,7 +96,7 @@ export function VenueDetailPage() {
   return (
     <>
       <PageHeader
-        title={venue.data.name}
+        title={humanName(venue.data.name, 'Untitled venue')}
         description={venue.data.address_text ?? 'No address provided'}
         actions={
           <Link className="button button-secondary button-normal" to="/venues">
@@ -165,7 +165,7 @@ export function VenueDetailPage() {
                     <tr key={layout.id}>
                       <td>
                         <strong>Version {layout.version_number}</strong>
-                        <small className="table-subline num">{layout.id}</small>
+                        <small className="table-subline">Venue layout</small>
                       </td>
                       <td>
                         <StatusPill
@@ -269,7 +269,7 @@ export function VenueDetailPage() {
               {sections.map((section, index) => (
                 <li key={section.object_key}>
                   <div>
-                    <strong>{section.name}</strong>
+                    <strong>{humanName(section.name, `Section ${index + 1}`)}</strong>
                     <small>{section.kind === 'GA' ? 'General admission' : 'Reserved seats'}</small>
                   </div>
                   <button

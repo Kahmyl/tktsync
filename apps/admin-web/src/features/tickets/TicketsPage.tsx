@@ -15,7 +15,7 @@ import {
   StatusPill,
   Textarea,
 } from '../../components/ui';
-import { formatDateTime } from '../../lib/format';
+import { formatDateTime, humanDomainLabel, humanName } from '../../lib/format';
 import { adminApi } from '../admin/api';
 import { adminKeys, useEvents, useIntentMutation, useTickets } from '../admin/queries';
 import type { TicketSummary } from '../admin/types';
@@ -64,7 +64,7 @@ export function TicketsPage() {
             aria-label="Search tickets"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Ticket ID, holder, event or seat"
+            placeholder="Holder, event, seat or ticket reference"
           />
         </label>
         <Select
@@ -75,7 +75,7 @@ export function TicketsPage() {
           <option value="">All events</option>
           {events.data?.items.map((event) => (
             <option value={event.id} key={event.id}>
-              {event.name}
+              {humanName(event.name, 'Untitled event')}
             </option>
           ))}
         </Select>
@@ -115,11 +115,11 @@ export function TicketsPage() {
                       onClick={() => setSelected(ticket)}
                       className="clickable-row"
                     >
-                      <td className="num">
-                        <strong>{ticket.id}</strong>
+                      <td>
+                        <strong>Admission ticket</strong>
                         <small className="table-subline">{formatDateTime(ticket.created_at)}</small>
                       </td>
-                      <td>{ticket.event_name}</td>
+                      <td>{humanName(ticket.event_name, 'Untitled event')}</td>
                       <td>{ticket.attendee_name ?? 'Not provided'}</td>
                       <td>{ticket.display_label ?? '—'}</td>
                       <td>
@@ -148,13 +148,13 @@ export function TicketsPage() {
                   onClick={() => setSelected(ticket)}
                 >
                   <div>
-                    <strong className="num">{ticket.id}</strong>
+                    <strong>Admission ticket</strong>
                     <StatusPill
                       label={ticket.status === 'ACTIVE' ? 'Active' : 'Voided'}
                       tone={ticket.status === 'ACTIVE' ? 'positive' : 'critical'}
                     />
                   </div>
-                  <p>{ticket.event_name}</p>
+                  <p>{humanName(ticket.event_name, 'Untitled event')}</p>
                   <small>
                     {ticket.attendee_name ?? ticket.display_label ?? 'No attendee details'}
                   </small>
@@ -177,7 +177,7 @@ export function TicketsPage() {
       <Dialog
         open={Boolean(selected) && !action}
         title="Ticket detail"
-        description={selected?.id}
+        description={selected ? `Issued ${formatDateTime(selected.created_at)}` : undefined}
         onClose={() => setSelected(null)}
         className="wide-dialog"
       >
@@ -187,7 +187,7 @@ export function TicketsPage() {
               <dl className="definition-grid">
                 <div>
                   <dt>Event</dt>
-                  <dd>{selected.event_name}</dd>
+                  <dd>{humanName(selected.event_name, 'Untitled event')}</dd>
                 </div>
                 <div>
                   <dt>Status</dt>
@@ -203,11 +203,17 @@ export function TicketsPage() {
                 </div>
                 <div>
                   <dt>Credential</dt>
-                  <dd>{selected.credential_state ?? 'None'}</dd>
+                  <dd>{humanDomainLabel(selected.credential_state, 'None')}</dd>
                 </div>
                 <div>
                   <dt>Admission</dt>
-                  <dd>{selected.admission_state ?? 'Not admitted'}</dd>
+                  <dd>
+                    {selected.admission_state === 'ACTIVE'
+                      ? 'Admitted'
+                      : selected.admission_state === 'REVERSED'
+                        ? 'Admission reversed'
+                        : 'Not admitted'}
+                  </dd>
                 </div>
               </dl>
               <div className="dialog-button-row">

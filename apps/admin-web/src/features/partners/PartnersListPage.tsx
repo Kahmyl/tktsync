@@ -14,7 +14,7 @@ import {
   Panel,
   StatusPill,
 } from '../../components/ui';
-import { formatNumber, timeAgo } from '../../lib/format';
+import { formatNumber, humanName, timeAgo } from '../../lib/format';
 import { adminApi } from '../admin/api';
 import { adminKeys, useIntentMutation, usePartners } from '../admin/queries';
 
@@ -87,8 +87,8 @@ export function PartnersListPage() {
                   <tr key={partner.id}>
                     <td>
                       <Link className="record-link" to={`/partners/${partner.id}`}>
-                        <strong>{partner.name}</strong>
-                        <small className="num">{partner.id}</small>
+                        <strong>{humanName(partner.name, 'Untitled partner')}</strong>
+                        <small>Ticketing partner</small>
                       </Link>
                     </td>
                     <td>

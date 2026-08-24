@@ -18,7 +18,7 @@ import {
   Select,
   StatusPill,
 } from '../../components/ui';
-import { formatNumber, timeAgo } from '../../lib/format';
+import { formatNumber, humanDomainLabel, humanName, timeAgo } from '../../lib/format';
 import { adminApi } from '../admin/api';
 import { adminKeys, useIntentMutation, usePartners, useWebhooks } from '../admin/queries';
 
@@ -119,7 +119,7 @@ export function IntegrationsPage() {
           {items.map((endpoint) => (
             <Panel key={endpoint.id}>
               <SectionHeading
-                title={endpoint.partner_name}
+                title={humanName(endpoint.partner_name, 'Untitled partner')}
                 description={endpoint.url}
                 actions={
                   <StatusPill
@@ -150,7 +150,7 @@ export function IntegrationsPage() {
                 </div>
                 <div className="topic-list">
                   {endpoint.subscriptions.map((subscription) => (
-                    <span key={subscription}>{subscription}</span>
+                    <span key={subscription}>{humanDomainLabel(subscription)}</span>
                   ))}
                 </div>
                 <div className="panel-button-row">
@@ -208,7 +208,7 @@ export function IntegrationsPage() {
                 .filter((partner) => partner.state === 'ACTIVE')
                 .map((partner) => (
                   <option value={partner.id} key={partner.id}>
-                    {partner.name}
+                    {humanName(partner.name, 'Untitled partner')}
                   </option>
                 ))}
             </Select>
@@ -237,7 +237,7 @@ export function IntegrationsPage() {
                     )
                   }
                 />
-                {topic}
+                {humanDomainLabel(topic)}
               </label>
             ))}
           </fieldset>

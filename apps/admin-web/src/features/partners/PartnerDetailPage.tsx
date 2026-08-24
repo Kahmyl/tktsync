@@ -16,7 +16,13 @@ import {
   Select,
   StatusPill,
 } from '../../components/ui';
-import { formatDateTime, friendlyOperation, timeAgo } from '../../lib/format';
+import {
+  formatDateTime,
+  friendlyOperation,
+  humanDomainLabel,
+  humanName,
+  timeAgo,
+} from '../../lib/format';
 import { adminApi } from '../admin/api';
 import { adminKeys, useEvents, useIntentMutation, usePartner, useWebhooks } from '../admin/queries';
 
@@ -92,7 +98,7 @@ export function PartnerDetailPage() {
   return (
     <>
       <PageHeader
-        title={data.name}
+        title={humanName(data.name, 'Untitled partner')}
         description={`Partner since ${formatDateTime(data.created_at)}`}
         eyebrow={
           <StatusPill
@@ -204,7 +210,7 @@ export function PartnerDetailPage() {
                   <option value="">Choose event</option>
                   {availableEvents.map((event) => (
                     <option value={event.id} key={event.id}>
-                      {event.name}
+                      {humanName(event.name, 'Untitled event')}
                     </option>
                   ))}
                 </Select>
@@ -237,10 +243,10 @@ export function PartnerDetailPage() {
                     <tr key={record.event_id}>
                       <td>
                         <Link className="record-link" to={`/events/${record.event_id}`}>
-                          <strong>{record.event_name}</strong>
+                          <strong>{humanName(record.event_name, 'Untitled event')}</strong>
                         </Link>
                       </td>
-                      <td>{record.event_state.replaceAll('_', ' ').toLowerCase()}</td>
+                      <td>{humanDomainLabel(record.event_state)}</td>
                       <td>
                         <StatusPill
                           label={record.state === 'ACTIVE' ? 'Enabled' : 'Disabled'}
@@ -304,7 +310,7 @@ export function PartnerDetailPage() {
               <table>
                 <thead>
                   <tr>
-                    <th>Key ID</th>
+                    <th>Credential</th>
                     <th>Status</th>
                     <th>Created</th>
                     <th>Last used</th>
@@ -312,10 +318,11 @@ export function PartnerDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.credentials.map((credential) => (
+                  {data.credentials.map((credential, index) => (
                     <tr key={credential.id}>
-                      <td className="num">
-                        <strong>{credential.key_id}</strong>
+                      <td>
+                        <strong>API credential {index + 1}</strong>
+                        <small className="table-subline">Partner authentication</small>
                       </td>
                       <td>
                         <StatusPill
@@ -423,7 +430,7 @@ export function PartnerDetailPage() {
                   <div>
                     <strong>{friendlyOperation(item.operation)}</strong>
                     <small>
-                      {item.entity_type} · {timeAgo(item.occurred_at)}
+                      {humanDomainLabel(item.entity_type)} · {timeAgo(item.occurred_at)}
                     </small>
                   </div>
                 </li>

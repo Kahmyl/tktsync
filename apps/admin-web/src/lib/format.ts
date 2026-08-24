@@ -70,6 +70,48 @@ export function initials(name: string) {
     .join('');
 }
 
+const uuidTokenPattern = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+const opaqueHexTokenPattern = /\b[0-9a-f]{24,}\b/gi;
+const publicIDTokenPattern =
+  /\b(?:evt|tkt|adm|scan|usr|ven|sec|row|seat|dev|cred|inv|ptr|lay|res|sal|wh)_[a-z0-9_-]+\b/gi;
+
+/** Removes machine identifiers from a name while preserving its human-authored words. */
+export function humanName(value: string | null | undefined, fallback = 'Untitled') {
+  const readable = (value ?? '')
+    .trim()
+    .replace(uuidTokenPattern, ' ')
+    .replace(opaqueHexTokenPattern, ' ')
+    .replace(publicIDTokenPattern, ' ')
+    .replace(/\(\s*\)|\[\s*\]|\{\s*\}/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/[\s·|:/–—-]+$/g, '')
+    .trim();
+  return readable || fallback;
+}
+
+export function humanGateReference(value: string | null | undefined) {
+  return humanName(value, 'Scanner device');
+}
+
+const domainLabels: Record<string, string> = {
+  APP_USER: 'Administrator',
+  EVENT: 'Event',
+  PARTNER: 'Partner',
+  RESERVATION: 'Reservation',
+  SALE: 'Sale',
+  TICKET_ENTITLEMENT: 'Ticket',
+  ADMISSION: 'Admission',
+  WEBHOOK_ENDPOINT: 'Webhook endpoint',
+  MANUAL_OVERRIDE_ADMITTED: 'Admitted by manual override',
+};
+
+export function humanDomainLabel(value: string | null | undefined, fallback = 'Activity') {
+  if (!value) return fallback;
+  if (domainLabels[value]) return domainLabels[value];
+  const words = value.replaceAll('_', ' ').replaceAll('-', ' ').replaceAll('.', ' ').toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 export function friendlyOperation(operation: string) {
   return operation
     .replace(/^ADMIN_/, '')

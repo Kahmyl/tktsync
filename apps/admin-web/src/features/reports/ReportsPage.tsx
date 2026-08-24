@@ -11,7 +11,7 @@ import {
   SectionHeading,
   Select,
 } from '../../components/ui';
-import { formatMoney, formatNumber, timeAgo } from '../../lib/format';
+import { admissionLabel, formatMoney, formatNumber, humanName, timeAgo } from '../../lib/format';
 import { useEventReports, useEvents } from '../admin/queries';
 
 export function ReportsPage() {
@@ -42,7 +42,7 @@ export function ReportsPage() {
             <option value="">Select event</option>
             {events.data?.items.map((event) => (
               <option key={event.id} value={event.id}>
-                {event.name}
+                {humanName(event.name, 'Untitled event')}
               </option>
             ))}
           </Select>
@@ -175,7 +175,7 @@ export function ReportsPage() {
                   <ul className="compact-list">
                     {Object.entries(admissions?.scan_outcomes ?? {}).map(([result, count]) => (
                       <li key={result}>
-                        <strong>{result.replaceAll('_', ' ').toLowerCase()}</strong>
+                        <strong>{admissionLabel(result)}</strong>
                         <span className="num">{formatNumber(count)}</span>
                       </li>
                     ))}

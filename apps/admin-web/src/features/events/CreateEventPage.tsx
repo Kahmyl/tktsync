@@ -13,7 +13,7 @@ import {
   PanelBody,
   Select,
 } from '../../components/ui';
-import { optionalISO } from '../../lib/format';
+import { humanName, optionalISO } from '../../lib/format';
 import { adminApi } from '../admin/api';
 import { adminKeys, useIntentMutation, useVenues } from '../admin/queries';
 
@@ -132,7 +132,7 @@ export function CreateEventPage() {
                       <option value="">Select a venue</option>
                       {venues.data?.map((venue) => (
                         <option key={venue.id} value={venue.id}>
-                          {venue.name}
+                          {humanName(venue.name, 'Untitled venue')}
                         </option>
                       ))}
                     </Select>
@@ -227,7 +227,12 @@ export function CreateEventPage() {
                   </div>
                   <div>
                     <dt>Venue</dt>
-                    <dd>{venues.data?.find((venue) => venue.id === venueId)?.name}</dd>
+                    <dd>
+                      {humanName(
+                        venues.data?.find((venue) => venue.id === venueId)?.name,
+                        'Untitled venue',
+                      )}
+                    </dd>
                   </div>
                   <div>
                     <dt>Starts</dt>

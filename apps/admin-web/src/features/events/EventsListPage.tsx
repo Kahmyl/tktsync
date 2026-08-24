@@ -12,7 +12,7 @@ import {
   ProgressBar,
   Select,
 } from '../../components/ui';
-import { formatDateTime, formatNumber } from '../../lib/format';
+import { formatDateTime, formatNumber, humanName } from '../../lib/format';
 import { useEvents } from '../admin/queries';
 import type { EventState } from '../admin/types';
 
@@ -105,8 +105,8 @@ export function EventsListPage() {
                     <tr key={event.id}>
                       <td>
                         <Link className="record-link" to={`/events/${event.id}`}>
-                          <strong>{event.name}</strong>
-                          <small>{event.venue_name}</small>
+                          <strong>{humanName(event.name, 'Untitled event')}</strong>
+                          <small>{humanName(event.venue_name, 'Venue to be announced')}</small>
                         </Link>
                       </td>
                       <td>{formatDateTime(event.starts_at)}</td>
@@ -128,10 +128,10 @@ export function EventsListPage() {
               {filtered.map((event) => (
                 <Link className="mobile-record" to={`/events/${event.id}`} key={event.id}>
                   <div>
-                    <strong>{event.name}</strong>
+                    <strong>{humanName(event.name, 'Untitled event')}</strong>
                     <EventStatus state={event.state as EventState} />
                   </div>
-                  <p>{event.venue_name}</p>
+                  <p>{humanName(event.venue_name, 'Venue to be announced')}</p>
                   <small>{formatDateTime(event.starts_at)}</small>
                   <ProgressBar
                     value={event.sold}

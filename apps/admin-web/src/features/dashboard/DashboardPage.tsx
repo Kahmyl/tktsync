@@ -20,7 +20,14 @@ import {
   ProgressBar,
   SectionHeading,
 } from '../../components/ui';
-import { formatDateTime, formatNumber, friendlyOperation, timeAgo } from '../../lib/format';
+import {
+  formatDateTime,
+  formatNumber,
+  friendlyOperation,
+  humanDomainLabel,
+  humanName,
+  timeAgo,
+} from '../../lib/format';
 import { useDashboard } from '../admin/queries';
 
 function greeting() {
@@ -97,9 +104,10 @@ export function DashboardPage() {
                 <li key={event.id}>
                   <Link to={`/events/${event.id}`} className="upcoming-row">
                     <div>
-                      <strong>{event.name}</strong>
+                      <strong>{humanName(event.name, 'Untitled event')}</strong>
                       <small>
-                        {event.venue_name} · {formatDateTime(event.starts_at)}
+                        {humanName(event.venue_name, 'Venue to be announced')} ·{' '}
+                        {formatDateTime(event.starts_at)}
                       </small>
                     </div>
                     <div className="upcoming-progress">
@@ -148,7 +156,7 @@ export function DashboardPage() {
                     <li key={item.event_id}>
                       <AlertTriangle size={16} />
                       <div>
-                        <strong>{item.event_name} needs setup</strong>
+                        <strong>{humanName(item.event_name, 'Untitled event')} needs setup</strong>
                         <p>Missing {missing}.</p>
                         <Link to={`/events/${item.event_id}`}>Review event</Link>
                       </div>
@@ -174,8 +182,12 @@ export function DashboardPage() {
                     <div>
                       <strong>{friendlyOperation(item.operation)}</strong>
                       <small>
-                        {item.event_name ?? item.partner_name ?? item.entity_type} ·{' '}
-                        {timeAgo(item.occurred_at)}
+                        {item.event_name
+                          ? humanName(item.event_name, 'Event')
+                          : item.partner_name
+                            ? humanName(item.partner_name, 'Partner')
+                            : humanDomainLabel(item.entity_type)}{' '}
+                        · {timeAgo(item.occurred_at)}
                       </small>
                     </div>
                   </li>
