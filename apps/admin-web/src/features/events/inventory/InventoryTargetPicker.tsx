@@ -10,6 +10,52 @@ export type InventoryTargets = {
   sectionKeys: string[];
 };
 
+export function targetsForEntireEvent(
+  inventory: InventoryItem[],
+  mode: 'pricing' | 'restriction',
+): InventoryTargets {
+  return {
+    reservedIds:
+      mode === 'restriction'
+        ? inventory.filter((item) => item.kind === 'RESERVED').map((item) => item.id)
+        : [],
+    reservedKeys: [],
+    ga: inventory
+      .filter((item) => item.kind === 'GA')
+      .map((item) => ({ id: item.id, key: item.snapshot_object_key, quantity: item.quantity })),
+    sectionKeys:
+      mode === 'pricing'
+        ? Array.from(
+            new Set(
+              inventory
+                .filter((item) => item.kind === 'RESERVED')
+                .map((item) => item.section_object_key),
+            ),
+          )
+        : [],
+  };
+}
+
+export function targetsForSection(
+  inventory: InventoryItem[],
+  sectionKey: string,
+  mode: 'pricing' | 'restriction',
+): InventoryTargets {
+  const items = inventory.filter((item) => item.section_object_key === sectionKey);
+  const hasReserved = items.some((item) => item.kind === 'RESERVED');
+  return {
+    reservedIds:
+      mode === 'restriction'
+        ? items.filter((item) => item.kind === 'RESERVED').map((item) => item.id)
+        : [],
+    reservedKeys: [],
+    ga: items
+      .filter((item) => item.kind === 'GA')
+      .map((item) => ({ id: item.id, key: item.snapshot_object_key, quantity: item.quantity })),
+    sectionKeys: mode === 'pricing' && hasReserved ? [sectionKey] : [],
+  };
+}
+
 export function InventoryTargetPicker({
   inventory,
   value,
@@ -44,39 +90,9 @@ export function InventoryTargetPicker({
   const filtered = inventory.filter((item) =>
     displayLabel(item).toLowerCase().includes(search.toLowerCase()),
   );
-  const selectAll = () =>
-    onChange({
-      reservedIds:
-        mode === 'restriction'
-          ? inventory.filter((item) => item.kind === 'RESERVED').map((item) => item.id)
-          : [],
-      reservedKeys: [],
-      ga: inventory
-        .filter((item) => item.kind === 'GA')
-        .map((item) => ({ id: item.id, key: item.snapshot_object_key, quantity: item.quantity })),
-      sectionKeys: Array.from(new Set(inventory.map((item) => item.section_object_key))),
-    });
-  const chooseSection = (sectionKey: string) => {
-    const items = inventory.filter((item) => item.section_object_key === sectionKey);
-    onChange({
-      reservedIds:
-        mode === 'restriction'
-          ? items.filter((item) => item.kind === 'RESERVED').map((item) => item.id)
-          : [],
-      reservedKeys: [],
-      ga:
-        mode === 'restriction'
-          ? items
-              .filter((item) => item.kind === 'GA')
-              .map((item) => ({
-                id: item.id,
-                key: item.snapshot_object_key,
-                quantity: item.quantity,
-              }))
-          : [],
-      sectionKeys: mode === 'pricing' ? [sectionKey] : [],
-    });
-  };
+  const selectAll = () => onChange(targetsForEntireEvent(inventory, mode));
+  const chooseSection = (sectionKey: string) =>
+    onChange(targetsForSection(inventory, sectionKey, mode));
   return (
     <div className="inventory-target-picker">
       <Field label="Apply to">

@@ -209,7 +209,28 @@ export function LayoutBuilder({
                     <option value="270">Faces left</option>
                   </Select>
                 </Field>
-                {selected.type === 'RESERVED' && (
+                {selected.type === 'RESERVED' && selected.generatorMode === 'preserved' && (
+                  <div className="form-stack">
+                    <InlineNotice>
+                      This section uses preserved seat numbering that cannot be represented by one
+                      uniform generator.
+                    </InlineNotice>
+                    <Button
+                      variant="secondary"
+                      onClick={() =>
+                        update(selected.object_key, {
+                          rows: Math.max(1, selected.structural?.rows.length ?? 1),
+                          seatsPerRow: 1,
+                          startSeat: 1,
+                          generatorMode: 'generated',
+                        })
+                      }
+                    >
+                      Regenerate seating
+                    </Button>
+                  </div>
+                )}
+                {selected.type === 'RESERVED' && selected.generatorMode !== 'preserved' && (
                   <>
                     <div className="form-grid two">
                       <Field label="Rows">

@@ -45,6 +45,31 @@ async function receiverEntries() {
     .map((line) => JSON.parse(line) as ReceiverEntry);
 }
 
+function parseCSV(text: string) {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let quoted = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (character === '"' && quoted && text[index + 1] === '"') {
+      field += '"';
+      index += 1;
+    } else if (character === '"') quoted = !quoted;
+    else if (character === ',' && !quoted) {
+      row.push(field);
+      field = '';
+    } else if (character === '\n' && !quoted) {
+      row.push(field.replace(/\r$/, ''));
+      rows.push(row);
+      row = [];
+      field = '';
+    } else field += character;
+  }
+  if (field || row.length) rows.push([...row, field]);
+  return rows;
+}
+
 test.use({ trace: 'off' });
 
 test('04 Admin support and reporting', async ({ page }) => {
@@ -279,6 +304,46 @@ test('04 Admin support and reporting', async ({ page }) => {
     await expect(page.getByRole('row', { name: /Reserved seating/ })).toBeVisible();
     await expect(page.getByRole('row', { name: /General admission/ })).toBeVisible();
     await screenshot(page, '04-admin-authoritative-reports');
+  });
+
+  await test.step('Export and inspect the real accreditation CSV', async () => {
+    await page.goto(`${urls.admin}/events/${eventId}`);
+    await page.getByRole('tab', { name: 'Admissions' }).click();
+    const downloadPromise = page.waitForEvent('download');
+    const responsePromise = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/v1/admin/events/${eventId}/accreditation-export`) &&
+        response.request().method() === 'GET',
+    );
+    await page.getByRole('button', { name: 'Export accreditation CSV' }).click();
+    expect((await responsePromise).ok()).toBe(true);
+    const download = await downloadPromise;
+    const csv = await readFile(await download.path(), 'utf8');
+    const rows = parseCSV(csv);
+    expect(rows[0]).toEqual([
+      'ticket_reference',
+      'attendee_name',
+      'event_name',
+      'section_or_area',
+      'row',
+      'table',
+      'seat',
+      'ticket_status',
+      'admission_status',
+      'admitted_at',
+      'issued_at',
+    ]);
+    expect(rows.length).toBeGreaterThan(1);
+    expect(rows.slice(1).some((row) => /^tkt_/.test(row[0] ?? ''))).toBe(true);
+    expect(rows.slice(1).some((row) => row[2] === reviewNames.event)).toBe(true);
+    expect(rows.slice(1).every((row) => Boolean(row[3] && row[7] && row[10]))).toBe(true);
+    expect(rows.slice(1).some((row) => Boolean(row[4] || row[5] || row[6]))).toBe(true);
+    expect(csv).not.toMatch(
+      /qr1\.|reservation[_ -]?token|partner[_ -]?credential|signing[_ -]?secret/i,
+    );
+    expect(csv).not.toMatch(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i,
+    );
   });
 
   await test.step('Verify the live Partner webhook remains active', async () => {

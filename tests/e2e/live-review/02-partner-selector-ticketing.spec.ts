@@ -169,6 +169,22 @@ test('02 Partner Docs to Selector ticketing', async ({ page }) => {
     expect(page.url()).not.toContain('#');
     await expect(page.getByRole('heading', { name: reviewNames.event })).toBeVisible();
 
+    const map = page.getByLabel('Interactive venue floor plan');
+    await expect(map).toBeVisible();
+    await expect(map.locator('.spatial-orientation', { hasText: 'Main Stage' })).toBeVisible();
+    const vip = map.locator('section.spatial-section[aria-label="VIP"]');
+    const mainFloor = map.locator('section.spatial-ga', { hasText: 'Main Floor' });
+    const banquet = map.locator('section.spatial-section[aria-label="Banquet"]');
+    await expect(vip).toBeVisible();
+    await expect(mainFloor).toBeVisible();
+    await expect(banquet).toBeVisible();
+    for (const area of [vip, mainFloor, banquet]) {
+      const style = await area.getAttribute('style');
+      expect(style).toMatch(/left:|top:|width:|height:/);
+      await expect(area).not.toHaveClass(/spatial-fallback/);
+    }
+    await expect(banquet.locator('button.seat').first()).toHaveAttribute('aria-label', /Table 1/);
+
     const reservedSeats = page.locator('button.seat.available');
     await expect(reservedSeats.first()).toBeVisible();
     await reservedSeats.first().click();

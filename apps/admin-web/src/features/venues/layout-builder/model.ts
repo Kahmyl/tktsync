@@ -2,7 +2,7 @@ import type { ReplaceLayoutBody, VenueLayoutDetail } from '../../admin/types';
 
 export type BuilderObject = {
   object_key: string;
-  type: 'RESERVED' | 'GA' | 'TABLE' | 'STAGE' | 'RING' | 'FIELD';
+  type: 'RESERVED' | 'GA' | 'TABLE' | 'MIXED_VISUAL' | 'STAGE' | 'RING' | 'FIELD';
   label: string;
   sourceLabel?: string;
   x: number;
@@ -16,8 +16,36 @@ export type BuilderObject = {
   capacity?: number;
   tables?: number;
   seatsPerTable?: number;
+  generatorMode?: 'generated' | 'preserved';
+  sourceSection?: VenueLayoutDetail['sections'][number];
   structural?: Pick<ReplaceLayoutBody, 'rows' | 'tables' | 'seats' | 'ga_zones'>;
 };
+
+function inferReservedGenerator(
+  rows: VenueLayoutDetail['rows'],
+  seats: VenueLayoutDetail['seats'],
+) {
+  if (!rows.length) return undefined;
+  const sequences = rows.map((row) =>
+    seats
+      .filter((seat) => seat.row_key === row.object_key)
+      .sort((left, right) => left.sort_order - right.sort_order)
+      .map((seat) => Number(seat.seat_label)),
+  );
+  const seatsPerRow = sequences[0]?.length ?? 0;
+  const startSeat = sequences[0]?.[0];
+  if (!seatsPerRow || startSeat === undefined || !Number.isInteger(startSeat)) return undefined;
+  const expected = Array.from({ length: seatsPerRow }, (_, index) => startSeat + index);
+  if (
+    sequences.some(
+      (sequence) =>
+        sequence.length !== seatsPerRow ||
+        sequence.some((number, index) => number !== expected[index]),
+    )
+  )
+    return undefined;
+  return { rows: rows.length, seatsPerRow, startSeat };
+}
 
 export function stableKey(label: string, existing: BuilderObject[]) {
   const base =
@@ -39,10 +67,11 @@ export function fromLayout(layout: VenueLayoutDetail): BuilderObject[] {
     const rows = layout.rows.filter((row) => row.section_key === section.object_key);
     const tables = layout.tables.filter((table) => table.section_key === section.object_key);
     const seats = layout.seats.filter((seat) => seat.section_key === section.object_key);
-    const zone = layout.ga_zones.find((item) => item.section_key === section.object_key);
+    const zones = layout.ga_zones.filter((item) => item.section_key === section.object_key);
+    const generator = section.kind === 'RESERVED' ? inferReservedGenerator(rows, seats) : undefined;
     return {
       object_key: section.object_key,
-      type: section.kind === 'MIXED_VISUAL' ? 'RESERVED' : section.kind,
+      type: section.kind,
       label: section.name,
       sourceLabel: section.name,
       x: visual?.x ?? 70 + (index % 3) * 230,
@@ -50,14 +79,11 @@ export function fromLayout(layout: VenueLayoutDetail): BuilderObject[] {
       width: visual?.width ?? 190,
       height: visual?.height ?? 140,
       rotation: visual?.rotation ?? 0,
-      rows: rows.length || 4,
-      seatsPerRow: rows.length
-        ? Math.max(
-            ...rows.map((row) => seats.filter((seat) => seat.row_key === row.object_key).length),
-          )
-        : 10,
-      startSeat: 1,
-      capacity: zone?.default_capacity ?? 100,
+      rows: generator?.rows,
+      seatsPerRow: generator?.seatsPerRow,
+      startSeat: generator?.startSeat,
+      generatorMode: section.kind === 'RESERVED' && !generator ? 'preserved' : 'generated',
+      capacity: zones.length === 1 ? zones[0]!.default_capacity : undefined,
       tables: tables.length || 4,
       seatsPerTable: tables.length
         ? Math.max(
@@ -66,11 +92,12 @@ export function fromLayout(layout: VenueLayoutDetail): BuilderObject[] {
             ),
           )
         : 6,
+      sourceSection: { ...section },
       structural: {
         rows: rows.map((row) => ({ ...row })),
         tables: tables.map((table) => ({ ...table })),
         seats: seats.map((seat) => ({ ...seat })),
-        ga_zones: zone ? [{ ...zone }] : [],
+        ga_zones: zones.map((zone) => ({ ...zone })),
       },
     } as BuilderObject;
   });
@@ -89,8 +116,8 @@ function rowLabel(index: number) {
 
 export function toLayout(objects: BuilderObject[]): ReplaceLayoutBody {
   const inventory = objects.filter(
-    (item): item is BuilderObject & { type: 'RESERVED' | 'GA' | 'TABLE' } =>
-      item.type === 'RESERVED' || item.type === 'GA' || item.type === 'TABLE',
+    (item): item is BuilderObject & { type: 'RESERVED' | 'GA' | 'TABLE' | 'MIXED_VISUAL' } =>
+      ['RESERVED', 'GA', 'TABLE', 'MIXED_VISUAL'].includes(item.type),
   );
   const rows: ReplaceLayoutBody['rows'] = [];
   const tables: ReplaceLayoutBody['tables'] = [];
@@ -103,11 +130,14 @@ export function toLayout(objects: BuilderObject[]): ReplaceLayoutBody {
       seats.push(...item.structural.seats);
       ga_zones.push(
         ...item.structural.ga_zones.map((zone) =>
-          item.type === 'GA' && item.label !== item.sourceLabel
+          item.type === 'GA'
             ? {
                 ...zone,
-                name: item.label,
-                default_capacity: item.capacity ?? zone.default_capacity,
+                name: item.label !== item.sourceLabel ? item.label : zone.name,
+                default_capacity:
+                  item.structural?.ga_zones.length === 1
+                    ? (item.capacity ?? zone.default_capacity)
+                    : zone.default_capacity,
               }
             : zone,
         ),
@@ -178,10 +208,11 @@ export function toLayout(objects: BuilderObject[]): ReplaceLayoutBody {
       })),
     },
     sections: inventory.map((item, index) => ({
+      ...(item.sourceSection ?? {}),
       object_key: item.object_key,
       name: item.label,
       kind: item.type,
-      sort_order: index,
+      sort_order: item.sourceSection?.sort_order ?? index,
     })),
     rows,
     tables,

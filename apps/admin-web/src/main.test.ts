@@ -19,6 +19,10 @@ import {
   type BuilderObject,
 } from './features/venues/layout-builder/model';
 import type { VenueLayoutDetail } from './features/admin/types';
+import {
+  targetsForEntireEvent,
+  targetsForSection,
+} from './features/events/inventory/InventoryTargetPicker';
 
 describe('admin interaction policy', () => {
   it('never automatically retries mutations', () => {
@@ -104,10 +108,110 @@ describe('admin interaction policy', () => {
     expect(output.tables).toEqual(detail.tables);
     expect(output.seats).toEqual(detail.seats);
     expect(output.ga_zones).toEqual(detail.ga_zones);
+    expect(output.sections).toEqual(detail.sections);
     expect(output.geometry.objects?.find((item) => item.object_key === 'vip')).toMatchObject({
       x: 44,
       y: 55,
     });
+  });
+
+  it('infers a lossless regular reserved generator including its starting number', () => {
+    const detail: VenueLayoutDetail = {
+      id: 'lay_regular',
+      venue_id: 'ven_1',
+      version_number: 1,
+      state: 'DRAFT',
+      created_at: '2026-08-24T00:00:00Z',
+      published_at: null,
+      retired_at: null,
+      geometry: {},
+      sections: [{ object_key: 'vip', name: 'VIP', kind: 'RESERVED', sort_order: 7 }],
+      rows: ['A', 'B', 'C'].map((label, index) => ({
+        object_key: `vip-row-${label.toLowerCase()}`,
+        section_key: 'vip',
+        label,
+        sort_order: index,
+      })),
+      tables: [],
+      seats: ['A', 'B', 'C'].flatMap((label) =>
+        Array.from({ length: 6 }, (_, index) => ({
+          object_key: `vip-${label.toLowerCase()}-${10 + index}`,
+          section_key: 'vip',
+          row_key: `vip-row-${label.toLowerCase()}`,
+          seat_label: String(10 + index),
+          sort_order: index,
+        })),
+      ),
+      ga_zones: [],
+    };
+    expect(fromLayout(detail)[0]).toMatchObject({
+      generatorMode: 'generated',
+      rows: 3,
+      seatsPerRow: 6,
+      startSeat: 10,
+    });
+    expect(toLayout(fromLayout(detail)).seats).toEqual(detail.seats);
+    expect(toLayout(fromLayout(detail)).sections).toEqual(detail.sections);
+  });
+
+  it('preserves an existing GA identity while changing capacity', () => {
+    const detail: VenueLayoutDetail = {
+      id: 'lay_ga',
+      venue_id: 'ven_1',
+      version_number: 1,
+      state: 'DRAFT',
+      created_at: '2026-08-24T00:00:00Z',
+      published_at: null,
+      retired_at: null,
+      geometry: {},
+      sections: [{ object_key: 'floor', name: 'Floor', kind: 'GA', sort_order: 12 }],
+      rows: [],
+      tables: [],
+      seats: [],
+      ga_zones: [
+        {
+          object_key: 'main-floor-zone',
+          section_key: 'floor',
+          name: 'Main Floor',
+          default_capacity: 321,
+        },
+      ],
+    };
+    const changed = fromLayout(detail).map((item) =>
+      item.object_key === 'floor' ? { ...item, capacity: 500 } : item,
+    );
+    expect(toLayout(changed).ga_zones).toEqual([
+      {
+        object_key: 'main-floor-zone',
+        section_key: 'floor',
+        name: 'Main Floor',
+        default_capacity: 500,
+      },
+    ]);
+  });
+
+  it('preserves every GA zone and MIXED_VISUAL section metadata without structural edits', () => {
+    const detail: VenueLayoutDetail = {
+      id: 'lay_mixed',
+      venue_id: 'ven_1',
+      version_number: 1,
+      state: 'DRAFT',
+      created_at: '2026-08-24T00:00:00Z',
+      published_at: null,
+      retired_at: null,
+      geometry: {},
+      sections: [{ object_key: 'mixed', name: 'Mixed', kind: 'MIXED_VISUAL', sort_order: 42 }],
+      rows: [],
+      tables: [],
+      seats: [],
+      ga_zones: [
+        { object_key: 'zone-a', section_key: 'mixed', name: 'A', default_capacity: 10 },
+        { object_key: 'zone-b', section_key: 'mixed', name: 'B', default_capacity: 20 },
+      ],
+    };
+    const output = toLayout(fromLayout(detail));
+    expect(output.sections).toEqual(detail.sections);
+    expect(output.ga_zones).toEqual(detail.ga_zones);
   });
 
   it('uses operator-facing lifecycle copy', () => {
@@ -213,5 +317,67 @@ describe('visual floor-plan domain mapping', () => {
       rotation: 180,
     });
     expect(stableKey('VIP', objects)).toBe('vip-2');
+  });
+});
+
+describe('pricing inventory target mapping', () => {
+  const inventory = [
+    {
+      kind: 'RESERVED' as const,
+      id: 'reserved-id',
+      snapshot_object_key: 'vip-a-10',
+      section_object_key: 'vip',
+      section_name: 'VIP',
+      row_label: 'A',
+      table_label: null,
+      seat_label: '10',
+      area_name: '',
+      display_label: 'VIP A 10',
+      label: '10',
+      quantity: 1,
+      price_tier_id: null,
+    },
+    {
+      kind: 'GA' as const,
+      id: 'ga-id',
+      snapshot_object_key: 'main-floor-zone',
+      section_object_key: 'main-floor',
+      section_name: 'Main Floor',
+      row_label: null,
+      table_label: null,
+      seat_label: null,
+      area_name: 'Main Floor',
+      display_label: 'Main Floor',
+      label: 'Main Floor',
+      quantity: 100,
+      price_tier_id: null,
+    },
+  ];
+
+  it('targets a reserved section without expanding individual seats', () => {
+    expect(targetsForSection(inventory, 'vip', 'pricing')).toEqual({
+      reservedIds: [],
+      reservedKeys: [],
+      ga: [],
+      sectionKeys: ['vip'],
+    });
+  });
+
+  it('targets a GA area by its authoritative pool snapshot key, not its section key', () => {
+    expect(targetsForSection(inventory, 'main-floor', 'pricing')).toEqual({
+      reservedIds: [],
+      reservedKeys: [],
+      ga: [{ id: 'ga-id', key: 'main-floor-zone', quantity: 100 }],
+      sectionKeys: [],
+    });
+  });
+
+  it('targets all reserved sections and all GA pools for the entire event', () => {
+    expect(targetsForEntireEvent(inventory, 'pricing')).toEqual({
+      reservedIds: [],
+      reservedKeys: [],
+      ga: [{ id: 'ga-id', key: 'main-floor-zone', quantity: 100 }],
+      sectionKeys: ['vip'],
+    });
   });
 });
