@@ -30,6 +30,12 @@ describe('scanner device and display labels', () => {
 
   it('never turns backend identifiers into operator-facing labels', () => {
     expect(humanLabel('evt_01abc', 'Untitled event')).toBe('Untitled event');
+    expect(
+      humanLabel('Reservation Event 1c56ee8e-8c04-458a-957c-7ad81ad58342', 'Untitled event'),
+    ).toBe('Reservation Event');
+    expect(
+      humanLabel('Reservation Venue 9ccb9148-a76a-4e87-bf78-dd429f501bd3', 'Venue unavailable'),
+    ).toBe('Reservation Venue');
     expect(humanLabel('5b52b1d2-3a33-4b50-96cd-80fc6d09d22a', 'Gate operator')).toBe(
       'Gate operator',
     );

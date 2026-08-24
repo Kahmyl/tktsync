@@ -1,19 +1,21 @@
 import type { ScanResult } from './types';
 
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const opaqueHexPattern = /^[0-9a-f]{24,}$/i;
-const publicIDPattern = /^(?:evt|tkt|adm|scan|usr|ven|sec|row|seat|dev|cred|inv)_[a-z0-9_-]+$/i;
+const uuidTokenPattern = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+const opaqueHexTokenPattern = /\b[0-9a-f]{24,}\b/gi;
+const publicIDTokenPattern =
+  /\b(?:evt|event|tkt|ticket|adm|admission|scan|usr|user|ven|venue|sec|section|row|seat|dev|device|cred|credential|inv|inventory)_[a-z0-9_-]+\b/gi;
 
 export function humanLabel(value: string | null | undefined, fallback: string) {
   const label = value?.trim() ?? '';
-  if (
-    !label ||
-    uuidPattern.test(label) ||
-    opaqueHexPattern.test(label) ||
-    publicIDPattern.test(label)
-  )
-    return fallback;
-  return label;
+  const readable = label
+    .replace(uuidTokenPattern, ' ')
+    .replace(opaqueHexTokenPattern, ' ')
+    .replace(publicIDTokenPattern, ' ')
+    .replace(/\(\s*\)|\[\s*\]|\{\s*\}/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/[\s·|:/–—-]+$/g, '')
+    .trim();
+  return readable || fallback;
 }
 
 export type OutcomePresentation = {

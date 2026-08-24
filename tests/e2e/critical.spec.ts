@@ -277,7 +277,11 @@ async function mockSelector(page: Page, options: SelectorMockOptions = {}) {
   };
 }
 
-async function mockScannerAPI(page: Page, outcomes: Array<string | 'NETWORK'> = []) {
+async function mockScannerAPI(
+  page: Page,
+  outcomes: Array<string | 'NETWORK'> = [],
+  event = scannerEvent,
+) {
   let scans = 0;
   const authorizations: string[] = [];
   await page.route(`${API_ORIGIN}/**`, async (route) => {
@@ -286,7 +290,7 @@ async function mockScannerAPI(page: Page, outcomes: Array<string | 'NETWORK'> = 
     const url = new URL(request.url());
     if (request.method() === 'GET' && url.pathname === '/api/v1/admission/events') {
       authorizations.push(request.headers()['authorization'] ?? '');
-      await json(route, 200, { items: [scannerEvent] });
+      await json(route, 200, { items: [event] });
       return;
     }
     if (request.method() === 'POST' && url.pathname === '/api/v1/admission/scans') {
@@ -467,17 +471,24 @@ test('Scanner signs in with Supabase, selects an authorized Event, and signs out
   page,
 }) => {
   await mockOperatorAuth(page);
-  const mocked = await mockScannerAPI(page);
+  const eventUUID = '1c56ee8e-8c04-458a-957c-7ad81ad58342';
+  const venueUUID = '9ccb9148-a76a-4e87-bf78-dd429f501bd3';
+  const mocked = await mockScannerAPI(page, [], {
+    ...scannerEvent,
+    name: `Reservation Event ${eventUUID}`,
+    venue_name: `Reservation Venue ${venueUUID}`,
+  });
   await page.goto('http://127.0.0.1:4175');
   await expect(page.getByRole('heading', { name: 'Scanner sign in' })).toBeVisible();
   await expect(page.getByText('Use a phone to scan tickets', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Event ID')).toHaveCount(0);
   await signIn(page);
-  await page.getByRole('button', { name: /Championship Night/ }).click();
-  await expect(page.getByText('Eko Convention Centre').first()).toBeVisible();
+  await page.getByRole('button', { name: /Reservation Event/ }).click();
+  await expect(page.getByText('Reservation Venue').first()).toBeVisible();
   await expect(page.getByText('Use a phone to scan tickets', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open camera' })).toHaveCount(0);
-  await expect(page.locator('body')).not.toContainText('evt_championship');
+  await expect(page.locator('body')).not.toContainText(eventUUID);
+  await expect(page.locator('body')).not.toContainText(venueUUID);
   await page.getByRole('button', { name: 'Scanner settings' }).click();
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByRole('heading', { name: 'Scanner sign in' })).toBeVisible();
