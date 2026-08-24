@@ -459,6 +459,15 @@ test('Admin signs in, reviews authoritative operations, creates an event, and ch
   const state = await mockAdminApi(page);
   await signIn(page);
 
+  const sidebarSignOut = page.locator('.sidebar > .sidebar-signout');
+  await expect(sidebarSignOut.getByRole('button', { name: 'Sign Out' })).toBeVisible();
+  await expect(sidebarSignOut.getByRole('button', { name: 'Sign Out' })).toHaveCSS(
+    'color',
+    'rgb(220, 20, 60)',
+  );
+  await expect(sidebarSignOut).not.toContainText(operator.email);
+  await expect(sidebarSignOut.locator('.avatar')).toHaveCount(0);
+
   await expect(page.getByText('Festival Night').first()).toBeVisible();
   await expect(page.getByText('284').first()).toBeVisible();
 

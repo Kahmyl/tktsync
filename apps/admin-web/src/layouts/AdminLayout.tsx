@@ -95,25 +95,23 @@ function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: (
   );
 }
 
-function UserBlock({ collapsed }: { collapsed: boolean }) {
-  const { user, signOut } = useOperator();
+function SignOutNav({ collapsed }: { collapsed: boolean }) {
+  const { signOut } = useOperator();
   const navigate = useNavigate();
-  if (!user) return null;
   const logout = async () => {
     await signOut();
     navigate('/sign-in', { replace: true });
   };
   return (
-    <div className={`sidebar-user ${collapsed ? 'collapsed' : ''}`}>
-      <span className="avatar">{initials(user.displayName)}</span>
-      {collapsed ? null : (
-        <div>
-          <strong>{user.displayName}</strong>
-          <small>{user.email}</small>
-        </div>
-      )}
-      <button type="button" aria-label="Sign out" onClick={() => void logout()}>
+    <div className={`sidebar-signout ${collapsed ? 'collapsed' : ''}`}>
+      <button
+        type="button"
+        aria-label="Sign Out"
+        title={collapsed ? 'Sign Out' : undefined}
+        onClick={() => void logout()}
+      >
         <LogOut size={16} />
+        {collapsed ? null : <span>Sign Out</span>}
       </button>
     </div>
   );
@@ -193,7 +191,7 @@ export function AdminLayout() {
             {collapsed ? null : 'Collapse'}
           </Button>
         </div>
-        <UserBlock collapsed={collapsed} />
+        <SignOutNav collapsed={collapsed} />
       </aside>
 
       {drawerOpen ? (
@@ -209,7 +207,7 @@ export function AdminLayout() {
         <div className="sidebar-scroll">
           <NavList collapsed={false} onNavigate={() => setDrawerOpen(false)} />
         </div>
-        <UserBlock collapsed={false} />
+        <SignOutNav collapsed={false} />
       </aside>
 
       <div className="admin-column">
