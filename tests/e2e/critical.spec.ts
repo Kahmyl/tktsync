@@ -322,6 +322,15 @@ async function mockScannerAPI(page: Page, outcomes: Array<string | 'NETWORK'> = 
   };
 }
 
+async function identifyBrowserAsPhone(page: Page) {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'userAgentData', {
+      configurable: true,
+      value: { mobile: true },
+    });
+  });
+}
+
 async function openScanner(page: Page) {
   await page.goto('http://127.0.0.1:4175');
   await signIn(page);
@@ -461,10 +470,14 @@ test('Scanner signs in with Supabase, selects an authorized Event, and signs out
   const mocked = await mockScannerAPI(page);
   await page.goto('http://127.0.0.1:4175');
   await expect(page.getByRole('heading', { name: 'Scanner sign in' })).toBeVisible();
+  await expect(page.getByText('Use a phone to scan tickets', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Event ID')).toHaveCount(0);
   await signIn(page);
   await page.getByRole('button', { name: /Championship Night/ }).click();
   await expect(page.getByText('Eko Convention Centre').first()).toBeVisible();
+  await expect(page.getByText('Use a phone to scan tickets', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open camera' })).toHaveCount(0);
+  await expect(page.locator('body')).not.toContainText('evt_championship');
   await page.getByRole('button', { name: 'Scanner settings' }).click();
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByRole('heading', { name: 'Scanner sign in' })).toBeVisible();
@@ -474,6 +487,7 @@ test('Scanner signs in with Supabase, selects an authorized Event, and signs out
 test('Scanner camera and real manual path distinguish admit, duplicate, invalid, wrong Event, and failure', async ({
   page,
 }) => {
+  await identifyBrowserAsPhone(page);
   await page.addInitScript(() => {
     class TestBarcodeDetector {
       async detect() {
@@ -535,6 +549,7 @@ test('Scanner camera denial remains usable and mobile layout has no body overflo
   page,
 }) => {
   await page.setViewportSize({ width: 360, height: 800 });
+  await identifyBrowserAsPhone(page);
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'mediaDevices', {
       configurable: true,
@@ -558,4 +573,30 @@ test('Scanner camera denial remains usable and mobile layout has no body overflo
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test('Scanner rejects a front camera and asks for a phone with a rear camera', async ({ page }) => {
+  await identifyBrowserAsPhone(page);
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: {
+        getUserMedia: async () => ({
+          getVideoTracks: () => [{ getSettings: () => ({ facingMode: 'user' }) }],
+          getTracks: () => [{ stop: () => undefined }],
+        }),
+      },
+    });
+  });
+  await mockOperatorAuth(page);
+  await mockScannerAPI(page);
+  await openScanner(page);
+  await page.getByRole('button', { name: 'Open camera' }).click();
+  await expect(page.getByText('Rear camera not found', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(
+      'A rear camera was not found. Use a phone with a rear camera or enter the ticket code manually.',
+    ),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Enter code manually' }).first()).toBeVisible();
 });

@@ -14,6 +14,7 @@ import {
   RefreshCw,
   ScanLine,
   Settings,
+  Smartphone,
   TicketCheck,
   Vibrate,
   Volume2,
@@ -21,7 +22,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useOperatorSession } from '../../auth/useOperatorSession';
-import { outcomePresentation, ticketLocation } from './outcome';
+import { humanLabel, outcomePresentation, ticketLocation } from './outcome';
 import type { RecentScan, ScannerEvent } from './types';
 import { useAuthorizedEvents, useScanner } from './useScanner';
 
@@ -98,6 +99,7 @@ function SignIn({
   setPassword,
   loading,
   error,
+  phoneDevice,
   onSubmit,
 }: {
   email: string;
@@ -106,6 +108,7 @@ function SignIn({
   setPassword: (value: string) => void;
   loading: boolean;
   error: string;
+  phoneDevice: boolean;
   onSubmit: () => void;
 }) {
   return (
@@ -167,6 +170,15 @@ function SignIn({
           </button>
         </form>
       </section>
+      {!phoneDevice && (
+        <div className="scanner-device-notice" role="note">
+          <Smartphone size={19} />
+          <span>
+            <strong>Use a phone to scan tickets</strong>A phone with a rear camera is required for
+            camera scanning.
+          </span>
+        </div>
+      )}
       <p className="scanner-copyright">© {new Date().getFullYear()} TktSync Scanner</p>
     </main>
   );
@@ -177,6 +189,7 @@ function EventPicker({
   loading,
   error,
   userLabel,
+  phoneDevice,
   onSelect,
   onRetry,
   onSignOut,
@@ -185,6 +198,7 @@ function EventPicker({
   loading: boolean;
   error: boolean;
   userLabel: string;
+  phoneDevice: boolean;
   onSelect: (event: ScannerEvent) => void;
   onRetry: () => void;
   onSignOut: () => void;
@@ -203,6 +217,15 @@ function EventPicker({
         </span>
         <h1>Choose an event to scan</h1>
         <p>{userLabel}</p>
+        {!phoneDevice && (
+          <div className="event-device-notice" role="note">
+            <Smartphone size={21} />
+            <span>
+              <strong>Continue on a phone for camera scanning</strong>
+              This device can still be used to enter ticket codes manually.
+            </span>
+          </div>
+        )}
         {loading && (
           <div className="picker-loading">
             <LoaderCircle className="spin" /> Loading your events…
@@ -230,10 +253,10 @@ function EventPicker({
                 <TicketCheck size={20} />
               </span>
               <span className="event-card-copy">
-                <strong>{event.name}</strong>
+                <strong>{humanLabel(event.name, 'Untitled event')}</strong>
                 <span>{formatEventTime(event.starts_at)}</span>
                 <span>
-                  <MapPin size={13} /> {event.venue_name}
+                  <MapPin size={13} /> {humanLabel(event.venue_name, 'Venue to be announced')}
                 </span>
               </span>
               <ChevronRight size={19} />
@@ -311,11 +334,13 @@ export function ScannerPage() {
       outcomePresentation(
         scanner.result,
         scanner.cannotVerify,
-        selectedEvent?.name ?? 'this event',
+        humanLabel(selectedEvent?.name, 'this event'),
       ),
     [scanner.cannotVerify, scanner.result, selectedEvent?.name],
   );
   const location = ticketLocation(scanner.result);
+  const selectedEventName = humanLabel(selectedEvent?.name, 'Selected event');
+  const selectedVenueName = humanLabel(selectedEvent?.venue_name, 'Venue to be announced');
 
   if (auth.loading && !auth.authenticated) {
     return (
@@ -335,6 +360,7 @@ export function ScannerPage() {
         setPassword={setPassword}
         loading={auth.loading}
         error={auth.error}
+        phoneDevice={scanner.phoneDevice}
         onSubmit={() => void auth.signIn(email, password)}
       />
     );
@@ -346,6 +372,7 @@ export function ScannerPage() {
         loading={eventsQuery.isPending}
         error={eventsQuery.isError}
         userLabel={auth.userLabel}
+        phoneDevice={scanner.phoneDevice}
         onSelect={chooseEvent}
         onRetry={() => void eventsQuery.refetch()}
         onSignOut={() => void signOut()}
@@ -360,8 +387,8 @@ export function ScannerPage() {
     <div className="scanner-app">
       <header className="scanner-header">
         <div className="scanner-event-title">
-          <strong>{selectedEvent.name}</strong>
-          <span>{selectedEvent.venue_name}</span>
+          <strong>{selectedEventName}</strong>
+          <span>{selectedVenueName}</span>
         </div>
         <div className="scanner-header-actions">
           <button
@@ -387,25 +414,39 @@ export function ScannerPage() {
             <video ref={scanner.video} autoPlay playsInline muted />
             {!cameraActive && !decisionVisible && (
               <div className="camera-placeholder">
-                <span>
-                  <Camera size={28} />
-                </span>
+                <span>{scanner.phoneDevice ? <Camera size={28} /> : <Smartphone size={28} />}</span>
                 <strong>
-                  {scanner.cameraState === 'requesting'
-                    ? 'Starting camera…'
-                    : 'Point the camera at the ticket QR code'}
+                  {!scanner.phoneDevice
+                    ? 'Use a phone to scan tickets'
+                    : scanner.cameraState === 'requesting'
+                      ? 'Starting camera…'
+                      : scanner.cameraState === 'denied'
+                        ? 'Camera access is off'
+                        : scanner.cameraState === 'rear-camera-missing'
+                          ? 'Rear camera not found'
+                          : scanner.cameraState === 'unsupported'
+                            ? "Camera scanning isn't available"
+                            : 'Point the camera at the ticket QR code'}
                 </strong>
                 <p>
-                  {scanner.cameraMessage ||
-                    'Open the camera, then hold the code steady inside the frame.'}
+                  {!scanner.phoneDevice
+                    ? 'Open TktSync Scanner on a phone with a rear camera. You can enter a ticket code manually on this device.'
+                    : scanner.cameraMessage ||
+                      'Open the rear camera, then hold the code steady inside the frame.'}
                 </p>
                 <button
                   className="scanner-primary"
                   type="button"
-                  onClick={() => void scanner.startCamera()}
+                  onClick={() =>
+                    scanner.phoneDevice ? void scanner.startCamera() : setManualOpen(true)
+                  }
                   disabled={scanner.cameraState === 'requesting'}
                 >
-                  {scanner.cameraState === 'requesting' ? (
+                  {!scanner.phoneDevice ? (
+                    <>
+                      <Keyboard size={18} /> Enter code manually
+                    </>
+                  ) : scanner.cameraState === 'requesting' ? (
                     <>
                       <LoaderCircle className="spin" size={18} /> Starting…
                     </>
@@ -540,9 +581,20 @@ export function ScannerPage() {
             <TicketCheck size={18} />
           </span>
           <div>
-            <strong>{selectedEvent.name}</strong>
-            <p>{selectedEvent.venue_name}</p>
+            <strong>{selectedEventName}</strong>
+            <p>{selectedVenueName}</p>
           </div>
+        </div>
+        <div className={`settings-device ${scanner.phoneDevice ? 'ready' : ''}`}>
+          <Smartphone size={18} />
+          <span>
+            <strong>{scanner.phoneDevice ? 'Phone ready' : 'Use a phone to scan tickets'}</strong>
+            <small>
+              {scanner.phoneDevice
+                ? 'The rear camera will be used for ticket scanning.'
+                : 'Manual ticket entry is available on this device.'}
+            </small>
+          </span>
         </div>
         <button className="settings-action" type="button" onClick={changeEvent}>
           <RefreshCw size={18} />

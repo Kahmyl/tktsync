@@ -22,7 +22,7 @@ export function useOperatorSession() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(Boolean(client));
   const [error, setError] = useState(
-    client ? '' : 'Operator authentication is not configured for this deployment.',
+    client ? '' : "Sign-in isn't available right now. Ask your supervisor for help.",
   );
 
   useEffect(() => {
@@ -37,7 +37,7 @@ export function useOperatorSession() {
       if (!mounted) return;
 
       if (sessionError) {
-        setError(sessionError.message);
+        setError("We couldn't restore your sign-in. Please sign in again.");
       }
 
       setSession(data.session ?? null);
@@ -60,7 +60,7 @@ export function useOperatorSession() {
 
   const signIn = async (email: string, password: string) => {
     if (!client) {
-      setError('Operator authentication is not configured for this deployment.');
+      setError("Sign-in isn't available right now. Ask your supervisor for help.");
       return false;
     }
 
@@ -75,7 +75,11 @@ export function useOperatorSession() {
     setLoading(false);
 
     if (signInError) {
-      setError(signInError.message);
+      setError(
+        /invalid.*credential|email.*password/i.test(signInError.message)
+          ? 'Email or password is incorrect.'
+          : "We couldn't sign you in. Check your connection and try again.",
+      );
       return false;
     }
 
@@ -93,7 +97,7 @@ export function useOperatorSession() {
   return {
     token: session?.access_token ?? '',
     authenticated: Boolean(session?.access_token),
-    userLabel: session?.user.email ?? session?.user.id ?? 'Operator',
+    userLabel: session?.user.email ?? 'Gate operator',
     loading,
     error,
     signIn,

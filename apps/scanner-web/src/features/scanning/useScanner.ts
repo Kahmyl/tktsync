@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createTktSyncClient } from '@tktsync/api-client';
-import { outcomePresentation, ticketLocation } from './outcome';
+import { isPhoneDevice } from './device';
+import { humanLabel, outcomePresentation, ticketLocation } from './outcome';
 import type { RecentScan, ScannerEvent, ScanResult } from './types';
 
 type Detector = { detect(source: CanvasImageSource): Promise<Array<{ rawValue: string }>> };
@@ -26,6 +27,7 @@ export function useAuthorizedEvents(token: string) {
 }
 
 export function useScanner(token: string, selectedEvent?: ScannerEvent) {
+  const [phoneDevice] = useState(() => isPhoneDevice(navigator));
   const [deviceID] = useState(() => {
     const existing = sessionStorage.getItem('tktsync.scanner.device');
     const id = existing ?? crypto.randomUUID();
@@ -36,8 +38,14 @@ export function useScanner(token: string, selectedEvent?: ScannerEvent) {
   const [result, setResult] = useState<ScanResult>();
   const [cannotVerify, setCannotVerify] = useState(false);
   const [cameraState, setCameraState] = useState<
-    'idle' | 'requesting' | 'active' | 'denied' | 'unsupported'
-  >('idle');
+    | 'idle'
+    | 'requesting'
+    | 'active'
+    | 'denied'
+    | 'unsupported'
+    | 'phone-required'
+    | 'rear-camera-missing'
+  >(phoneDevice ? 'idle' : 'phone-required');
   const [cameraMessage, setCameraMessage] = useState('');
   const [recentScans, setRecentScans] = useState<RecentScan[]>([]);
   const [soundEnabled, setSoundEnabled] = useState(
@@ -96,7 +104,11 @@ export function useScanner(token: string, selectedEvent?: ScannerEvent) {
 
   const appendRecent = useCallback(
     (next: ScanResult) => {
-      const presentation = outcomePresentation(next, false, selectedEvent?.name ?? 'this event');
+      const presentation = outcomePresentation(
+        next,
+        false,
+        humanLabel(selectedEvent?.name, 'this event'),
+      );
       const tone: RecentScan['tone'] =
         presentation.tone === 'success'
           ? 'success'
@@ -106,7 +118,7 @@ export function useScanner(token: string, selectedEvent?: ScannerEvent) {
       setRecentScans((current) =>
         [
           {
-            id: next.scan_attempt_id ?? crypto.randomUUID(),
+            id: crypto.randomUUID(),
             title: presentation.title,
             detail: ticketLocation(next) || presentation.description,
             tone,
@@ -177,6 +189,13 @@ export function useScanner(token: string, selectedEvent?: ScannerEvent) {
   );
 
   const startCamera = useCallback(async () => {
+    if (!phoneDevice) {
+      setCameraState('phone-required');
+      setCameraMessage(
+        'Open TktSync Scanner on a phone with a rear camera. You can enter a ticket code manually on this device.',
+      );
+      return;
+    }
     if (stream.current) {
       if (video.current) video.current.srcObject = stream.current;
       setCameraState('active');
@@ -194,25 +213,34 @@ export function useScanner(token: string, selectedEvent?: ScannerEvent) {
         video: { facingMode: { ideal: 'environment' } },
         audio: false,
       });
+      const track = nextStream.getVideoTracks()[0];
+      if (track?.getSettings?.().facingMode === 'user') {
+        nextStream.getTracks().forEach((streamTrack) => streamTrack.stop());
+        setCameraState('rear-camera-missing');
+        setCameraMessage(
+          'A rear camera was not found. Use a phone with a rear camera or enter the ticket code manually.',
+        );
+        return;
+      }
       stream.current = nextStream;
       if (video.current) video.current.srcObject = nextStream;
-      const capabilities = nextStream.getVideoTracks()[0]?.getCapabilities() as TorchCapabilities;
+      const capabilities = track?.getCapabilities() as TorchCapabilities;
       setTorchSupported(Boolean(capabilities?.torch));
       setCameraState('active');
     } catch {
       setCameraState('denied');
       setCameraMessage('Camera access is off. Allow access or enter the ticket code manually.');
     }
-  }, []);
+  }, [phoneDevice]);
 
   const stopCamera = useCallback(() => {
     stream.current?.getTracks().forEach((track) => track.stop());
     stream.current = null;
     if (video.current) video.current.srcObject = null;
-    setCameraState('idle');
+    setCameraState(phoneDevice ? 'idle' : 'phone-required');
     setTorchEnabled(false);
     setTorchSupported(false);
-  }, []);
+  }, [phoneDevice]);
 
   const toggleTorch = useCallback(async () => {
     const track = stream.current?.getVideoTracks()[0];
@@ -284,6 +312,7 @@ export function useScanner(token: string, selectedEvent?: ScannerEvent) {
     busy: scan.isPending,
     cameraState,
     cameraMessage,
+    phoneDevice,
     video,
     recentScans,
     soundEnabled,

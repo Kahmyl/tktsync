@@ -1,5 +1,21 @@
 import type { ScanResult } from './types';
 
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const opaqueHexPattern = /^[0-9a-f]{24,}$/i;
+const publicIDPattern = /^(?:evt|tkt|adm|scan|usr|ven|sec|row|seat|dev|cred|inv)_[a-z0-9_-]+$/i;
+
+export function humanLabel(value: string | null | undefined, fallback: string) {
+  const label = value?.trim() ?? '';
+  if (
+    !label ||
+    uuidPattern.test(label) ||
+    opaqueHexPattern.test(label) ||
+    publicIDPattern.test(label)
+  )
+    return fallback;
+  return label;
+}
+
 export type OutcomePresentation = {
   tone: 'ready' | 'success' | 'warning' | 'danger';
   title: string;
@@ -9,9 +25,10 @@ export type OutcomePresentation = {
 export function ticketLocation(result?: ScanResult) {
   const display = result?.ticket?.display;
   if (!display) return '';
-  const seat = display.seat ? `Seat ${display.seat}` : '';
-  const row = display.row ? `Row ${display.row}` : '';
-  return [display.section, row, seat].filter(Boolean).join(' · ');
+  const section = humanLabel(display.section, '');
+  const seat = humanLabel(display.seat, '');
+  const row = humanLabel(display.row, '');
+  return [section, row ? `Row ${row}` : '', seat ? `Seat ${seat}` : ''].filter(Boolean).join(' · ');
 }
 
 export function outcomePresentation(
@@ -30,7 +47,11 @@ export function outcomePresentation(
   switch (result?.result) {
     case 'ADMITTED':
     case 'MANUAL_OVERRIDE_ADMITTED':
-      return { tone: 'success', title: 'Admit guest', description: ticketLocation(result) };
+      return {
+        tone: 'success',
+        title: 'Admit guest',
+        description: ticketLocation(result) || 'Ticket checked successfully.',
+      };
     case 'TICKET_ALREADY_ADMITTED':
       return {
         tone: 'warning',

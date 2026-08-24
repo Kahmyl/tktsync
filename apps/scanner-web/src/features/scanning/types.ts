@@ -12,13 +12,10 @@ export type ScannerEvent = {
 export type ScanResult = {
   result: string;
   ticket?: {
-    id: string;
     display: { section?: string; row?: string; seat?: string };
   };
-  admission_id?: string;
   admitted_at?: string;
-  previous_admission?: { admitted_at: string; gate_reference: string };
-  scan_attempt_id?: string;
+  previous_admission?: { admitted_at: string };
 };
 
 export type RecentScan = {

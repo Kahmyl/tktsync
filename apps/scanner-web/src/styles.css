@@ -200,6 +200,44 @@ input:focus-visible {
   color: #879294;
   font-size: 10px;
 }
+.scanner-device-notice,
+.event-device-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #4b5f61;
+  background: #edf6f5;
+  text-align: left;
+}
+.scanner-device-notice {
+  width: min(430px, 100%);
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid #d4e8e6;
+  border-radius: 12px;
+}
+.scanner-device-notice > svg,
+.event-device-notice > svg {
+  flex: 0 0 auto;
+  color: var(--scan-teal);
+}
+.scanner-device-notice span,
+.scanner-device-notice strong,
+.event-device-notice span,
+.event-device-notice strong {
+  display: block;
+}
+.scanner-device-notice span,
+.event-device-notice span {
+  font-size: 11px;
+  line-height: 1.45;
+}
+.scanner-device-notice strong,
+.event-device-notice strong {
+  margin-bottom: 2px;
+  color: #28484a;
+  font-size: 12px;
+}
 
 .event-picker-page {
   min-height: 100vh;
@@ -245,6 +283,13 @@ input:focus-visible {
   margin: 0 0 30px;
   color: var(--scan-muted);
   font-size: 13px;
+}
+.event-device-notice {
+  width: min(560px, 100%);
+  margin: -14px auto 24px;
+  padding: 13px 15px;
+  border: 1px solid #d4e8e6;
+  border-radius: 12px;
 }
 .picker-loading {
   display: flex;
@@ -837,6 +882,37 @@ input:focus-visible {
 .settings-event strong,
 .settings-event p {
   display: block;
+}
+.settings-device {
+  display: grid;
+  grid-template-columns: 23px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 12px;
+  border: 1px solid #efd7b5;
+  border-radius: 10px;
+  color: #76501e;
+  background: #fff8ed;
+}
+.settings-device.ready {
+  border-color: #cfe6df;
+  color: #315f53;
+  background: #eff8f5;
+}
+.settings-device strong,
+.settings-device small {
+  display: block;
+}
+.settings-device strong {
+  font-size: 11px;
+}
+.settings-device small {
+  margin-top: 3px;
+  color: inherit;
+  font-size: 9px;
+  line-height: 1.45;
+  opacity: 0.82;
 }
 .settings-event strong {
   font-size: 12px;
