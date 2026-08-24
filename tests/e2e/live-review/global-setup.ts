@@ -11,7 +11,10 @@ import {
   reviewRoot,
   runId,
   secretStatePath,
+  tlsCertPath,
+  tlsKeyPath,
   urls,
+  webhookReceiverLogPath,
 } from './config';
 import { writeRealTicketCameraFixture } from './state';
 
@@ -48,6 +51,33 @@ async function prepareRealTicketCameraFixture() {
 }
 
 async function prepareRuntime(rootEnv: string) {
+  execFileSync(
+    'openssl',
+    [
+      'req',
+      '-x509',
+      '-newkey',
+      'rsa:2048',
+      '-nodes',
+      '-days',
+      '1',
+      '-subj',
+      '/CN=webhook-receiver',
+      '-addext',
+      'subjectAltName=DNS:webhook-receiver,IP:127.0.0.1',
+      '-addext',
+      'basicConstraints=critical,CA:TRUE',
+      '-addext',
+      'keyUsage=critical,digitalSignature,keyEncipherment,keyCertSign',
+      '-keyout',
+      tlsKeyPath,
+      '-out',
+      tlsCertPath,
+    ],
+    { stdio: 'ignore' },
+  );
+  await writeFile(webhookReceiverLogPath, '', { mode: 0o600 });
+
   if (!(await exists(composeEnvPath))) {
     const key = () => randomBytes(32).toString('base64url');
     const runtime = [
@@ -65,6 +95,9 @@ async function prepareRuntime(rootEnv: string) {
       `PARTNER_CREDENTIAL_REPLAY_KEY=${key()}`,
       'WEBHOOK_ENCRYPTION_KEY_VERSION=1',
       `WEBHOOK_ENCRYPTION_KEY=${key()}`,
+      `LIVE_REVIEW_TLS_KEY_PATH=${tlsKeyPath}`,
+      `LIVE_REVIEW_TLS_CERT_PATH=${tlsCertPath}`,
+      `LIVE_REVIEW_WEBHOOK_LOG_PATH=${webhookReceiverLogPath}`,
       '',
     ].join('\n');
     await writeFile(composeEnvPath, runtime, { mode: 0o600 });
@@ -76,6 +109,10 @@ async function prepareRuntime(rootEnv: string) {
       'compose',
       '--env-file',
       composeEnvPath,
+      '-f',
+      'docker-compose.yml',
+      '-f',
+      'tests/e2e/live-review/docker-compose.webhook-review.yml',
       'up',
       '-d',
       '--build',
@@ -86,6 +123,10 @@ async function prepareRuntime(rootEnv: string) {
       'api',
       'worker',
       'docs',
+      'admin',
+      'selector',
+      'scanner',
+      'webhook-receiver',
     ],
     { cwd: repoRoot, stdio: 'ignore' },
   );
@@ -303,10 +344,20 @@ export default async function globalSetup() {
     }
   }
 
-  const composeState = execFileSync('docker', ['compose', '--env-file', composeEnvPath, 'ps'], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-  });
+  const composeState = execFileSync(
+    'docker',
+    [
+      'compose',
+      '--env-file',
+      composeEnvPath,
+      '-f',
+      'docker-compose.yml',
+      '-f',
+      'tests/e2e/live-review/docker-compose.webhook-review.yml',
+      'ps',
+    ],
+    { cwd: repoRoot, encoding: 'utf8' },
+  );
   await writeFile(path.join(reviewRoot, 'logs', 'compose-start.txt'), composeState);
   await writeFile(
     path.join(reviewRoot, 'runtime.json'),

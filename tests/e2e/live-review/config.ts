@@ -11,6 +11,7 @@ export const composeEnvPath = path.join('/tmp', `tktsync-${runId}-compose.env`);
 export const cameraPath = path.join('/tmp', `tktsync-${runId}-camera.y4m`);
 export const tlsKeyPath = path.join('/tmp', `tktsync-${runId}-receiver.key`);
 export const tlsCertPath = path.join('/tmp', `tktsync-${runId}-receiver.crt`);
+export const webhookReceiverLogPath = path.join('/tmp', `tktsync-${runId}-webhook-receiver.jsonl`);
 
 export const urls = {
   admin: process.env.LIVE_ADMIN_URL ?? 'http://localhost:54470',

@@ -260,36 +260,34 @@ func (w *DeliveryWorker) claim(
 					continue
 				}
 
-				if len(ciphertexts) !=
-					len(encryptionKeyVersions) {
-					return errors.New(
-						"webhook signing secret key-version metadata is inconsistent",
-					)
-				}
-
-				if len(ciphertexts) == 0 {
-					return errors.New(
-						"webhook endpoint has no usable signing secret",
-					)
-				}
-
+				unusableSecret := len(ciphertexts) == 0 ||
+					len(ciphertexts) != len(encryptionKeyVersions)
 				result.Secrets = nil
-
-				for index, ciphertext := range ciphertexts {
-					secret, openErr :=
-						w.box.OpenVersion(
+				if !unusableSecret {
+					for index, ciphertext := range ciphertexts {
+						secret, openErr := w.box.OpenVersion(
 							int(encryptionKeyVersions[index]),
 							ciphertext,
 						)
-					if openErr != nil {
-						return openErr
+						if openErr != nil {
+							unusableSecret = true
+							break
+						}
+						result.Secrets = append(result.Secrets, secret)
 					}
-
-					result.Secrets =
-						append(
-							result.Secrets,
-							secret,
-						)
+				}
+				if unusableSecret {
+					if _, err = tx.Exec(ctx, `
+						UPDATE webhook_deliveries
+						SET state='DEAD_LETTER', next_attempt_at=NULL,
+							leased_by=NULL, lease_until=NULL,
+							last_error='signing secret unavailable',
+							dead_lettered_at=clock_timestamp()
+						WHERE id=$1 AND state='PENDING'
+					`, result.ID); err != nil {
+						return err
+					}
+					continue
 				}
 
 				result.Attempt++

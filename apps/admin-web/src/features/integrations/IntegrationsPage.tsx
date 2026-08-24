@@ -23,12 +23,12 @@ import { adminApi } from '../admin/api';
 import { adminKeys, useIntentMutation, usePartners, useWebhooks } from '../admin/queries';
 
 const availableSubscriptions = [
-  'ticket.issued',
+  'reservation.confirmed',
   'ticket.voided',
   'ticket.credential_reissued',
-  'admission.created',
+  'admission.admitted',
   'admission.reversed',
-  'event.sales_opened',
+  'event.opened_for_sale',
   'event.sales_closed',
 ];
 
@@ -38,7 +38,10 @@ export function IntegrationsPage() {
   const [open, setOpen] = useState(false);
   const [partnerId, setPartnerId] = useState('');
   const [url, setUrl] = useState('');
-  const [subscriptions, setSubscriptions] = useState<string[]>(['ticket.issued', 'ticket.voided']);
+  const [subscriptions, setSubscriptions] = useState<string[]>([
+    'reservation.confirmed',
+    'ticket.voided',
+  ]);
   const [secret, setSecret] = useState('');
   const [secretTitle, setSecretTitle] = useState('Signing secret created');
   const [disableId, setDisableId] = useState('');
@@ -68,7 +71,7 @@ export function IntegrationsPage() {
     setOpen(false);
     setUrl('');
     setPartnerId('');
-    setSubscriptions(['ticket.issued', 'ticket.voided']);
+    setSubscriptions(['reservation.confirmed', 'ticket.voided']);
   };
   const rotateSecret = async (endpointId: string) => {
     const rotated = await rotate.mutateAsync(endpointId);

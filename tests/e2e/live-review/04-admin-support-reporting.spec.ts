@@ -1,14 +1,18 @@
 import { expect, test } from '@playwright/test';
-import { urls } from './config';
+import { readFile } from 'node:fs/promises';
+import { urls, webhookReceiverLogPath } from './config';
 import {
   apiJSON,
+  configureEventPolicy,
   entities,
   getSecret,
   liveCredentials,
   operatorToken,
+  queryDatabase,
   reviewNames,
   saveVideo,
   screenshot,
+  setSecret,
 } from './state';
 
 type TicketDetail = {
@@ -31,6 +35,16 @@ type InventoryReport = {
   };
 };
 
+type ReceiverEntry = { event_type: string; response_status: number; signature_present: boolean };
+
+async function receiverEntries() {
+  const raw = await readFile(webhookReceiverLogPath, 'utf8');
+  return raw
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as ReceiverEntry);
+}
+
 test.use({ trace: 'off' });
 
 test('04 Admin support and reporting', async ({ page }) => {
@@ -50,6 +64,28 @@ test('04 Admin support and reporting', async ({ page }) => {
   expect(eventId).toMatch(/^evt_/);
   expect(ticketA).toMatch(/^tkt_/);
   expect(ticketB).toMatch(/^tkt_/);
+
+  await test.step('Prove real reservation webhook retry and eventual HTTPS delivery', async () => {
+    await expect
+      .poll(
+        async () =>
+          (await receiverEntries()).filter((entry) => entry.event_type === 'reservation.confirmed'),
+        { timeout: 30_000 },
+      )
+      .toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ response_status: 503, signature_present: true }),
+          expect.objectContaining({ response_status: 204, signature_present: true }),
+        ]),
+      );
+    await expect
+      .poll(() =>
+        queryDatabase(
+          "SELECT d.state || ':' || d.attempt_count FROM webhook_deliveries d JOIN partner_webhook_endpoints e ON e.id=d.webhook_endpoint_id WHERE e.url='https://webhook-receiver:9443/webhooks' ORDER BY d.created_at LIMIT 1",
+        ),
+      )
+      .toMatch(/^DELIVERED:[2-9][0-9]*$/);
+  });
 
   await test.step('Open the authenticated Dashboard and verify real sale activity', async () => {
     await page.goto(urls.admin);
@@ -89,7 +125,27 @@ test('04 Admin support and reporting', async ({ page }) => {
       token,
     });
     expect(persisted.data.credential_state).toBe('ACTIVE');
+    if (reissueTicketId === ticketB) {
+      const currentCredential = await apiJSON<{ qr_payload: string }>(
+        `/api/v1/admin/tickets/${ticketB}/credential`,
+        { token },
+      );
+      await setSecret('ticketBQRBeforeVoid', currentCredential.data.qr_payload);
+    }
     await screenshot(page, '04-admin-ticket-reissued');
+  });
+
+  await test.step('Rotate the signing secret before the next real webhook event', async () => {
+    await page.getByRole('link', { name: 'Integrations', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
+    const endpoint = page.locator('.panel').filter({ hasText: reviewNames.partner }).first();
+    await endpoint.getByRole('button', { name: 'Rotate signing secret' }).click();
+    const secretDialog = page.getByRole('dialog', { name: 'Signing secret rotated' });
+    await expect(secretDialog).toBeVisible();
+    await secretDialog.getByRole('button', { name: 'I have stored it' }).click();
+    await expect(secretDialog).toBeHidden();
+    await page.getByRole('link', { name: 'Tickets', exact: true }).click();
+    await page.getByLabel('Filter tickets by event').selectOption(eventId);
   });
 
   const inventoryBeforeVoid = await apiJSON<InventoryReport>(
@@ -97,7 +153,7 @@ test('04 Admin support and reporting', async ({ page }) => {
     { token },
   );
 
-  await test.step('Void Ticket B and deliberately re-release its inventory', async () => {
+  await test.step('Void Ticket B, prove policy denial, then deliberately enable and re-release it', async () => {
     const row = page
       .getByRole('row')
       .filter({ hasText: ticketBDetail.data.display_label ?? 'Admission ticket' })
@@ -127,6 +183,13 @@ test('04 Admin support and reporting', async ({ page }) => {
     await screenshot(page, '04-admin-policy-blocked-capacity-release');
     await release.getByRole('button', { name: 'Cancel' }).click();
 
+    await configureEventPolicy(eventId, { allow_voided_inventory_rerelease: true });
+    await detail.getByRole('button', { name: 'Re-release inventory' }).click();
+    const permittedRelease = page.getByRole('dialog', { name: 'Re-release ticket inventory' });
+    await permittedRelease.getByLabel('Reason').fill('Return dedicated review capacity to sale');
+    await permittedRelease.getByRole('button', { name: 'Re-release inventory' }).click();
+    await expect(permittedRelease).toBeHidden();
+
     await page.reload();
     await page.getByLabel('Filter tickets by event').selectOption(eventId);
     await expect(
@@ -142,9 +205,50 @@ test('04 Admin support and reporting', async ({ page }) => {
       { token },
     );
     expect(inventoryAfterRelease.data.total.available).toBe(
-      inventoryBeforeVoid.data.total.available,
+      inventoryBeforeVoid.data.total.available + 1,
     );
     await screenshot(page, '04-admin-ticket-voided-and-capacity-released');
+  });
+
+  await test.step('Prove the rotated secret signs a later ticket webhook delivery', async () => {
+    await expect
+      .poll(async () =>
+        (await receiverEntries()).filter((entry) => entry.event_type === 'ticket.voided'),
+      )
+      .toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ response_status: 204, signature_present: true }),
+        ]),
+      );
+    await expect
+      .poll(() =>
+        queryDatabase(
+          "SELECT d.state FROM webhook_deliveries d JOIN outbox_events o ON o.id=d.outbox_event_id JOIN partner_webhook_endpoints e ON e.id=d.webhook_endpoint_id WHERE e.url='https://webhook-receiver:9443/webhooks' AND o.fact_type='ticket.voided' ORDER BY d.created_at DESC LIMIT 1",
+        ),
+      )
+      .toBe('DELIVERED');
+  });
+
+  await test.step('Reject the real credential after its ticket was voided', async () => {
+    const scanner = await page.context().newPage();
+    await scanner.setViewportSize({ width: 390, height: 844 });
+    await scanner.addInitScript(() => {
+      Object.defineProperty(navigator, 'userAgentData', {
+        configurable: true,
+        value: { mobile: true },
+      });
+    });
+    await scanner.goto(urls.scanner);
+    await expect(scanner.getByRole('heading', { name: 'Choose an event to scan' })).toBeVisible();
+    await scanner.getByRole('button', { name: new RegExp(`Select ${reviewNames.event}`) }).click();
+    await scanner.getByRole('button', { name: 'Enter code manually' }).first().click();
+    const manual = scanner.getByRole('dialog', { name: 'Enter code manually' });
+    await manual.getByLabel('Ticket code').fill(await getSecret('ticketBQRBeforeVoid'));
+    await manual.getByRole('button', { name: 'Check ticket' }).click();
+    await expect(scanner.getByRole('heading', { name: 'Ticket not valid' })).toBeVisible();
+    await expect(scanner.getByRole('heading', { name: 'Admit guest' })).toHaveCount(0);
+    await screenshot(scanner, '04-scanner-voided-ticket-rejected');
+    await scanner.close();
   });
 
   await test.step('Review live Scanner activity and reverse its active admission', async () => {
@@ -176,17 +280,12 @@ test('04 Admin support and reporting', async ({ page }) => {
     await screenshot(page, '04-admin-authoritative-reports');
   });
 
-  await test.step('Verify Partner webhook configuration and rotate its signing secret safely', async () => {
+  await test.step('Verify the live Partner webhook remains active', async () => {
     await page.getByRole('link', { name: 'Integrations', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
     const endpoint = page.locator('.panel').filter({ hasText: reviewNames.partner }).first();
     await expect(endpoint).toBeVisible();
     await expect(endpoint).toContainText('Active');
-    await endpoint.getByRole('button', { name: 'Rotate signing secret' }).click();
-    const secretDialog = page.getByRole('dialog', { name: 'Signing secret rotated' });
-    await expect(secretDialog).toBeVisible();
-    await secretDialog.getByRole('button', { name: 'I have stored it' }).click();
-    await expect(secretDialog).toBeHidden();
     await screenshot(page, '04-admin-live-integration-state');
   });
 

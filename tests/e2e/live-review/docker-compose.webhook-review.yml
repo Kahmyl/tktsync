@@ -1,0 +1,37 @@
+services:
+  webhook-receiver:
+    image: node:22-alpine
+    command: ['node', '/review/webhook-receiver.mjs']
+    environment:
+      TLS_KEY_PATH: /run/tktsync-review/receiver.key
+      TLS_CERT_PATH: /run/tktsync-review/receiver.crt
+      RECEIVER_LOG_PATH: /run/tktsync-review/receiver.jsonl
+      FAIL_FIRST_DELIVERY: 'true'
+    volumes:
+      - ./tests/e2e/live-review/webhook-receiver.mjs:/review/webhook-receiver.mjs:ro
+      - ${LIVE_REVIEW_TLS_KEY_PATH}:/run/tktsync-review/receiver.key:ro
+      - ${LIVE_REVIEW_TLS_CERT_PATH}:/run/tktsync-review/receiver.crt:ro
+      - ${LIVE_REVIEW_WEBHOOK_LOG_PATH}:/run/tktsync-review/receiver.jsonl
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('https').get({host:'127.0.0.1',port:9443,path:'/health',rejectUnauthorized:false},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+      start_period: 2s
+    restart: 'no'
+
+  worker:
+    environment:
+      SSL_CERT_FILE: /etc/ssl/certs/tktsync-live-review-ca.crt
+      WORKER_POLL_INTERVAL: 500ms
+    volumes:
+      - ${LIVE_REVIEW_TLS_CERT_PATH}:/etc/ssl/certs/tktsync-live-review-ca.crt:ro
+    depends_on:
+      webhook-receiver:
+        condition: service_healthy

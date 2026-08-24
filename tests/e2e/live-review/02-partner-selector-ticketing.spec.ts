@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:https';
@@ -49,28 +48,6 @@ let checkoutObservation: HandoffObservation | undefined;
 test.use({ trace: 'off' });
 
 test.beforeAll(async () => {
-  execFileSync(
-    'openssl',
-    [
-      'req',
-      '-x509',
-      '-newkey',
-      'rsa:2048',
-      '-nodes',
-      '-days',
-      '1',
-      '-subj',
-      '/CN=127.0.0.1',
-      '-addext',
-      'subjectAltName=IP:127.0.0.1',
-      '-keyout',
-      tlsKeyPath,
-      '-out',
-      tlsCertPath,
-    ],
-    { stdio: 'ignore' },
-  );
-
   receiver = createServer(
     { key: readFileSync(tlsKeyPath), cert: readFileSync(tlsCertPath) },
     (request, response) => {
@@ -91,8 +68,6 @@ test.beforeAll(async () => {
           );
           return;
         }
-        // The same local TLS endpoint is also the configured webhook receiver. Only the
-        // request target is observed; webhook bodies and signatures are never persisted.
         response.writeHead(204);
         response.end();
       });

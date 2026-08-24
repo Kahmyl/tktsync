@@ -151,6 +151,31 @@ export async function apiJSON<T>(
   return { data, status: response.status, requestId: response.headers.get('x-request-id') };
 }
 
+export async function configureEventPolicy(
+  eventId: string,
+  overrides: Partial<{
+    hold_duration_seconds: number;
+    allow_voided_inventory_rerelease: boolean;
+  }> = {},
+) {
+  return apiJSON(`/api/v1/admin/events/${eventId}/transaction-policy`, {
+    method: 'PUT',
+    token: await operatorToken(),
+    idempotencyKey: crypto.randomUUID(),
+    body: {
+      hold_duration_seconds: overrides.hold_duration_seconds ?? 600,
+      checkout_protection_seconds: 120,
+      payment_retry_seconds: 300,
+      reconciliation_seconds: 600,
+      max_reservation_lifetime_seconds: 1800,
+      max_hold_quantity: 12,
+      max_active_reservations_per_partner: 500,
+      max_active_reservations_per_buyer_session: 3,
+      allow_voided_inventory_rerelease: overrides.allow_voided_inventory_rerelease ?? false,
+    },
+  });
+}
+
 export async function screenshot(page: Page, name: string, fullPage = false) {
   await page.screenshot({ path: path.join(reviewRoot, 'screenshots', `${name}.png`), fullPage });
 }

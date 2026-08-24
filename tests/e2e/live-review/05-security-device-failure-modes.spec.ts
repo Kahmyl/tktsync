@@ -1,7 +1,16 @@
 import { randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { expect, test } from '@playwright/test';
-import { urls } from './config';
-import { apiJSON, entities, getSecret, reviewNames, saveVideo, screenshot } from './state';
+import { composeEnvPath, repoRoot, urls } from './config';
+import {
+  apiJSON,
+  configureEventPolicy,
+  entities,
+  getSecret,
+  reviewNames,
+  saveVideo,
+  screenshot,
+} from './state';
 
 type SelectionSession = {
   selection_session_id: string;
@@ -85,9 +94,6 @@ test('05 Security, device, failure modes, and realtime', async ({ page, context 
     await page.goto(sessionA.data.selection_url);
     await expect(page).toHaveURL(`${urls.selector}/s`);
     await expect(page.getByRole('heading', { name: reviewNames.event })).toBeVisible();
-    const unavailable = page.locator('button.seat.unavailable');
-    await expect(unavailable.first()).toBeVisible();
-    await expect(unavailable.first()).toBeDisabled();
 
     const addGA = page.getByRole('button', { name: /Add one Main Floor ticket/ });
     let additions = 0;
@@ -119,6 +125,8 @@ test('05 Security, device, failure modes, and realtime', async ({ page, context 
     await buyerB.getByRole('button', { name: 'Hold tickets' }).click();
     await expect(buyerB.getByRole('heading', { name: 'Your tickets are held' })).toBeVisible();
     await expect(seatA).toBeDisabled({ timeout: 30_000 });
+    await expect(seatA).toHaveClass(/unavailable/);
+    await expect(seatA).toBeVisible();
     await expect(page.getByText('That seat is no longer available.')).toHaveCount(0);
     await screenshot(page, '05-selector-realtime-unselected-seat-disabled');
 
@@ -134,6 +142,67 @@ test('05 Security, device, failure modes, and realtime', async ({ page, context 
     await screenshot(page, '05-selector-realtime-selected-seat-conflict');
     await buyerB.getByRole('button', { name: 'Change selection' }).click();
     await buyerB.close();
+  });
+
+  await test.step('Show a real Selector outage and recover the same capability after API restoration', async () => {
+    const outageSession = await createSelection(`outage-${randomUUID()}`);
+    await page.goto(urls.docs);
+    await page.goto(outageSession.data.selection_url);
+    await expect(page).toHaveURL(`${urls.selector}/s`);
+    await expect(page.getByRole('heading', { name: reviewNames.event })).toBeVisible();
+    execFileSync('docker', ['compose', '--env-file', composeEnvPath, 'stop', 'api'], {
+      cwd: repoRoot,
+      stdio: 'ignore',
+    });
+    try {
+      await expect(
+        page.getByRole('heading', { name: "We couldn't refresh availability." }),
+      ).toBeVisible({ timeout: 40_000 });
+      await screenshot(page, '05-selector-real-api-outage');
+    } finally {
+      execFileSync(
+        'docker',
+        [
+          'compose',
+          '--env-file',
+          composeEnvPath,
+          'up',
+          '-d',
+          '--wait',
+          '--wait-timeout',
+          '60',
+          'api',
+        ],
+        { cwd: repoRoot, stdio: 'ignore' },
+      );
+    }
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await expect(page.getByRole('heading', { name: reviewNames.event })).toBeVisible();
+  });
+
+  await test.step('Let an authoritative short hold expire and return its inventory', async () => {
+    await configureEventPolicy(eventId, { hold_duration_seconds: 3 });
+    try {
+      const expirySession = await createSelection(`expiry-${randomUUID()}`);
+      await page.goto(urls.docs);
+      await page.goto(expirySession.data.selection_url);
+      await expect(page).toHaveURL(`${urls.selector}/s`);
+      await expect(page.getByRole('heading', { name: reviewNames.event })).toBeVisible();
+      const availableSeat = page.locator('button.seat.available').first();
+      await expect(availableSeat).toBeEnabled();
+      await availableSeat.click();
+      await page.getByRole('button', { name: 'Hold tickets' }).click();
+      await expect(page.getByRole('heading', { name: 'Your tickets are held' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Your reservation expired' })).toBeVisible({
+        timeout: 15_000,
+      });
+      await expect(page.getByRole('button', { name: 'Choose tickets again' })).toBeVisible();
+      await screenshot(page, '05-selector-authoritative-hold-expired');
+      await page.getByRole('button', { name: 'Choose tickets again' }).click();
+      await expect(page.locator('button.seat.available').first()).toBeEnabled({ timeout: 15_000 });
+    } finally {
+      await configureEventPolicy(eventId);
+    }
   });
 
   await test.step('Desktop Scanner remains manual-only before authenticated Event scope', async () => {

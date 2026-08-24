@@ -237,13 +237,29 @@ test('01 Admin platform setup', async ({ page }) => {
   await test.step('Configure policy, layout, pricing, and inventory', async () => {
     const token = await operatorToken();
     await page.goto(`${urls.admin}/events/${eventId}`);
-    const policyAction = page.getByRole('button', { name: 'Use recommended policy' });
-    if (await policyAction.isVisible()) await policyAction.click();
-
     let configuration = await apiJSON<{
       layout?: { finalized_at?: string | null };
       price_tiers: Array<{ id: string; code: string; state: string }>;
+      transaction_policy?: { hold_duration_seconds: number } | null;
     }>(`/api/v1/admin/events/${eventId}/configuration`, { token });
+    const policyAction = page.getByRole('button', { name: 'Use recommended policy' });
+    if (!configuration.data.transaction_policy) {
+      await expect(policyAction).toBeVisible();
+      const policyResponse = page.waitForResponse(
+        (response) =>
+          response.url().endsWith(`/api/v1/admin/events/${eventId}/transaction-policy`) &&
+          response.request().method() === 'PUT',
+      );
+      await policyAction.click();
+      expect((await policyResponse).ok()).toBe(true);
+    }
+
+    configuration = await apiJSON<{
+      layout?: { finalized_at?: string | null };
+      price_tiers: Array<{ id: string; code: string; state: string }>;
+      transaction_policy?: { hold_duration_seconds: number } | null;
+    }>(`/api/v1/admin/events/${eventId}/configuration`, { token });
+    expect(configuration.data.transaction_policy?.hold_duration_seconds).toBeGreaterThan(0);
     if (!configuration.data.layout?.finalized_at) {
       await page.getByRole('tab', { name: 'Layout & seats' }).click();
       await page.getByLabel('Published layout').selectOption(layoutId);
@@ -340,7 +356,7 @@ test('01 Admin platform setup', async ({ page }) => {
       await page.getByRole('button', { name: 'Add endpoint' }).first().click();
       const dialog = page.getByRole('dialog', { name: 'Add endpoint' });
       await dialog.getByLabel('Partner').selectOption(partnerId);
-      await dialog.getByLabel('Endpoint URL').fill('https://127.0.0.1:45991/webhooks');
+      await dialog.getByLabel('Endpoint URL').fill('https://webhook-receiver:9443/webhooks');
       await dialog.getByRole('button', { name: 'Add endpoint' }).click();
       await expect(page.getByRole('dialog', { name: 'Signing secret created' })).toBeVisible();
       await page.getByRole('button', { name: 'I have stored it' }).click();
