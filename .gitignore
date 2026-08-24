@@ -16,3 +16,4 @@ tmp/
 .tmp/
 test-results/
 playwright-report/
+artifacts/live-e2e-review/

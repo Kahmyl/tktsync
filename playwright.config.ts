@@ -5,6 +5,7 @@ const authOrigin = 'http://localhost:48081';
 
 export default defineConfig({
   testDir: './tests/e2e',
+  testIgnore: '**/live-review/**',
   timeout: 30_000,
   expect: {
     timeout: 7_500,
