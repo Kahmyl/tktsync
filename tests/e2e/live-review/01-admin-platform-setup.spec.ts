@@ -40,6 +40,18 @@ test('01 Admin platform setup', async ({ page }) => {
       await page.getByLabel('Email').fill(credentials.email);
       await page.getByLabel('Password').fill(credentials.password);
       await page.getByRole('button', { name: 'Sign in' }).click();
+      const retry = page.getByRole('button', { name: 'Try again' });
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        if (
+          await page
+            .getByRole('heading', { name: 'Upcoming events', exact: true })
+            .isVisible()
+            .catch(() => false)
+        )
+          break;
+        if (await retry.isVisible().catch(() => false)) await retry.click();
+        await page.waitForTimeout(2_000);
+      }
       await expect(
         page.getByRole('heading', { name: 'Upcoming events', exact: true }),
       ).toBeVisible();
@@ -111,14 +123,28 @@ test('01 Admin platform setup', async ({ page }) => {
       await page.getByRole('button', { name: 'New layout version', exact: true }).click();
       await expect(page.getByText('Draft', { exact: true }).first()).toBeVisible();
       await page.getByRole('button', { name: 'Edit draft' }).click();
-      const dialog = page.getByRole('dialog', { name: 'Edit draft layout' });
-      await dialog.getByLabel('Section name').fill('VIP');
-      await dialog.getByLabel('Seating type').selectOption('RESERVED');
-      await dialog.getByRole('button', { name: 'Add section' }).click();
-      await dialog.getByLabel('Section name').fill('Main Floor');
-      await dialog.getByLabel('Seating type').selectOption('GA');
-      await dialog.getByRole('button', { name: 'Add section' }).click();
-      await dialog.getByRole('button', { name: 'Save draft layout' }).click();
+      await page.getByRole('button', { name: 'Reserved section' }).click();
+      await page.getByLabel('Name').fill('VIP');
+      await page.getByLabel('Rows').fill('3');
+      await page.getByLabel('Seats per row').fill('6');
+      await page.getByLabel('Starting seat number').fill('10');
+      await page.getByRole('button', { name: 'General admission' }).click();
+      await page.getByLabel('Name').fill('Main Floor');
+      await page.getByLabel('Capacity').fill('100');
+      for (let move = 0; move < 12; move += 1)
+        await page.locator('g.layout-object.selected').press('Shift+ArrowRight');
+      await page.getByRole('button', { name: 'Table area' }).click();
+      await page.getByLabel('Name').fill('Banquet');
+      await page.getByLabel('Tables').fill('3');
+      await page.getByLabel('Seats per table').fill('4');
+      for (let move = 0; move < 20; move += 1)
+        await page.locator('g.layout-object.selected').press('Shift+ArrowRight');
+      await page.getByRole('button', { name: 'Stage', exact: true }).click();
+      await page.getByLabel('Name').fill('Main Stage');
+      await page.getByLabel('Rotation').selectOption('180');
+      for (let move = 0; move < 12; move += 1)
+        await page.locator('g.layout-object.selected').press('Shift+ArrowDown');
+      await page.getByRole('button', { name: 'Save draft' }).click();
 
       const layouts = await apiJSON<{ layout_versions: Array<{ id: string; state: string }> }>(
         `/api/v1/admin/venues/${venueId}/layout-versions`,
@@ -127,66 +153,26 @@ test('01 Admin platform setup', async ({ page }) => {
       layoutId = layouts.data.layout_versions.find((layout) => layout.state === 'DRAFT')?.id ?? '';
       expect(layoutId).toMatch(/^lay_/);
       await addEntity('layouts', layoutId);
+      await page.getByRole('button', { name: 'Close builder' }).click();
     }
-
-    // Current Admin UI intentionally exposes section composition but has no row/seat/capacity
-    // controls. Add that internal prerequisite through the real authenticated API, then return
-    // to the UI for publication and all subsequent workflow actions.
-    await apiJSON(`/api/v1/admin/venue-layouts/${layoutId}`, {
-      method: 'PATCH',
-      token,
-      idempotencyKey: randomUUID(),
-      body: {
-        geometry: { width: 900, height: 600 },
-        sections: [
-          { object_key: 'vip-1', name: 'VIP', kind: 'RESERVED', sort_order: 1 },
-          { object_key: 'main-floor-2', name: 'Main Floor', kind: 'GA', sort_order: 2 },
-        ],
-        rows: [{ object_key: 'vip-row-a', section_key: 'vip-1', label: 'A', sort_order: 1 }],
-        tables: [],
-        seats: [1, 2, 3, 4].map((seat, index) => ({
-          object_key: `vip-a-${seat}`,
-          section_key: 'vip-1',
-          row_key: 'vip-row-a',
-          seat_label: String(seat),
-          sort_order: index + 1,
-        })),
-        ga_zones: [
-          {
-            object_key: 'main-floor-zone',
-            section_key: 'main-floor-2',
-            name: 'Main Floor',
-            default_capacity: 5,
-          },
-        ],
-      },
-    });
-
     await page.reload();
-    await page.getByRole('button', { name: 'Publish' }).click();
+    await page.getByRole('button', { name: 'Edit draft' }).click();
+    await expect(page.getByText('18 seats')).toBeVisible();
+    await expect(page.getByText('12 seats')).toBeVisible();
+    await expect(page.getByText('100 capacity')).toBeVisible();
+    await page.locator('g.layout-object').filter({ hasText: 'VIP' }).click();
+    await expect(page.getByLabel('Rows')).toHaveValue('3');
+    await expect(page.getByLabel('Seats per row')).toHaveValue('6');
+    await expect(page.getByLabel('Starting seat number')).toHaveValue('10');
     const publishResponsePromise = page.waitForResponse(
       (response) =>
         response.url().endsWith(`/api/v1/admin/venue-layouts/${layoutId}/publish`) &&
         response.request().method() === 'POST',
     );
-    await page
-      .getByRole('dialog', { name: 'Publish layout' })
-      .getByRole('button', {
-        name: 'Publish layout',
-      })
-      .click();
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: 'Publish', exact: true }).click();
     const publishResponse = await publishResponsePromise;
-    if (!publishResponse.ok()) {
-      await recordIssue(
-        'LIVE-LAYOUT-001 — First layout publish returned an unexpected 500',
-        'The real Admin UI constructed a valid reserved-plus-GA layout, but the first publish request returned 500 and left the layout in DRAFT. This was reproduced in two isolated live runs. A retry of the same authenticated production operation with a fresh idempotency key succeeded, after which the authoritative layout state was PUBLISHED. The first-attempt server failure remains an open backend issue; the audit did not weaken layout validation or write directly to the database.',
-      );
-      await apiJSON(`/api/v1/admin/venue-layouts/${layoutId}/publish`, {
-        method: 'POST',
-        token,
-        idempotencyKey: randomUUID(),
-      });
-    }
+    expect(publishResponse.ok()).toBe(true);
     await expect
       .poll(async () => {
         const layouts = await apiJSON<{
@@ -281,16 +267,128 @@ test('01 Admin platform setup', async ({ page }) => {
       await priceDialog.getByLabel('Price').fill('50000');
       await priceDialog.getByRole('button', { name: 'Add tier' }).click();
     }
+    configuration = await apiJSON<{
+      layout?: { finalized_at?: string | null };
+      price_tiers: Array<{ id: string; code: string; state: string }>;
+    }>(`/api/v1/admin/events/${eventId}/configuration`, { token });
+    if (!configuration.data.price_tiers.some((tier) => tier.code === 'GAF')) {
+      await page.getByRole('button', { name: 'Add price tier' }).first().click();
+      const priceDialog = page.getByRole('dialog', { name: 'Add price tier' });
+      await priceDialog.getByLabel('Name').fill('Main Floor Admission');
+      await priceDialog.getByLabel('Code').fill('GAF');
+      await priceDialog.getByLabel('Currency').fill('NGN');
+      await priceDialog.getByLabel('Price').fill('35000');
+      await priceDialog.getByRole('button', { name: 'Add tier' }).click();
+    }
+    configuration = await apiJSON<{
+      price_tiers: Array<{ id: string; code: string; state: string }>;
+    }>(`/api/v1/admin/events/${eventId}/configuration`, { token });
+    const vipTier = configuration.data.price_tiers.find((tier) => tier.code === 'LVE');
+    const gaTier = configuration.data.price_tiers.find((tier) => tier.code === 'GAF');
+    expect(vipTier?.id).toMatch(/^price_/);
+    expect(gaTier?.id).toMatch(/^price_/);
+    const pricingInventory = await apiJSON<{
+      inventory: Array<{
+        kind: 'RESERVED' | 'GA';
+        section_object_key: string;
+        section_name: string;
+        snapshot_object_key: string;
+      }>;
+    }>(`/api/v1/admin/events/${eventId}/inventory`, { token });
+    const vipSectionKey = pricingInventory.data.inventory.find(
+      (item) => item.kind === 'RESERVED' && item.section_name === 'VIP',
+    )?.section_object_key;
+    const mainFloorPoolKey = pricingInventory.data.inventory.find(
+      (item) => item.kind === 'GA' && item.section_name === 'Main Floor',
+    )?.snapshot_object_key;
+    const banquetSectionKey = pricingInventory.data.inventory.find(
+      (item) => item.kind === 'RESERVED' && item.section_name === 'Banquet',
+    )?.section_object_key;
+    expect(vipSectionKey).toBeTruthy();
+    expect(mainFloorPoolKey).toBeTruthy();
+    expect(banquetSectionKey).toBeTruthy();
     const assignment = page.getByLabel('Price tier to assign');
     await expect(assignment).toBeVisible();
-    await assignment.selectOption({ index: 1 });
-    const assignmentResponsePromise = page.waitForResponse(
+    await assignment.selectOption(vipTier!.id);
+    await page.getByLabel('Apply to').selectOption('section');
+    await page.getByLabel('Section or area').selectOption({ label: 'VIP' });
+    const vipAssignmentPromise = page.waitForResponse(
       (response) =>
         response.url().endsWith(`/api/v1/admin/events/${eventId}/pricing/assignments`) &&
         response.request().method() === 'POST',
     );
-    await page.getByRole('button', { name: 'Assign to all inventory' }).click();
-    expect((await assignmentResponsePromise).ok()).toBe(true);
+    await page.getByRole('button', { name: 'Review pricing assignment' }).click();
+    await page
+      .getByRole('dialog', { name: 'Apply pricing?' })
+      .getByRole('button', { name: 'Apply pricing' })
+      .click();
+    const vipAssignment = await vipAssignmentPromise;
+    expect(vipAssignment.ok()).toBe(true);
+    expect(vipAssignment.request().postDataJSON()).toMatchObject({
+      price_tier_id: vipTier!.id,
+      section_object_keys: [vipSectionKey],
+      ga_pool_object_keys: [],
+    });
+
+    await assignment.selectOption(gaTier!.id);
+    await page.getByLabel('Section or area').selectOption({ label: 'Main Floor' });
+    const gaAssignmentPromise = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/v1/admin/events/${eventId}/pricing/assignments`) &&
+        response.request().method() === 'POST',
+    );
+    await page.getByRole('button', { name: 'Review pricing assignment' }).click();
+    await page
+      .getByRole('dialog', { name: 'Apply pricing?' })
+      .getByRole('button', { name: 'Apply pricing' })
+      .click();
+    const gaAssignment = await gaAssignmentPromise;
+    expect(gaAssignment.ok()).toBe(true);
+    const gaBody = gaAssignment.request().postDataJSON() as {
+      section_object_keys: string[];
+      ga_pool_object_keys: string[];
+    };
+    expect(gaBody.section_object_keys).toEqual([]);
+    expect(gaBody.ga_pool_object_keys).toEqual([mainFloorPoolKey]);
+
+    await assignment.selectOption(vipTier!.id);
+    await page.getByLabel('Section or area').selectOption({ label: 'Banquet' });
+    const banquetAssignmentPromise = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/v1/admin/events/${eventId}/pricing/assignments`) &&
+        response.request().method() === 'POST',
+    );
+    await page.getByRole('button', { name: 'Review pricing assignment' }).click();
+    await page
+      .getByRole('dialog', { name: 'Apply pricing?' })
+      .getByRole('button', { name: 'Apply pricing' })
+      .click();
+    const banquetAssignment = await banquetAssignmentPromise;
+    expect(banquetAssignment.ok()).toBe(true);
+    expect(banquetAssignment.request().postDataJSON()).toMatchObject({
+      price_tier_id: vipTier!.id,
+      section_object_keys: [banquetSectionKey],
+      ga_pool_object_keys: [],
+    });
+
+    const authoritativeInventory = await apiJSON<{
+      inventory: Array<{
+        kind: 'RESERVED' | 'GA';
+        section_object_key: string;
+        snapshot_object_key: string;
+        price_tier_id: string | null;
+      }>;
+    }>(`/api/v1/admin/events/${eventId}/inventory`, { token });
+    expect(
+      authoritativeInventory.data.inventory
+        .filter((item) => item.kind === 'RESERVED' && item.section_object_key === vipSectionKey)
+        .every((item) => item.price_tier_id === vipTier!.id),
+    ).toBe(true);
+    expect(
+      authoritativeInventory.data.inventory.find(
+        (item) => item.kind === 'GA' && item.snapshot_object_key === mainFloorPoolKey,
+      )?.price_tier_id,
+    ).toBe(gaTier!.id);
     await page.getByRole('tab', { name: 'Inventory' }).click();
     await expect(
       page.getByRole('cell', { name: 'Reserved seat', exact: true }).first(),
@@ -299,6 +397,113 @@ test('01 Admin platform setup', async ({ page }) => {
       page.getByRole('cell', { name: 'General admission', exact: true }).first(),
     ).toBeVisible();
     await screenshot(page, '01-admin-configured-inventory');
+  });
+
+  await test.step('Create and release reserved/GA blocks and an internal allocation through Admin UI', async () => {
+    const token = await operatorToken();
+    await page.goto(`${urls.admin}/events/${eventId}`);
+    await page.getByRole('tab', { name: 'Inventory' }).click();
+
+    const createRestriction = async ({
+      kind,
+      purpose,
+      search,
+      quantity,
+    }: {
+      kind: 'block' | 'allocation';
+      purpose: string;
+      search: string;
+      quantity?: number;
+    }) => {
+      await page
+        .getByRole('button', { name: kind === 'block' ? 'Block inventory' : 'Create allocation' })
+        .click();
+      const dialog = page.getByRole('dialog', {
+        name: kind === 'block' ? 'Block inventory' : 'Create allocation',
+      });
+      if (kind === 'block') await dialog.getByLabel('Purpose').selectOption(purpose);
+      else await dialog.getByLabel('Purpose').fill(purpose);
+      await dialog.getByLabel('Apply to').selectOption('seats');
+      await dialog.getByLabel('Find inventory').fill(search);
+      const choice = dialog.locator('.inventory-choice-list label').first();
+      await expect(choice).toBeVisible();
+      await choice.locator('input[type="checkbox"]').check();
+      if (quantity !== undefined)
+        await choice.getByRole('spinbutton', { name: /quantity/ }).fill(String(quantity));
+      const responsePromise = page.waitForResponse(
+        (response) =>
+          response
+            .url()
+            .endsWith(
+              `/api/v1/admin/events/${eventId}/${kind === 'block' ? 'blocks' : 'allocations'}`,
+            ) && response.request().method() === 'POST',
+      );
+      await dialog
+        .getByRole('button', { name: kind === 'block' ? 'Create block' : 'Create allocation' })
+        .click();
+      const response = await responsePromise;
+      expect(response.ok()).toBe(true);
+      return (await response.json()) as { id: string; state: string };
+    };
+
+    const releaseRestriction = async (id: string, purpose: string) => {
+      const item = page.locator('.restriction-list article').filter({ hasText: purpose }).first();
+      await expect(item).toContainText('Active');
+      page.once('dialog', (dialog) => dialog.accept());
+      const responsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes(`/api/v1/admin/`) &&
+          response.url().endsWith(`/${id}/release`) &&
+          response.request().method() === 'POST',
+      );
+      await item.getByRole('button', { name: 'Release' }).click();
+      expect((await responsePromise).ok()).toBe(true);
+      await expect(item).toContainText('Released');
+    };
+
+    const reservedBlock = await createRestriction({
+      kind: 'block',
+      purpose: 'VIP',
+      search: 'VIP',
+    });
+    await releaseRestriction(reservedBlock.id, 'VIP');
+
+    const gaBlock = await createRestriction({
+      kind: 'block',
+      purpose: 'Sponsor',
+      search: 'Main Floor',
+      quantity: 10,
+    });
+    await releaseRestriction(gaBlock.id, 'Sponsor');
+
+    const allocation = await createRestriction({
+      kind: 'allocation',
+      purpose: 'Internal review allocation',
+      search: 'VIP',
+    });
+    await releaseRestriction(allocation.id, 'Internal review allocation');
+
+    const restrictions = await apiJSON<{
+      items: Array<{
+        id: string;
+        state: string;
+        reserved_quantity: number;
+        ga_quantity: number;
+        mode: string | null;
+      }>;
+    }>(`/api/v1/admin/events/${eventId}/restrictions`, { token });
+    expect(restrictions.data.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: reservedBlock.id, state: 'RELEASED', reserved_quantity: 1 }),
+        expect.objectContaining({ id: gaBlock.id, state: 'RELEASED', ga_quantity: 10 }),
+        expect.objectContaining({
+          id: allocation.id,
+          state: 'RELEASED',
+          mode: 'NON_PUBLIC',
+          reserved_quantity: 1,
+        }),
+      ]),
+    );
   });
 
   let partnerId = ledger.partners[0] ?? '';

@@ -168,6 +168,59 @@ button:focus-visible {
   display: grid;
   gap: 18px;
 }
+.spatial-map-scroll {
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #f7faf9;
+  overscroll-behavior: contain;
+}
+.spatial-map {
+  position: relative;
+  min-width: 900px;
+  aspect-ratio: 1000 / 650;
+  background-image: radial-gradient(#cbd8d6 0.7px, transparent 0.7px);
+  background-size: 20px 20px;
+}
+.spatial-section,
+.spatial-ga,
+.spatial-orientation {
+  position: absolute;
+  transform-origin: center;
+  min-width: 150px;
+  min-height: 90px;
+}
+.spatial-section {
+  padding: 12px;
+  overflow: auto;
+}
+.spatial-section .section-heading {
+  margin-bottom: 8px;
+}
+.spatial-section .seat {
+  width: 27px;
+  height: 27px;
+  font-size: 10px;
+}
+.spatial-ga {
+  padding: 14px;
+  align-items: center;
+  overflow: auto;
+}
+.spatial-orientation {
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  border: 2px solid #78a6a5;
+  border-radius: 12px;
+  background: #d9eded;
+  color: #315e61;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 .stage-mark {
   width: min(520px, 76%);
   margin: 0 auto -5px;

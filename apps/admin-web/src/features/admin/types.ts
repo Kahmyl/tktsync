@@ -61,6 +61,65 @@ export interface LayoutVersion {
   created_at: string;
 }
 
+export type LayoutPosition = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation?: number;
+  shape?: string;
+  orientation?: string;
+};
+
+export interface VenueLayoutDetail extends LayoutVersion {
+  venue_id: string;
+  geometry: {
+    canvas?: { width: number; height: number };
+    objects?: Array<LayoutPosition & { object_key: string; type: string; label: string }>;
+  };
+  sections: Array<{
+    object_key: string;
+    name: string;
+    kind: 'RESERVED' | 'GA' | 'TABLE' | 'MIXED_VISUAL';
+    sort_order: number;
+    metadata?: Record<string, unknown>;
+  }>;
+  rows: Array<{
+    object_key: string;
+    section_key: string;
+    label: string;
+    sort_order: number;
+    metadata?: Record<string, unknown>;
+  }>;
+  tables: Array<{
+    object_key: string;
+    section_key: string;
+    label: string;
+    metadata?: Record<string, unknown>;
+  }>;
+  seats: Array<{
+    object_key: string;
+    section_key: string;
+    row_key?: string;
+    table_key?: string;
+    seat_label: string;
+    sort_order: number;
+    metadata?: Record<string, unknown>;
+  }>;
+  ga_zones: Array<{
+    object_key: string;
+    section_key: string;
+    name: string;
+    default_capacity: number;
+    metadata?: Record<string, unknown>;
+  }>;
+}
+
+export type ReplaceLayoutBody = Pick<
+  VenueLayoutDetail,
+  'geometry' | 'sections' | 'rows' | 'tables' | 'seats' | 'ga_zones'
+>;
+
 export interface PartnerSummary {
   id: string;
   name: string;
@@ -137,9 +196,32 @@ export interface InventoryItem {
   kind: 'RESERVED' | 'GA';
   id: string;
   snapshot_object_key: string;
+  section_object_key: string;
+  section_name: string;
+  row_label: string | null;
+  table_label: string | null;
+  seat_label: string | null;
+  area_name: string;
+  display_label: string;
   label: string;
   quantity: number;
   price_tier_id: string | null;
+}
+
+export interface InventoryRestriction {
+  id: string;
+  kind: 'BLOCK' | 'ALLOCATION';
+  state: 'ACTIVE' | 'RELEASED' | 'CLOSED';
+  purpose: string;
+  reason: string | null;
+  mode: 'CHANNEL' | 'NON_PUBLIC' | null;
+  partner_id: string | null;
+  partner_name: string | null;
+  reserved_quantity: number;
+  ga_quantity: number;
+  inventory_labels: string[];
+  created_at: string;
+  released_at: string | null;
 }
 
 export interface InventoryReport {

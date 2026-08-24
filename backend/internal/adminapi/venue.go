@@ -355,6 +355,11 @@ func (h *Handler) getLayout(
 		version     int
 		state       string
 		geometry    []byte
+		sections    []byte
+		rows        []byte
+		tables      []byte
+		seats       []byte
+		gaZones     []byte
 		contentHash []byte
 		publishedAt any
 		retiredAt   any
@@ -369,6 +374,11 @@ func (h *Handler) getLayout(
 				version_number,
 				state,
 				geometry_json,
+				COALESCE((SELECT jsonb_agg(jsonb_build_object('object_key',object_key,'name',name,'kind',section_kind,'sort_order',sort_order,'metadata',metadata) ORDER BY sort_order,object_key) FROM venue_layout_sections WHERE layout_version_id=$1),'[]'::jsonb),
+				COALESCE((SELECT jsonb_agg(jsonb_build_object('object_key',r.object_key,'section_key',s.object_key,'label',r.label,'sort_order',r.sort_order,'metadata',r.metadata) ORDER BY r.sort_order,r.object_key) FROM venue_layout_rows r JOIN venue_layout_sections s ON s.id=r.section_id WHERE r.layout_version_id=$1),'[]'::jsonb),
+				COALESCE((SELECT jsonb_agg(jsonb_build_object('object_key',t.object_key,'section_key',s.object_key,'label',t.label,'metadata',t.metadata) ORDER BY t.object_key) FROM venue_layout_tables t JOIN venue_layout_sections s ON s.id=t.section_id WHERE t.layout_version_id=$1),'[]'::jsonb),
+				COALESCE((SELECT jsonb_agg(jsonb_build_object('object_key',seat.object_key,'section_key',s.object_key,'row_key',COALESCE(r.object_key,''),'table_key',COALESCE(t.object_key,''),'seat_label',seat.seat_label,'sort_order',seat.sort_order,'metadata',seat.metadata) ORDER BY s.sort_order,COALESCE(r.sort_order,0),seat.sort_order,seat.object_key) FROM venue_layout_seats seat JOIN venue_layout_sections s ON s.id=seat.section_id LEFT JOIN venue_layout_rows r ON r.id=seat.row_id LEFT JOIN venue_layout_tables t ON t.id=seat.table_id WHERE seat.layout_version_id=$1),'[]'::jsonb),
+				COALESCE((SELECT jsonb_agg(jsonb_build_object('object_key',g.object_key,'section_key',s.object_key,'name',g.name,'default_capacity',g.default_capacity,'metadata',g.metadata) ORDER BY s.sort_order,g.object_key) FROM venue_layout_ga_zones g JOIN venue_layout_sections s ON s.id=g.section_id WHERE g.layout_version_id=$1),'[]'::jsonb),
 				content_hash,
 				published_at,
 				retired_at,
@@ -382,6 +392,11 @@ func (h *Handler) getLayout(
 		&version,
 		&state,
 		&geometry,
+		&sections,
+		&rows,
+		&tables,
+		&seats,
+		&gaZones,
 		&contentHash,
 		&publishedAt,
 		&retiredAt,
@@ -407,6 +422,11 @@ func (h *Handler) getLayout(
 			"version_number": version,
 			"state":          state,
 			"geometry":       rawJSON(geometry),
+			"sections":       rawJSON(sections),
+			"rows":           rawJSON(rows),
+			"tables":         rawJSON(tables),
+			"seats":          rawJSON(seats),
+			"ga_zones":       rawJSON(gaZones),
 			"content_hash":   contentHash,
 			"published_at":   publishedAt,
 			"retired_at":     retiredAt,

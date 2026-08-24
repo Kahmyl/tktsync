@@ -279,6 +279,11 @@ func (h *Handler) getEventInventory(
 				'RESERVED'::text,
 				riu.id,
 				riu.snapshot_object_key,
+				es.snapshot_object_key,
+				es.name,
+				riu.row_label,
+				riu.table_label,
+				riu.seat_label,
 				riu.display_label,
 				1::integer,
 				COALESCE(
@@ -296,10 +301,16 @@ func (h *Handler) getEventInventory(
 				'GA'::text,
 				gp.id,
 				gp.snapshot_object_key,
+				es.snapshot_object_key,
+				es.name,
+				NULL::text,
+				NULL::text,
+				NULL::text,
 				gp.name,
 				gp.capacity,
 				gp.price_tier_id
 			FROM ga_inventory_pools gp
+			JOIN event_sections es ON es.id = gp.event_section_id
 			WHERE gp.event_id = $1
 
 			ORDER BY 1, 3
@@ -319,6 +330,11 @@ func (h *Handler) getEventInventory(
 			kind        string
 			id          uuid.UUID
 			objectKey   string
+			sectionKey  string
+			sectionName string
+			rowLabel    *string
+			tableLabel  *string
+			seatLabel   *string
 			label       string
 			quantity    int
 			priceTierID *uuid.UUID
@@ -328,6 +344,11 @@ func (h *Handler) getEventInventory(
 			&kind,
 			&id,
 			&objectKey,
+			&sectionKey,
+			&sectionName,
+			&rowLabel,
+			&tableLabel,
+			&seatLabel,
 			&label,
 			&quantity,
 			&priceTierID,
@@ -355,6 +376,13 @@ func (h *Handler) getEventInventory(
 				"kind":                kind,
 				"id":                  publicid.Encode(idKind, id),
 				"snapshot_object_key": objectKey,
+				"section_object_key":  sectionKey,
+				"section_name":        sectionName,
+				"row_label":           rowLabel,
+				"table_label":         tableLabel,
+				"seat_label":          seatLabel,
+				"area_name":           label,
+				"display_label":       label,
 				"label":               label,
 				"quantity":            quantity,
 				"price_tier_id":       encodedPriceTier,

@@ -189,7 +189,18 @@ func (h *Handler) exportAccreditation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition", `attachment; filename="tktsync-accreditation-`+snapshot.Event.ID+`.csv"`)
+	filename := strings.ToLower(snapshot.Event.Name)
+	filename = strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' {
+			return r
+		}
+		return '-'
+	}, filename)
+	filename = strings.Trim(strings.Join(strings.FieldsFunc(filename, func(r rune) bool { return r == '-' }), "-"), "-")
+	if filename == "" {
+		filename = "event"
+	}
+	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`-accreditation-`+snapshot.GeneratedAt.Format("2006-01-02")+`.csv"`)
 	w.Header().Set("X-TktSync-Generated-At", snapshot.GeneratedAt.Format(time.RFC3339Nano))
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)

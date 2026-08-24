@@ -11,6 +11,7 @@ export type SelectableOffer = Offer & {
   section_id?: string;
   section_name?: string;
   row?: string;
+  table?: string;
   seat?: string;
 };
 
@@ -18,12 +19,25 @@ export type SelectionLine = { offer: SelectableOffer; quantity: number };
 
 export type Layout = {
   event_id: string;
-  geometry?: unknown;
+  geometry?: {
+    objects?: Array<{
+      object_key: string;
+      type: string;
+      label: string;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      rotation?: number;
+    }>;
+  };
   reserved_units: Array<{
     inventory_id: string;
     section_id?: string;
     section_name?: string;
+    section_object_key?: string;
     row?: string;
+    table?: string;
     seat: string;
     display_label?: string;
   }>;
@@ -31,6 +45,7 @@ export type Layout = {
     inventory_id: string;
     section_id?: string;
     section_name?: string;
+    section_object_key?: string;
     name: string;
     capacity: number;
   }>;

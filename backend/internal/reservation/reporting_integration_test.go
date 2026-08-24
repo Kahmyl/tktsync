@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -294,11 +295,23 @@ func TestReportingAuditPaginationAccreditationCSVAndCancellationHistory(t *testi
 	if len(records) < 2 {
 		t.Fatalf("CSV rows=%d", len(records))
 	}
+	wantHeader := []string{"ticket", "attendee_name", "event", "section_or_area", "row", "table", "seat", "ticket_status", "admission_status", "admission_timestamp", "issued_at"}
+	if !reflect.DeepEqual(records[0], wantHeader) {
+		t.Fatalf("accreditation headers=%v", records[0])
+	}
+	for _, forbidden := range []string{"event_id", "allocation_id", "issuance_id", "ticket_id", "accreditation_data"} {
+		if strings.Contains(output.String(), forbidden) {
+			t.Fatalf("internal field %q leaked: %s", forbidden, output.String())
+		}
+	}
 	if strings.Contains(strings.ToLower(output.String()), "must-not-export") || strings.Contains(strings.ToLower(output.String()), "qr_") {
 		t.Fatalf("secret/QR material leaked: %s", output.String())
 	}
 	if !strings.Contains(output.String(), "Ada \"\"A\"\"") {
 		t.Fatalf("quoted attendee value was not escaped: %s", output.String())
+	}
+	if !strings.HasPrefix(records[1][0], "tkt_") {
+		t.Fatalf("ticket reference is not stable public ID: %q", records[1][0])
 	}
 	var businessRowsAfter int64
 	if err := f.pool.QueryRow(ctx, `SELECT (SELECT COUNT(*) FROM ticket_entitlements WHERE event_id=$1)+(SELECT COUNT(*) FROM admissions WHERE event_id=$1)+(SELECT COUNT(*) FROM audit_events WHERE event_id=$1)`, f.eventID).Scan(&businessRowsAfter); err != nil {

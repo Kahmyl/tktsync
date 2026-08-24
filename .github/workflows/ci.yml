@@ -87,7 +87,7 @@ jobs:
               -h 127.0.0.1 \
               -U tktsync \
               -d tktsync \
-              -c "SELECT 1 / CASE WHEN COUNT(*)=1 THEN 1 ELSE 0 END FROM schema_migrations WHERE version=7 AND dirty=false"
+              -c "SELECT 1 / CASE WHEN COUNT(*)=1 THEN 1 ELSE 0 END FROM schema_migrations WHERE version=8 AND dirty=false"
       - run: ./scripts/certify-partner-integration.sh
         env:
           POSTGRES_PORT: 5432

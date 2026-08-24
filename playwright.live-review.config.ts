@@ -6,7 +6,7 @@ const reviewRoot = path.resolve('artifacts/live-e2e-review', runId);
 
 export default defineConfig({
   testDir: './tests/e2e/live-review',
-  timeout: 180_000,
+  timeout: 600_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
   workers: 1,
@@ -27,6 +27,7 @@ export default defineConfig({
     actionTimeout: 20_000,
     navigationTimeout: 30_000,
     launchOptions: {
+      slowMo: Number(process.env.LIVE_REVIEW_SLOW_MO ?? 450),
       args: [
         '--use-fake-device-for-media-stream',
         '--use-fake-ui-for-media-stream',

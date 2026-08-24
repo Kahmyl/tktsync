@@ -97,17 +97,36 @@ test('05 Security, device, failure modes, and realtime', async ({ page, context 
 
     const addGA = page.getByRole('button', { name: /Add one Main Floor ticket/ });
     let additions = 0;
-    while ((await addGA.isEnabled()) && additions < 10) {
+    // Show several human-paced increments in the recording, then exercise the
+    // remaining real availability bound without turning the evidence into a
+    // minute of repetitive clicks.
+    while ((await addGA.isEnabled()) && additions < 5) {
       await addGA.click();
       additions += 1;
     }
     expect(additions).toBeGreaterThan(0);
+    await addGA.evaluate(async (button) => {
+      let guard = 0;
+      while (!(button as HTMLButtonElement).disabled && guard < 500) {
+        button.click();
+        guard += 1;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+    });
     await expect(addGA).toBeDisabled();
     const removeGA = page.getByRole('button', { name: /Remove one Main Floor ticket/ });
     while ((await removeGA.isEnabled()) && additions > 0) {
       await removeGA.click();
       additions -= 1;
     }
+    await removeGA.evaluate(async (button) => {
+      let guard = 0;
+      while (!(button as HTMLButtonElement).disabled && guard < 500) {
+        button.click();
+        guard += 1;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+    });
     await expect(removeGA).toBeDisabled();
 
     const buyerB = await context.newPage();
