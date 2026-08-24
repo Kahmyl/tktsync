@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -293,6 +294,15 @@ func TestReportingAuditPaginationAccreditationCSVAndCancellationHistory(t *testi
 	}
 	if len(records) < 2 {
 		t.Fatalf("CSV rows=%d", len(records))
+	}
+	wantHeader := []string{"ticket", "attendee_name", "event", "section_or_area", "row", "seat", "ticket_status", "admission_status", "admission_timestamp", "issued_at"}
+	if !reflect.DeepEqual(records[0], wantHeader) {
+		t.Fatalf("accreditation headers=%v", records[0])
+	}
+	for _, forbidden := range []string{"event_id", "allocation_id", "issuance_id", "ticket_id", "accreditation_data"} {
+		if strings.Contains(output.String(), forbidden) {
+			t.Fatalf("internal field %q leaked: %s", forbidden, output.String())
+		}
 	}
 	if strings.Contains(strings.ToLower(output.String()), "must-not-export") || strings.Contains(strings.ToLower(output.String()), "qr_") {
 		t.Fatalf("secret/QR material leaked: %s", output.String())

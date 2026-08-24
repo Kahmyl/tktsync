@@ -18,7 +18,18 @@ export type SelectionLine = { offer: SelectableOffer; quantity: number };
 
 export type Layout = {
   event_id: string;
-  geometry?: unknown;
+  geometry?: {
+    objects?: Array<{
+      object_key: string;
+      type: string;
+      label: string;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      rotation?: number;
+    }>;
+  };
   reserved_units: Array<{
     inventory_id: string;
     section_id?: string;

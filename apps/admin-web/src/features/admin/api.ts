@@ -7,6 +7,7 @@ import type {
   EventDetail,
   EventSummary,
   InventoryItem,
+  InventoryRestriction,
   InventoryReport,
   LayoutVersion,
   PageResult,
@@ -15,11 +16,14 @@ import type {
   PlatformAdminUser,
   SalesReport,
   TicketSummary,
+  ReplaceLayoutBody,
+  VenueLayoutDetail,
   VenueSummary,
   WebhookEndpoint,
 } from './types';
 
-const client = createTktSyncClient(import.meta.env.VITE_API_BASE_URL ?? '');
+const apiBase = String(import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
+const client = createTktSyncClient(apiBase);
 
 type ClientResult = {
   data?: unknown;
@@ -121,6 +125,25 @@ export const adminApi = {
         params: { path: { event_id: eventId } },
       }),
     ),
+  restrictions: async (token: string, eventId: string) => {
+    const response = await fetch(
+      `${apiBase}/api/v1/admin/events/${encodeURIComponent(eventId)}/restrictions`,
+      { headers: headers(token) },
+    );
+    if (!response.ok) throw parseError(await response.json().catch(() => undefined), response);
+    return (await response.json()) as { items: InventoryRestriction[] };
+  },
+  accreditationCSV: async (token: string, eventId: string) => {
+    const response = await fetch(
+      `${apiBase}/api/v1/admin/events/${encodeURIComponent(eventId)}/accreditation-export`,
+      { headers: headers(token) },
+    );
+    if (!response.ok) throw parseError(await response.json().catch(() => undefined), response);
+    return {
+      blob: await response.blob(),
+      disposition: response.headers.get('content-disposition'),
+    };
+  },
   inventoryReport: (token: string, eventId: string) =>
     result<InventoryReport>(
       client.GET('/api/v1/admin/events/{event_id}/reports/inventory', {
@@ -172,6 +195,13 @@ export const adminApi = {
     );
     return data.layout_versions;
   },
+  layout: (token: string, layoutId: string) =>
+    result<VenueLayoutDetail>(
+      client.GET('/api/v1/admin/venue-layouts/{layout_id}', {
+        headers: headers(token),
+        params: { path: { layout_id: layoutId } },
+      }),
+    ),
 
   partners: (token: string, query = '', state = '') =>
     result<PageResult<PartnerSummary>>(
@@ -350,23 +380,13 @@ export const adminApi = {
     token: string,
     idempotencyKey: string,
     layoutId: string,
-    sections: Array<{ object_key: string; name: string; kind: 'RESERVED' | 'GA' }>,
+    body: ReplaceLayoutBody,
   ) =>
     result<Record<string, unknown>>(
       client.PATCH('/api/v1/admin/venue-layouts/{layout_id}', {
         headers: headers(token, idempotencyKey),
         params: { path: { layout_id: layoutId }, header: { 'Idempotency-Key': idempotencyKey } },
-        body: {
-          geometry: {},
-          sections,
-          ga_zones: sections
-            .filter((section) => section.kind === 'GA')
-            .map((section) => ({
-              object_key: `${section.object_key}-zone`,
-              section_key: section.object_key,
-              name: section.name,
-            })),
-        },
+        body,
       }),
     ),
   publishLayout: (token: string, idempotencyKey: string, layoutId: string) =>
@@ -527,6 +547,73 @@ export const adminApi = {
       client.POST('/api/v1/admin/admissions/manual-override', {
         headers: headers(token, idempotencyKey),
         params: { header: { 'Idempotency-Key': idempotencyKey } },
+        body,
+      }),
+    ),
+
+  createBlock: (
+    token: string,
+    key: string,
+    eventId: string,
+    body: {
+      purpose: string;
+      reason?: string;
+      reserved_inventory_ids?: string[];
+      ga_targets?: Array<{ inventory_id: string; quantity: number }>;
+    },
+  ) =>
+    result<{ id: string; state: string }>(
+      client.POST('/api/v1/admin/events/{event_id}/blocks', {
+        headers: headers(token, key),
+        params: { path: { event_id: eventId }, header: { 'Idempotency-Key': key } },
+        body,
+      }),
+    ),
+  releaseBlock: (token: string, key: string, blockId: string) =>
+    result<{ id: string; state: string }>(
+      client.POST('/api/v1/admin/blocks/{block_id}/release', {
+        headers: headers(token, key),
+        params: { path: { block_id: blockId }, header: { 'Idempotency-Key': key } },
+      }),
+    ),
+  createAllocation: (
+    token: string,
+    key: string,
+    eventId: string,
+    body: {
+      mode: 'CHANNEL' | 'NON_PUBLIC';
+      partner_id?: string;
+      purpose: string;
+      reason?: string;
+      release_destination: { kind: 'SHARED' };
+      reserved_inventory_ids?: string[];
+      ga_targets?: Array<{ inventory_id: string; quantity: number }>;
+    },
+  ) =>
+    result<{ id: string; state: string }>(
+      client.POST('/api/v1/admin/events/{event_id}/allocations', {
+        headers: headers(token, key),
+        params: { path: { event_id: eventId }, header: { 'Idempotency-Key': key } },
+        body,
+      }),
+    ),
+  releaseAllocation: (token: string, key: string, id: string) =>
+    result<{ id: string; state: string }>(
+      client.POST('/api/v1/admin/allocations/{allocation_id}/release', {
+        headers: headers(token, key),
+        params: { path: { allocation_id: id }, header: { 'Idempotency-Key': key } },
+      }),
+    ),
+  reclassifyAllocation: (
+    token: string,
+    key: string,
+    id: string,
+    body: { mode: 'CHANNEL' | 'NON_PUBLIC'; partner_id?: string },
+  ) =>
+    result<{ id: string; state: string }>(
+      client.POST('/api/v1/admin/allocations/{allocation_id}/reclassify', {
+        headers: headers(token, key),
+        params: { path: { allocation_id: id }, header: { 'Idempotency-Key': key } },
         body,
       }),
     ),

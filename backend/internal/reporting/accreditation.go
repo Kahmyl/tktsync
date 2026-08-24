@@ -3,12 +3,12 @@ package reporting
 import (
 	"context"
 	"encoding/csv"
+	"fmt"
 	"io"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/tktsync/tktsync/backend/internal/platform/publicid"
 )
 
 type AccreditationSnapshot struct {
@@ -25,66 +25,55 @@ func (s *Service) WriteAccreditationCSV(ctx context.Context, eventID uuid.UUID, 
 			return err
 		}
 		rows, err := tx.Query(ctx, `
-			SELECT ir.id,ir.purpose,a.mode,npi.id,npi.issued_at,te.id,te.status,te.inventory_kind,
-			       COALESCE(riu.display_label,gp.name,''),tad.partner_attendee_ref,tad.display_name,
-			       COALESCE(tad.accreditation_data,'{}'::jsonb),adm.status,adm.admitted_at,adm.reversed_at
-			FROM events e
-			LEFT JOIN non_public_issuances npi ON npi.event_id=e.id
-			LEFT JOIN inventory_restrictions ir ON ir.id=npi.allocation_id
-			LEFT JOIN allocations a ON a.restriction_id=ir.id
-			LEFT JOIN non_public_issuance_items nii ON nii.issuance_id=npi.id
-			LEFT JOIN ticket_entitlements te ON te.origin_issuance_item_id=nii.id
+			SELECT te.status,te.inventory_kind,es.name,riu.row_label,riu.seat_label,
+			       COALESCE(gp.name,''),tad.display_name,adm.status,adm.admitted_at,te.created_at
+			FROM ticket_entitlements te
 			LEFT JOIN reserved_inventory_units riu ON riu.id=te.reserved_inventory_unit_id
+			LEFT JOIN event_sections es ON es.id=riu.event_section_id
 			LEFT JOIN ga_inventory_pools gp ON gp.id=te.ga_pool_id
 			LEFT JOIN ticket_attendee_details tad ON tad.ticket_entitlement_id=te.id
-			LEFT JOIN LATERAL (SELECT status,admitted_at,reversed_at FROM admissions WHERE ticket_entitlement_id=te.id ORDER BY admitted_at DESC,id DESC LIMIT 1) adm ON true
-			WHERE e.id=$1 ORDER BY ir.id,npi.issued_at,npi.id,te.id
+			LEFT JOIN LATERAL (SELECT status,admitted_at FROM admissions WHERE ticket_entitlement_id=te.id ORDER BY admitted_at DESC,id DESC LIMIT 1) adm ON true
+			WHERE te.event_id=$1 ORDER BY COALESCE(es.name,gp.name,''),riu.row_label,riu.seat_label,te.created_at,te.id
 		`, eventID)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		csvw := csv.NewWriter(writer)
-		if err := csvw.Write([]string{"generated_at", "event_id", "event_name", "event_state", "allocation_id", "allocation_purpose", "allocation_mode", "issuance_id", "issued_at", "ticket_id", "ticket_status", "inventory_kind", "inventory_display", "partner_attendee_ref", "display_name", "accreditation_data", "admission_status", "admitted_at", "reversed_at"}); err != nil {
+		if err := csvw.Write([]string{"ticket", "attendee_name", "event", "section_or_area", "row", "seat", "ticket_status", "admission_status", "admission_timestamp", "issued_at"}); err != nil {
 			return err
 		}
 		wrote := false
+		rowNumber := 0
 		for rows.Next() {
-			var allocationID, issuanceID, ticketID *uuid.UUID
-			var purpose, mode, status, kind, display, partnerRef, displayName, admissionStatus *string
-			var issuedAt, admittedAt, reversedAt *time.Time
-			var accreditation []byte
-			if err := rows.Scan(&allocationID, &purpose, &mode, &issuanceID, &issuedAt, &ticketID, &status, &kind, &display, &partnerRef, &displayName, &accreditation, &admissionStatus, &admittedAt, &reversedAt); err != nil {
+			var status, kind string
+			var section, row, seat, ga, displayName, admissionStatus *string
+			var admittedAt *time.Time
+			var issuedAt time.Time
+			if err := rows.Scan(&status, &kind, &section, &row, &seat, &ga, &displayName, &admissionStatus, &admittedAt, &issuedAt); err != nil {
 				return err
 			}
-			if issuanceID == nil {
-				continue
-			}
 			wrote = true
-			cleanAccreditation := sanitizeJSON(accreditation)
-			record := []string{snapshot.GeneratedAt.Format(time.RFC3339Nano), snapshot.Event.ID, snapshot.Event.Name, snapshot.Event.State, encodeCSVID(publicid.Allocation, allocationID), valueOrEmpty(purpose), valueOrEmpty(mode), encodeCSVID(publicid.NonPublicIssuance, issuanceID), timeOrEmpty(issuedAt), encodeCSVID(publicid.Ticket, ticketID), valueOrEmpty(status), valueOrEmpty(kind), valueOrEmpty(display), valueOrEmpty(partnerRef), valueOrEmpty(displayName), string(cleanAccreditation), valueOrEmpty(admissionStatus), timeOrEmpty(admittedAt), timeOrEmpty(reversedAt)}
+			area := valueOrEmpty(section)
+			if kind == "GA" {
+				area = valueOrEmpty(ga)
+			}
+			record := []string{fmt.Sprintf("Ticket %d", rowNumber+1), valueOrEmpty(displayName), snapshot.Event.Name, area, valueOrEmpty(row), valueOrEmpty(seat), status, valueOrEmpty(admissionStatus), timeOrEmpty(admittedAt), issuedAt.Format(time.RFC3339Nano)}
 			if err := csvw.Write(record); err != nil {
 				return err
 			}
+			rowNumber++
 		}
 		if err := rows.Err(); err != nil {
 			return err
 		}
 		if !wrote {
-			if err := csvw.Write([]string{snapshot.GeneratedAt.Format(time.RFC3339Nano), snapshot.Event.ID, snapshot.Event.Name, snapshot.Event.State, "", "", "", "", "", "", "", "", "", "", "", "{}", "", "", ""}); err != nil {
-				return err
-			}
+			// A header-only CSV is a valid empty accreditation roster.
 		}
 		csvw.Flush()
 		return csvw.Error()
 	})
 	return snapshot, err
-}
-func encodeCSVID(kind publicid.Kind, id *uuid.UUID) string {
-	if id == nil {
-		return ""
-	}
-	return publicid.Encode(kind, *id)
 }
 func valueOrEmpty(value *string) string {
 	if value == nil {

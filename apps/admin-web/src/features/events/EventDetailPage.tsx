@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useOperator } from '../../auth/OperatorSession';
 import {
   Button,
   Dialog,
@@ -51,6 +52,8 @@ import {
   useVenue,
 } from '../admin/queries';
 import type { EventState } from '../admin/types';
+import { InventoryTargetPicker, type InventoryTargets } from './inventory/InventoryTargetPicker';
+import { RestrictionsPanel } from './inventory/RestrictionsPanel';
 
 const tabs = [
   ['overview', 'Overview'],
@@ -67,6 +70,7 @@ type LifecycleAction = 'open-sales' | 'pause-sales' | 'resume-sales' | 'close-sa
 
 export function EventDetailPage() {
   const { eventId = '' } = useParams();
+  const operator = useOperator();
   const [tab, setTab] = useState<Tab>('overview');
   const event = useEvent(eventId);
   const workspace = useEventWorkspace(eventId);
@@ -80,6 +84,14 @@ export function EventDetailPage() {
   const [currency, setCurrency] = useState('NGN');
   const [layoutId, setLayoutId] = useState('');
   const [assignTierId, setAssignTierId] = useState('');
+  const [priceTargets, setPriceTargets] = useState<InventoryTargets>({
+    reservedIds: [],
+    reservedKeys: [],
+    ga: [],
+    sectionKeys: [],
+  });
+  const [assignConfirm, setAssignConfirm] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [confirm, setConfirm] = useState<{
     action: LifecycleAction | 'cancel';
     title: string;
@@ -136,16 +148,13 @@ export function EventDetailPage() {
     invalidate,
   });
   const assign = useIntentMutation({
-    intent: () => `${eventId}:assign:${assignTierId}`,
+    intent: () => `${eventId}:assign:${assignTierId}:${JSON.stringify(priceTargets)}`,
     mutationFn: (token, key) =>
       adminApi.assignPricing(token, key, eventId, {
         price_tier_id: assignTierId,
-        reserved_object_keys: (workspace.inventory.data?.inventory ?? [])
-          .filter((item) => item.kind === 'RESERVED')
-          .map((item) => item.snapshot_object_key),
-        ga_pool_object_keys: (workspace.inventory.data?.inventory ?? [])
-          .filter((item) => item.kind === 'GA')
-          .map((item) => item.snapshot_object_key),
+        section_object_keys: priceTargets.sectionKeys,
+        reserved_object_keys: priceTargets.reservedKeys,
+        ga_pool_object_keys: priceTargets.ga.map((item) => item.key),
       }),
     invalidate,
   });
@@ -212,6 +221,22 @@ export function EventDetailPage() {
     await lifecycle.mutateAsync({ action: confirm.action, reason: reason.trim() });
     setConfirm(null);
     setReason('');
+  };
+  const exportAccreditation = async () => {
+    setExporting(true);
+    try {
+      const exported = await adminApi.accreditationCSV(operator.token, eventId);
+      const url = URL.createObjectURL(exported.blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${humanName(detail.name, 'event')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')}-accreditation-${new Date().toISOString().slice(0, 10)}.csv`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -529,11 +554,11 @@ export function EventDetailPage() {
             <Panel>
               <SectionHeading
                 title="Assign pricing"
-                description="Apply one active tier to all currently materialized inventory."
+                description="Choose an event-wide, area or seat-specific pricing scope."
               />
               <div className="panel-divider" />
               <PanelBody>
-                <div className="inline-form">
+                <div className="form-stack">
                   <Select
                     aria-label="Price tier to assign"
                     value={assignTierId}
@@ -547,12 +572,23 @@ export function EventDetailPage() {
                       </option>
                     ))}
                   </Select>
+                  <InventoryTargetPicker
+                    inventory={workspace.inventory.data.inventory}
+                    value={priceTargets}
+                    onChange={setPriceTargets}
+                    allowEntireEvent
+                  />
                   <Button
-                    disabled={!assignTierId}
+                    disabled={
+                      !assignTierId ||
+                      (!priceTargets.reservedKeys.length &&
+                        !priceTargets.ga.length &&
+                        !priceTargets.sectionKeys.length)
+                    }
                     busy={assign.isPending}
-                    onClick={() => void assign.mutateAsync(undefined)}
+                    onClick={() => setAssignConfirm(true)}
                   >
-                    Assign to all inventory
+                    Review pricing assignment
                   </Button>
                 </div>
               </PanelBody>
@@ -621,6 +657,16 @@ export function EventDetailPage() {
               />
             )}
           </Panel>
+          <RestrictionsPanel
+            eventId={eventId}
+            inventory={workspace.inventory.data?.inventory ?? []}
+            restrictions={workspace.restrictions.data?.items ?? []}
+            partners={(configuration?.partner_access ?? []).map((item) => ({
+              id: item.partner_id,
+              name: item.partner_name,
+              state: item.partner_state,
+            }))}
+          />
         </div>
       ) : null}
 
@@ -773,7 +819,19 @@ export function EventDetailPage() {
             <MetricCard label="Rejected" value={rejectedTotal(admissionReport?.scan_outcomes)} />
           </div>
           <Panel>
-            <SectionHeading title="Recent gate activity" />
+            <SectionHeading
+              title="Recent gate activity"
+              actions={
+                <Button
+                  size="small"
+                  variant="secondary"
+                  busy={exporting}
+                  onClick={() => void exportAccreditation()}
+                >
+                  Export accreditation CSV
+                </Button>
+              }
+            />
             <div className="panel-divider" />
             {admissions.data?.items.length ? (
               <div className="table-wrap">
@@ -938,6 +996,36 @@ export function EventDetailPage() {
             onClick={() => void submitPrice()}
           >
             Add tier
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={assignConfirm}
+        title="Apply pricing?"
+        description="This updates authoritative prices for the selected inventory."
+        onClose={() => setAssignConfirm(false)}
+      >
+        <div className="dialog-body">
+          <InlineNotice tone="warning">
+            Apply{' '}
+            {formatMoney(
+              activeTiers.find((tier) => tier.id === assignTierId)?.amount_minor ?? 0,
+              activeTiers.find((tier) => tier.id === assignTierId)?.currency ?? 'NGN',
+            )}{' '}
+            pricing to {priceTargets.reservedKeys.length} reserved seats and{' '}
+            {priceTargets.ga.length} general-admission areas?
+          </InlineNotice>
+          {assign.error ? <ErrorState error={assign.error} /> : null}
+        </div>
+        <DialogActions>
+          <Button variant="secondary" onClick={() => setAssignConfirm(false)}>
+            Cancel
+          </Button>
+          <Button
+            busy={assign.isPending}
+            onClick={() => void assign.mutateAsync(undefined).then(() => setAssignConfirm(false))}
+          >
+            Apply pricing
           </Button>
         </DialogActions>
       </Dialog>

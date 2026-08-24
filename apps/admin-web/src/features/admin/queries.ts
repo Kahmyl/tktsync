@@ -11,6 +11,7 @@ export const adminKeys = {
   event: (id: string) => ['admin', 'event', id] as const,
   configuration: (id: string) => ['admin', 'event', id, 'configuration'] as const,
   inventory: (id: string) => ['admin', 'event', id, 'inventory'] as const,
+  restrictions: (id: string) => ['admin', 'event', id, 'restrictions'] as const,
   inventoryReport: (id: string) => ['admin', 'event', id, 'report', 'inventory'] as const,
   salesReport: (id: string) => ['admin', 'event', id, 'report', 'sales'] as const,
   admissionReport: (id: string) => ['admin', 'event', id, 'report', 'admission'] as const,
@@ -71,6 +72,11 @@ export function useEventWorkspace(id: string) {
     inventory: useQuery({
       queryKey: adminKeys.inventory(id),
       queryFn: () => adminApi.eventInventory(token, id),
+      enabled: Boolean(id),
+    }),
+    restrictions: useQuery({
+      queryKey: adminKeys.restrictions(id),
+      queryFn: () => adminApi.restrictions(token, id),
       enabled: Boolean(id),
     }),
     inventoryReport: useQuery({

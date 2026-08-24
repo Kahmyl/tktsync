@@ -1,36 +1,33 @@
 import { Edit3, Layers3, Plus, Send } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useOperator } from '../../auth/OperatorSession';
 import {
   Button,
   Dialog,
   DialogActions,
   EmptyState,
   ErrorState,
-  Field,
   InlineNotice,
-  Input,
   LoadingState,
   PageHeader,
   Panel,
   PanelBody,
   SectionHeading,
-  Select,
   StatusPill,
 } from '../../components/ui';
 import { formatDateTime, humanName } from '../../lib/format';
 import { adminApi } from '../admin/api';
 import { adminKeys, useIntentMutation, useVenue } from '../admin/queries';
-
-type DraftSection = { object_key: string; name: string; kind: 'RESERVED' | 'GA' };
+import type { ReplaceLayoutBody, VenueLayoutDetail } from '../admin/types';
+import { LayoutBuilder } from './layout-builder/LayoutBuilder';
 
 export function VenueDetailPage() {
   const { venueId = '' } = useParams();
+  const auth = useOperator();
   const { venue, layouts } = useVenue(venueId);
-  const [editLayoutId, setEditLayoutId] = useState('');
-  const [sectionName, setSectionName] = useState('');
-  const [sectionKind, setSectionKind] = useState<'RESERVED' | 'GA'>('RESERVED');
-  const [sections, setSections] = useState<DraftSection[]>([]);
+  const [editLayout, setEditLayout] = useState<VenueLayoutDetail | null>(null);
+  const [editorLoading, setEditorLoading] = useState(false);
   const [publishId, setPublishId] = useState('');
   const invalidate = [adminKeys.layouts(venueId), adminKeys.venue(venueId), adminKeys.venues];
   const create = useIntentMutation({
@@ -39,8 +36,9 @@ export function VenueDetailPage() {
     invalidate,
   });
   const replace = useIntentMutation({
-    intent: () => `${editLayoutId}:replace:${JSON.stringify(sections)}`,
-    mutationFn: (token, key) => adminApi.replaceLayout(token, key, editLayoutId, sections),
+    intent: (body: ReplaceLayoutBody) => `${editLayout?.id}:replace:${JSON.stringify(body)}`,
+    mutationFn: (token, key, body) =>
+      adminApi.replaceLayout(token, key, editLayout?.id ?? '', body),
     invalidate,
   });
   const publish = useIntentMutation({
@@ -60,38 +58,41 @@ export function VenueDetailPage() {
         }}
       />
     );
-  const openEditor = (id: string) => {
-    setEditLayoutId(id);
-    setSections([]);
-    setSectionName('');
-  };
-  const addSection = () => {
-    if (!sectionName.trim()) return;
-    const objectKey =
-      sectionName
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '') || `section-${sections.length + 1}`;
-    setSections((items) => [
-      ...items,
-      {
-        object_key: `${objectKey}-${items.length + 1}`,
-        name: sectionName.trim(),
-        kind: sectionKind,
-      },
-    ]);
-    setSectionName('');
-  };
-  const saveDraft = async () => {
-    await replace.mutateAsync(undefined);
-    setEditLayoutId('');
-    setSections([]);
+  const openEditor = async (id: string) => {
+    setEditorLoading(true);
+    try {
+      setEditLayout(await adminApi.layout(auth.token, id));
+    } finally {
+      setEditorLoading(false);
+    }
   };
   const publishConfirmed = async () => {
     await publish.mutateAsync(undefined);
     setPublishId('');
   };
+
+  if (editLayout && venue.data)
+    return (
+      <LayoutBuilder
+        venueName={humanName(venue.data.name, 'Untitled venue')}
+        layout={editLayout}
+        saving={replace.isPending}
+        publishing={publish.isPending}
+        error={replace.error ?? publish.error}
+        onClose={() => setEditLayout(null)}
+        onSave={async (body) => {
+          await replace.mutateAsync(body);
+        }}
+        onPublish={async (body) => {
+          if (!window.confirm('Publish this layout? Published layouts cannot be edited.')) return;
+          await replace.mutateAsync(body);
+          setPublishId(editLayout.id);
+          await publish.mutateAsync(undefined);
+          setPublishId('');
+          setEditLayout(null);
+        }}
+      />
+    );
 
   return (
     <>
@@ -194,7 +195,8 @@ export function VenueDetailPage() {
                               <Button
                                 variant="secondary"
                                 size="small"
-                                onClick={() => openEditor(layout.id)}
+                                busy={editorLoading}
+                                onClick={() => void openEditor(layout.id)}
                               >
                                 <Edit3 size={14} />
                                 Edit draft
@@ -225,85 +227,6 @@ export function VenueDetailPage() {
           />
         )}
       </Panel>
-      <Dialog
-        open={Boolean(editLayoutId)}
-        title="Edit draft layout"
-        description="Define the supported structured sections. No storage JSON is exposed."
-        onClose={() => setEditLayoutId('')}
-        className="wide-dialog"
-      >
-        <div className="dialog-body form-stack">
-          <InlineNotice>
-            Saving replaces the current draft structure. Published versions cannot be edited.
-          </InlineNotice>
-          <div className="inline-form">
-            <Field label="Section name">
-              <Input
-                id="section-name"
-                value={sectionName}
-                onChange={(event) => setSectionName(event.target.value)}
-                placeholder="e.g. Main floor"
-              />
-            </Field>
-            <Field label="Seating type">
-              <Select
-                id="section-kind"
-                value={sectionKind}
-                onChange={(event) => setSectionKind(event.target.value as 'RESERVED' | 'GA')}
-              >
-                <option value="RESERVED">Reserved seats</option>
-                <option value="GA">General admission</option>
-              </Select>
-            </Field>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={addSection}
-              disabled={!sectionName.trim()}
-            >
-              Add section
-            </Button>
-          </div>
-          {sections.length ? (
-            <ul className="draft-sections">
-              {sections.map((section, index) => (
-                <li key={section.object_key}>
-                  <div>
-                    <strong>{humanName(section.name, `Section ${index + 1}`)}</strong>
-                    <small>{section.kind === 'GA' ? 'General admission' : 'Reserved seats'}</small>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSections((items) => items.filter((_, itemIndex) => itemIndex !== index))
-                    }
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <EmptyState
-              title="No sections in this draft"
-              description="Add each supported seating area before saving."
-            />
-          )}
-          {replace.error ? <ErrorState error={replace.error} /> : null}
-        </div>
-        <DialogActions>
-          <Button variant="secondary" onClick={() => setEditLayoutId('')}>
-            Cancel
-          </Button>
-          <Button
-            busy={replace.isPending}
-            disabled={!sections.length}
-            onClick={() => void saveDraft()}
-          >
-            Save draft layout
-          </Button>
-        </DialogActions>
-      </Dialog>
       <Dialog
         open={Boolean(publishId)}
         title="Publish layout"

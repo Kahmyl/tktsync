@@ -2373,6 +2373,38 @@
         ]
       }
     },
+    "/api/v1/admin/events/{event_id}/restrictions": {
+      "get": {
+        "operationId": "adminListInventoryRestrictions",
+        "description": "Lists the Event's blocks and allocations with bounded, human-readable inventory summaries.",
+        "security": [{ "AdminBearer": [] }],
+        "responses": {
+          "2XX": {
+            "description": "Inventory restrictions",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } }
+            },
+            "headers": { "X-Request-ID": { "$ref": "#/components/headers/XRequestID" } }
+          },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
+        },
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "minLength": 1 }
+          },
+          {
+            "name": "X-Request-ID",
+            "in": "header",
+            "required": false,
+            "description": "Optional client request/correlation UUID.",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ]
+      }
+    },
     "/api/v1/admin/events/{event_id}/allocations": {
       "post": {
         "operationId": "adminCreateAllocation",

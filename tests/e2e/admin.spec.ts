@@ -332,6 +332,10 @@ async function mockAdminApi(page: Page) {
       });
       return;
     }
+    if (method === 'GET' && path.endsWith('/restrictions')) {
+      await json(route, 200, { items: [] });
+      return;
+    }
     if (method === 'GET' && path.endsWith('/reports/inventory')) {
       await json(route, 200, {
         generated_at: NOW,
@@ -424,6 +428,24 @@ async function mockAdminApi(page: Page) {
             created_at: NOW,
           },
         ],
+      });
+      return;
+    }
+    if (method === 'GET' && path === '/api/v1/admin/venue-layouts/lay_draft') {
+      await json(route, 200, {
+        id: 'lay_draft',
+        venue_id: venue.id,
+        version_number: 1,
+        state: 'DRAFT',
+        geometry: { canvas: { width: 1000, height: 650 }, objects: [] },
+        sections: [],
+        rows: [],
+        tables: [],
+        seats: [],
+        ga_zones: [],
+        published_at: null,
+        retired_at: null,
+        created_at: NOW,
       });
       return;
     }
@@ -584,9 +606,10 @@ test('Admin edits a venue, creates a partner, reveals one credential once, grant
     .first()
     .click();
   await page.getByRole('button', { name: 'Edit draft' }).click();
-  await page.getByLabel('Section name').fill('Main Floor');
-  await page.getByRole('button', { name: 'Add section' }).click();
-  await page.getByRole('button', { name: 'Save draft layout' }).click();
+  await page.getByRole('button', { name: 'Reserved section' }).click();
+  await page.getByLabel('Name').fill('Main Floor');
+  await page.getByRole('button', { name: 'Save draft' }).click();
+  await page.getByRole('button', { name: 'Close builder' }).click();
   await page.getByRole('button', { name: 'Publish' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Publish layout' }).click();
   await expect(page.locator('tbody').getByText('Published', { exact: true })).toBeVisible();

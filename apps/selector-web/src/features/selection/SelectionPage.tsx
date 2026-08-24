@@ -450,7 +450,21 @@ export function SelectionPage() {
         ) : (
           <div className="selector-grid">
             <div className="inventory-column">
-              {reservedSections.size > 0 && <div className="stage-mark">Event area</div>}
+              {(session.layout?.geometry?.objects ?? [])
+                .filter((item) => ['STAGE', 'RING', 'FIELD'].includes(item.type))
+                .map((item) => (
+                  <div className="stage-mark" key={item.object_key}>
+                    {humanLabel(
+                      item.label,
+                      item.type === 'STAGE' ? 'Stage' : item.type === 'RING' ? 'Ring' : 'Field',
+                    )}{' '}
+                    · Audience orientation
+                  </div>
+                ))}
+              {reservedSections.size > 0 &&
+                !(session.layout?.geometry?.objects ?? []).some((item) =>
+                  ['STAGE', 'RING', 'FIELD'].includes(item.type),
+                ) && <div className="stage-mark">Event area</div>}
               {[...reservedSections.entries()].map(([section, rows]) => (
                 <section className="seat-section" key={section} aria-label={section}>
                   <div className="section-heading">

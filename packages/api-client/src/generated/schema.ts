@@ -612,6 +612,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/admin/events/{event_id}/restrictions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Lists the Event's blocks and allocations with bounded, human-readable inventory summaries. */
+    get: operations['adminListInventoryRestrictions'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/admin/events/{event_id}/allocations': {
     parameters: {
       query?: never;
@@ -3652,6 +3669,33 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
+    };
+  };
+  adminListInventoryRestrictions: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: string;
+      };
+      path: {
+        event_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Inventory restrictions */
+      '2XX': {
+        headers: {
+          'X-Request-ID': components['headers']['XRequestID'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GenericObject'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
     };
   };
   adminCreateAllocation: {
