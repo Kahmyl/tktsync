@@ -321,16 +321,16 @@ test('04 Admin support and reporting', async ({ page }) => {
     const csv = await readFile(await download.path(), 'utf8');
     const rows = parseCSV(csv);
     expect(rows[0]).toEqual([
-      'ticket_reference',
+      'ticket',
       'attendee_name',
-      'event_name',
+      'event',
       'section_or_area',
       'row',
       'table',
       'seat',
       'ticket_status',
       'admission_status',
-      'admitted_at',
+      'admission_timestamp',
       'issued_at',
     ]);
     expect(rows.length).toBeGreaterThan(1);

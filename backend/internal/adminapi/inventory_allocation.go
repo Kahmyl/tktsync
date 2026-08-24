@@ -66,15 +66,15 @@ func (h *Handler) listRestrictions(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.db.Query(r.Context(), `
 		SELECT ir.id,ir.kind,ir.state,ir.purpose,ir.reason,a.mode,a.partner_id,p.name,
 		       ir.created_at,ir.released_at,
-		       COALESCE((SELECT count(*) FROM block_reserved_units bru WHERE bru.block_id=ir.id AND bru.released_at IS NULL),0)
-		       + COALESCE((SELECT count(*) FROM allocation_reserved_units aru WHERE aru.allocation_id=ir.id AND aru.released_at IS NULL),0),
-		       COALESCE((SELECT sum(gbb.blocked_quantity) FROM ga_block_buckets gbb WHERE gbb.block_id=ir.id),0)
-		       + COALESCE((SELECT sum(gab.available_quantity+gab.active_reserved_quantity+gab.sold_current_quantity+gab.issued_current_quantity) FROM ga_allocation_buckets gab WHERE gab.allocation_id=ir.id),0),
+		       COALESCE((SELECT count(*) FROM block_reserved_units bru WHERE bru.block_id=ir.id),0)
+		       + COALESCE((SELECT count(*) FROM allocation_reserved_units aru WHERE aru.allocation_id=ir.id),0),
+		       COALESCE((SELECT sum(gbb.assigned_quantity) FROM ga_block_buckets gbb WHERE gbb.block_id=ir.id),0)
+		       + COALESCE((SELECT sum(gab.assigned_quantity) FROM ga_allocation_buckets gab WHERE gab.allocation_id=ir.id),0),
 		       COALESCE((SELECT jsonb_agg(label ORDER BY label) FROM (
-		         SELECT riu.display_label label FROM block_reserved_units bru JOIN reserved_inventory_units riu ON riu.id=bru.reserved_inventory_unit_id WHERE bru.block_id=ir.id AND bru.released_at IS NULL
-		         UNION ALL SELECT riu.display_label FROM allocation_reserved_units aru JOIN reserved_inventory_units riu ON riu.id=aru.reserved_inventory_unit_id WHERE aru.allocation_id=ir.id AND aru.released_at IS NULL
-		         UNION ALL SELECT gp.name FROM ga_block_buckets gbb JOIN ga_inventory_pools gp ON gp.id=gbb.ga_pool_id WHERE gbb.block_id=ir.id AND gbb.blocked_quantity>0
-		         UNION ALL SELECT gp.name FROM ga_allocation_buckets gab JOIN ga_inventory_pools gp ON gp.id=gab.ga_pool_id WHERE gab.allocation_id=ir.id AND (gab.available_quantity+gab.active_reserved_quantity+gab.sold_current_quantity+gab.issued_current_quantity)>0
+		         SELECT riu.display_label label FROM block_reserved_units bru JOIN reserved_inventory_units riu ON riu.id=bru.reserved_inventory_unit_id WHERE bru.block_id=ir.id
+		         UNION ALL SELECT riu.display_label FROM allocation_reserved_units aru JOIN reserved_inventory_units riu ON riu.id=aru.reserved_inventory_unit_id WHERE aru.allocation_id=ir.id
+		         UNION ALL SELECT gp.name FROM ga_block_buckets gbb JOIN ga_inventory_pools gp ON gp.id=gbb.ga_pool_id WHERE gbb.block_id=ir.id AND gbb.assigned_quantity>0
+		         UNION ALL SELECT gp.name FROM ga_allocation_buckets gab JOIN ga_inventory_pools gp ON gp.id=gab.ga_pool_id WHERE gab.allocation_id=ir.id AND gab.assigned_quantity>0
 		       ) labels),'[]'::jsonb)
 		FROM inventory_restrictions ir
 		LEFT JOIN allocations a ON a.restriction_id=ir.id

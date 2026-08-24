@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tktsync/tktsync/backend/internal/adminapi"
+	allocsvc "github.com/tktsync/tktsync/backend/internal/allocation"
 	"github.com/tktsync/tktsync/backend/internal/auth"
 	eventsvc "github.com/tktsync/tktsync/backend/internal/event"
 	partnersvc "github.com/tktsync/tktsync/backend/internal/partner"
@@ -137,10 +138,11 @@ func TestAdminHTTPIdempotencyAndCredentialReplay(
 					Subject:  subject,
 				}, nil
 			},
-			VenueService:    venuesvc.NewService(runner),
-			EventService:    eventsvc.NewService(runner),
-			PartnerService:  partnersvc.NewService(runner),
-			ReplayProtector: protector,
+			VenueService:      venuesvc.NewService(runner),
+			EventService:      eventsvc.NewService(runner),
+			PartnerService:    partnersvc.NewService(runner),
+			AllocationService: allocsvc.NewService(runner),
+			ReplayProtector:   protector,
 			IdentityAdmin: adminapi.IdentityAdminFunc(func(_ context.Context, email, _ string) (adminapi.IdentityUser, bool, error) {
 				return adminapi.IdentityUser{ID: uuid.MustParse(managedAdminSubject), Email: email}, true, nil
 			}),
@@ -445,6 +447,88 @@ func TestAdminHTTPIdempotencyAndCredentialReplay(
 	}
 	if err := json.Unmarshal(eventResponse.Body.Bytes(), &eventBody); err != nil {
 		t.Fatalf("decode Event: %v", err)
+	}
+	eventID, err := publicid.Parse(eventBody.ID, publicid.Event)
+	if err != nil {
+		t.Fatalf("parse Event ID: %v", err)
+	}
+	sectionID := uuid.New()
+	reservedID := uuid.New()
+	gaPoolID := uuid.New()
+	blockID := uuid.New()
+	allocationID := uuid.New()
+	historyTx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin historical restriction fixture: %v", err)
+	}
+	defer historyTx.Rollback(ctx)
+	if _, err := historyTx.Exec(ctx, `SET LOCAL session_replication_role = replica`); err != nil {
+		t.Fatalf("isolate historical restriction fixture: %v", err)
+	}
+	if _, err := historyTx.Exec(ctx, `INSERT INTO event_sections (id,event_id,snapshot_object_key,name,sort_order) VALUES ($1,$2,'vip','VIP',0)`, sectionID, eventID); err != nil {
+		t.Fatalf("create historical restriction section: %v", err)
+	}
+	if _, err := historyTx.Exec(ctx, `INSERT INTO reserved_inventory_units (id,event_id,event_section_id,snapshot_object_key,row_label,seat_label,display_label) VALUES ($1,$2,$3,'vip-a-10','A','10','VIP A 10')`, reservedID, eventID, sectionID); err != nil {
+		t.Fatalf("create historical reserved unit: %v", err)
+	}
+	if _, err := historyTx.Exec(ctx, `INSERT INTO ga_inventory_pools (id,event_id,event_section_id,snapshot_object_key,name,capacity) VALUES ($1,$2,$3,'main-floor-zone','Main Floor',100)`, gaPoolID, eventID, sectionID); err != nil {
+		t.Fatalf("create historical GA pool: %v", err)
+	}
+	if _, err := historyTx.Exec(ctx, `INSERT INTO inventory_restrictions (id,event_id,kind,state,purpose,created_by_user_id,released_at) VALUES ($1,$2,'BLOCK','RELEASED','SPONSOR',$3,clock_timestamp()),($4,$2,'ALLOCATION','RELEASED','INTERNAL',$3,clock_timestamp())`, blockID, eventID, userID, allocationID); err != nil {
+		t.Fatalf("create historical restrictions: %v", err)
+	}
+	if _, err := historyTx.Exec(ctx, `INSERT INTO blocks (restriction_id) VALUES ($1)`, blockID); err != nil {
+		t.Fatalf("create historical block: %v", err)
+	}
+	if _, err := historyTx.Exec(ctx, `INSERT INTO allocations (restriction_id,mode,release_destination_kind) VALUES ($1,'NON_PUBLIC','SHARED')`, allocationID); err != nil {
+		t.Fatalf("create historical allocation: %v", err)
+	}
+	if _, err := historyTx.Exec(ctx, `INSERT INTO block_reserved_units (block_id,reserved_inventory_unit_id,released_at) VALUES ($1,$2,clock_timestamp())`, blockID, reservedID); err != nil {
+		t.Fatalf("create released block membership: %v", err)
+	}
+	if _, err := historyTx.Exec(ctx, `INSERT INTO allocation_reserved_units (allocation_id,reserved_inventory_unit_id,released_at) VALUES ($1,$2,clock_timestamp())`, allocationID, reservedID); err != nil {
+		t.Fatalf("create released allocation membership: %v", err)
+	}
+	if _, err := historyTx.Exec(ctx, `INSERT INTO ga_block_buckets (block_id,ga_pool_id,assigned_quantity,blocked_quantity,released_quantity) VALUES ($1,$2,10,0,10)`, blockID, gaPoolID); err != nil {
+		t.Fatalf("create released GA block bucket: %v", err)
+	}
+	if err := historyTx.Commit(ctx); err != nil {
+		t.Fatalf("commit historical restriction fixture: %v", err)
+	}
+	restrictionsResponse := perform(t, handler, http.MethodGet, "/api/v1/admin/events/"+eventBody.ID+"/restrictions", "", nil)
+	if restrictionsResponse.Code != http.StatusOK {
+		t.Fatalf("list restrictions status = %d body=%s", restrictionsResponse.Code, restrictionsResponse.Body.String())
+	}
+	var restrictionsBody struct {
+		Items []struct {
+			ID               string   `json:"id"`
+			ReservedQuantity int      `json:"reserved_quantity"`
+			GAQuantity       int      `json:"ga_quantity"`
+			InventoryLabels  []string `json:"inventory_labels"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(restrictionsResponse.Body.Bytes(), &restrictionsBody); err != nil {
+		t.Fatalf("decode restrictions: %v", err)
+	}
+	byID := make(map[string]struct {
+		ReservedQuantity int
+		GAQuantity       int
+		InventoryLabels  []string
+	})
+	for _, item := range restrictionsBody.Items {
+		byID[item.ID] = struct {
+			ReservedQuantity int
+			GAQuantity       int
+			InventoryLabels  []string
+		}{item.ReservedQuantity, item.GAQuantity, item.InventoryLabels}
+	}
+	blockHistory := byID[publicid.Encode(publicid.Block, blockID)]
+	if blockHistory.ReservedQuantity != 1 || blockHistory.GAQuantity != 10 || strings.Join(blockHistory.InventoryLabels, ",") != "Main Floor,VIP A 10" {
+		t.Fatalf("released block history = %+v", blockHistory)
+	}
+	allocationHistory := byID[publicid.Encode(publicid.Allocation, allocationID)]
+	if allocationHistory.ReservedQuantity != 1 || strings.Join(allocationHistory.InventoryLabels, ",") != "VIP A 10" {
+		t.Fatalf("released allocation history = %+v", allocationHistory)
 	}
 
 	readPaths := []string{

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import {
   addEntity,
@@ -300,8 +301,12 @@ test('01 Admin platform setup', async ({ page }) => {
     const mainFloorPoolKey = pricingInventory.data.inventory.find(
       (item) => item.kind === 'GA' && item.section_name === 'Main Floor',
     )?.snapshot_object_key;
+    const banquetSectionKey = pricingInventory.data.inventory.find(
+      (item) => item.kind === 'RESERVED' && item.section_name === 'Banquet',
+    )?.section_object_key;
     expect(vipSectionKey).toBeTruthy();
     expect(mainFloorPoolKey).toBeTruthy();
+    expect(banquetSectionKey).toBeTruthy();
     const assignment = page.getByLabel('Price tier to assign');
     await expect(assignment).toBeVisible();
     await assignment.selectOption(vipTier!.id);
@@ -345,6 +350,26 @@ test('01 Admin platform setup', async ({ page }) => {
     };
     expect(gaBody.section_object_keys).toEqual([]);
     expect(gaBody.ga_pool_object_keys).toEqual([mainFloorPoolKey]);
+
+    await assignment.selectOption(vipTier!.id);
+    await page.getByLabel('Section or area').selectOption({ label: 'Banquet' });
+    const banquetAssignmentPromise = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/v1/admin/events/${eventId}/pricing/assignments`) &&
+        response.request().method() === 'POST',
+    );
+    await page.getByRole('button', { name: 'Review pricing assignment' }).click();
+    await page
+      .getByRole('dialog', { name: 'Apply pricing?' })
+      .getByRole('button', { name: 'Apply pricing' })
+      .click();
+    const banquetAssignment = await banquetAssignmentPromise;
+    expect(banquetAssignment.ok()).toBe(true);
+    expect(banquetAssignment.request().postDataJSON()).toMatchObject({
+      price_tier_id: vipTier!.id,
+      section_object_keys: [banquetSectionKey],
+      ga_pool_object_keys: [],
+    });
 
     const authoritativeInventory = await apiJSON<{
       inventory: Array<{
