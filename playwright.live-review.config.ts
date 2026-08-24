@@ -29,6 +29,7 @@ export default defineConfig({
     launchOptions: {
       args: [
         '--use-fake-device-for-media-stream',
+        '--use-fake-ui-for-media-stream',
         `--use-file-for-fake-video-capture=${path.join('/tmp', `tktsync-${runId}-camera.y4m`)}`,
       ],
     },

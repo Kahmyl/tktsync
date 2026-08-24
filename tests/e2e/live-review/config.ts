@@ -4,6 +4,8 @@ export const runId = process.env.LIVE_REVIEW_RUN_ID ?? 'live-e2e-local';
 export const repoRoot = process.cwd();
 export const reviewRoot = path.resolve(repoRoot, 'artifacts/live-e2e-review', runId);
 export const authStatePath = path.join('/tmp', `tktsync-${runId}-auth-state.json`);
+export const credentialPath =
+  process.env.LIVE_REVIEW_CREDENTIAL_PATH ?? path.join('/tmp', `tktsync-${runId}-credentials.json`);
 export const secretStatePath = path.join('/tmp', `tktsync-${runId}-secrets.json`);
 export const composeEnvPath = path.join('/tmp', `tktsync-${runId}-compose.env`);
 export const cameraPath = path.join('/tmp', `tktsync-${runId}-camera.y4m`);

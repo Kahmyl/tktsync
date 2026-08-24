@@ -221,10 +221,12 @@ func (s *Service) recordRejectedScan(ctx context.Context, tx pgx.Tx, input ScanI
 func ticketDisplay(ctx context.Context, tx pgx.Tx, ticketID uuid.UUID) (TicketDisplay, error) {
 	var d TicketDisplay
 	err := tx.QueryRow(ctx, `
-		SELECT COALESCE(es.name,''),COALESCE(riu.row_label,''),COALESCE(riu.seat_label,'')
+		SELECT COALESCE(es.name,gp.name,ga_section.name,''),COALESCE(riu.row_label,''),COALESCE(riu.seat_label,'')
 		FROM ticket_entitlements t
 		LEFT JOIN reserved_inventory_units riu ON riu.id=t.reserved_inventory_unit_id
 		LEFT JOIN event_sections es ON es.id=riu.event_section_id
+		LEFT JOIN ga_inventory_pools gp ON gp.id=t.ga_pool_id
+		LEFT JOIN event_sections ga_section ON ga_section.id=gp.event_section_id
 		WHERE t.id=$1
 	`, ticketID).Scan(&d.Section, &d.Row, &d.Seat)
 	return d, err

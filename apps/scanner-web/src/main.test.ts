@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isPhoneDevice } from './features/scanning/device';
+import { isPhoneDevice, scannerGateLabel } from './features/scanning/device';
 import { queryClient } from './features/scanning/queryClient';
 import { humanLabel, outcomePresentation, ticketLocation } from './features/scanning/outcome';
 
@@ -26,6 +26,11 @@ describe('scanner device and display labels', () => {
     expect(isPhoneDevice({ userAgentData: { mobile: false }, userAgent: 'Chromium' })).toBe(false);
     expect(isPhoneDevice({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0)' })).toBe(true);
     expect(isPhoneDevice({ userAgent: 'Mozilla/5.0 (iPad; CPU OS 18_0)' })).toBe(false);
+  });
+
+  it('uses a human-readable gate label instead of a device identifier', () => {
+    expect(scannerGateLabel(true)).toBe('Phone scanner');
+    expect(scannerGateLabel(false)).toBe('Manual entry');
   });
 
   it('never turns backend identifiers into operator-facing labels', () => {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createTktSyncClient } from '@tktsync/api-client';
-import { isPhoneDevice } from './device';
+import { isPhoneDevice, scannerGateLabel } from './device';
 import { humanLabel, outcomePresentation, ticketLocation } from './outcome';
 import type { RecentScan, ScannerEvent, ScanResult } from './types';
 
@@ -28,12 +28,7 @@ export function useAuthorizedEvents(token: string) {
 
 export function useScanner(token: string, selectedEvent?: ScannerEvent) {
   const [phoneDevice] = useState(() => isPhoneDevice(navigator));
-  const [deviceID] = useState(() => {
-    const existing = sessionStorage.getItem('tktsync.scanner.device');
-    const id = existing ?? crypto.randomUUID();
-    sessionStorage.setItem('tktsync.scanner.device', id);
-    return id;
-  });
+  const gateReference = scannerGateLabel(phoneDevice);
   const [manual, setManual] = useState('');
   const [result, setResult] = useState<ScanResult>();
   const [cannotVerify, setCannotVerify] = useState(false);
@@ -73,7 +68,7 @@ export function useScanner(token: string, selectedEvent?: ScannerEvent) {
         body: {
           event_id: selectedEvent?.id ?? '',
           credential: qr,
-          gate_reference: deviceID,
+          gate_reference: gateReference,
         },
       }),
   });

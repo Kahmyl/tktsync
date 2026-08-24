@@ -16,3 +16,7 @@ export function isPhoneDevice(navigatorLike: DeviceNavigator) {
     userAgent,
   );
 }
+
+export function scannerGateLabel(phoneDevice: boolean) {
+  return phoneDevice ? 'Phone scanner' : 'Manual entry';
+}

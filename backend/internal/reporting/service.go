@@ -168,20 +168,20 @@ func scanReservedDimensions(ctx context.Context, q pgx.Tx, eventID uuid.UUID, pa
 				COALESCE((SELECT SUM(si.quantity) FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE si.event_id=$1 AND si.inventory_kind='RESERVED' AND ($2::uuid IS NULL OR s.partner_id=$2)),0) sold,
 				COALESCE((SELECT SUM(nii.quantity) FROM non_public_issuance_items nii WHERE nii.event_id=$1 AND nii.inventory_kind='RESERVED' AND $2::uuid IS NULL),0) issued
 		)
-		SELECT COUNT(*) FILTER (WHERE $2::uuid IS NULL OR claim_type IS NULL OR allocation_partner_id=$2),
-		       COUNT(*) FILTER (WHERE claim_type IS NULL),
-		       COUNT(*) FILTER (WHERE claim_type='RESERVATION' AND reservation_state='HELD' AND ($2::uuid IS NULL OR reservation_partner_id=$2)),
-		       COUNT(*) FILTER (WHERE claim_type='RESERVATION' AND reservation_state='COMMITTING' AND ($2::uuid IS NULL OR reservation_partner_id=$2)),
-		       COUNT(*) FILTER (WHERE claim_type='RESERVATION' AND reservation_state='PAYMENT_RETRY' AND ($2::uuid IS NULL OR reservation_partner_id=$2)),
-		       COUNT(*) FILTER (WHERE claim_type='RESERVATION' AND reservation_state='RECONCILING' AND ($2::uuid IS NULL OR reservation_partner_id=$2)),
-		       COUNT(*) FILTER (WHERE claim_type='BLOCK' AND $2::uuid IS NULL),
-		       COUNT(*) FILTER (WHERE claim_type='ALLOCATION' AND ($2::uuid IS NULL OR allocation_partner_id=$2)),
-		       COUNT(*) FILTER (WHERE claim_type='SALE' AND ($2::uuid IS NULL OR sale_partner_id=$2)),
-		       COUNT(*) FILTER (WHERE claim_type='ISSUANCE' AND $2::uuid IS NULL),
+		SELECT COUNT(base.id) FILTER (WHERE $2::uuid IS NULL OR claim_type IS NULL OR allocation_partner_id=$2),
+		       COUNT(base.id) FILTER (WHERE claim_type IS NULL),
+		       COUNT(base.id) FILTER (WHERE claim_type='RESERVATION' AND reservation_state='HELD' AND ($2::uuid IS NULL OR reservation_partner_id=$2)),
+		       COUNT(base.id) FILTER (WHERE claim_type='RESERVATION' AND reservation_state='COMMITTING' AND ($2::uuid IS NULL OR reservation_partner_id=$2)),
+		       COUNT(base.id) FILTER (WHERE claim_type='RESERVATION' AND reservation_state='PAYMENT_RETRY' AND ($2::uuid IS NULL OR reservation_partner_id=$2)),
+		       COUNT(base.id) FILTER (WHERE claim_type='RESERVATION' AND reservation_state='RECONCILING' AND ($2::uuid IS NULL OR reservation_partner_id=$2)),
+		       COUNT(base.id) FILTER (WHERE claim_type='BLOCK' AND $2::uuid IS NULL),
+		       COUNT(base.id) FILTER (WHERE claim_type='ALLOCATION' AND ($2::uuid IS NULL OR allocation_partner_id=$2)),
+		       COUNT(base.id) FILTER (WHERE claim_type='SALE' AND ($2::uuid IS NULL OR sale_partner_id=$2)),
+		       COUNT(base.id) FILTER (WHERE claim_type='ISSUANCE' AND $2::uuid IS NULL),
 		       (SELECT COUNT(*) FROM tickets WHERE status='VOIDED' AND ($2::uuid IS NULL OR partner_id=$2)),
-		       COUNT(*) FILTER (WHERE claim_type IN ('SALE','ISSUANCE') AND ($2::uuid IS NULL OR sale_partner_id=$2)),
+		       COUNT(base.id) FILTER (WHERE claim_type IN ('SALE','ISSUANCE') AND ($2::uuid IS NULL OR sale_partner_id=$2)),
 		       history.sold, history.issued
-		FROM base CROSS JOIN history
+		FROM history LEFT JOIN base ON true
 		GROUP BY history.sold, history.issued
 	`, eventID, partnerID).Scan(&d.Capacity, &d.Available, &d.Held, &d.Committing, &d.PaymentRetry, &d.Reconciling, &d.Blocked, &d.Allocated, &d.SoldCurrent, &d.IssuedCurrent, &d.VoidedTickets, &d.CapacityConsumed, &d.HistoricalSold, &d.HistoricalIssued)
 }
@@ -224,7 +224,7 @@ func scanGADimensions(ctx context.Context, q pgx.Tx, eventID uuid.UUID, partnerI
 		       COALESCE((SELECT COUNT(*) FROM ticket_entitlements te LEFT JOIN sale_items si ON si.id=te.origin_sale_item_id LEFT JOIN sales s ON s.id=si.sale_id WHERE te.event_id=$1 AND te.inventory_kind='GA' AND te.status='VOIDED' AND ($2::uuid IS NULL OR s.partner_id=$2)),0),
 		       CASE WHEN $2::uuid IS NULL THEN COALESCE((SELECT SUM(gsi.sold_current_quantity) FROM ga_shared_inventory gsi JOIN pools p5 ON p5.id=gsi.ga_pool_id),0)+alloc.sold+alloc.issued ELSE partner_current.active END,
 		       hist.sold, hist.issued
-		FROM pools p CROSS JOIN alloc CROSS JOIN hist CROSS JOIN partner_current GROUP BY alloc.available,alloc.sold,alloc.issued,hist.sold,hist.issued,partner_current.active
+		FROM alloc CROSS JOIN hist CROSS JOIN partner_current LEFT JOIN pools p ON true GROUP BY alloc.available,alloc.sold,alloc.issued,hist.sold,hist.issued,partner_current.active
 	`, eventID, partnerID).Scan(&d.Capacity, &d.Available, &d.Held, &d.Committing, &d.PaymentRetry, &d.Reconciling, &d.Blocked, &d.Allocated, &d.SoldCurrent, &d.IssuedCurrent, &d.VoidedTickets, &d.CapacityConsumed, &d.HistoricalSold, &d.HistoricalIssued)
 }
 

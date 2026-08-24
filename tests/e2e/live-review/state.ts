@@ -1,10 +1,13 @@
 import { execFileSync } from 'node:child_process';
 import { appendFile, chmod, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import QRCode from 'qrcode';
 import type { Page } from '@playwright/test';
 import {
   authStatePath,
+  cameraPath,
   composeEnvPath,
+  credentialPath,
   repoRoot,
   reviewRoot,
   runId,
@@ -13,6 +16,8 @@ import {
 } from './config';
 
 type SecretState = Record<string, string>;
+
+type LiveCredentials = { email: string; password: string };
 
 export type EntityLedger = {
   run_id: string;
@@ -28,6 +33,14 @@ export type EntityLedger = {
 };
 
 const entityPath = path.join(reviewRoot, 'entities.json');
+
+export async function liveCredentials(): Promise<LiveCredentials> {
+  const credentials = JSON.parse(await readFile(credentialPath, 'utf8')) as LiveCredentials;
+  if (!credentials.email || !credentials.password) {
+    throw new Error('Live-review credential file is incomplete');
+  }
+  return credentials;
+}
 
 export async function operatorToken() {
   const state = JSON.parse(await readFile(authStatePath, 'utf8')) as {
@@ -54,6 +67,39 @@ export async function setSecret(name: string, value: string) {
   secrets[name] = value;
   await writeFile(secretStatePath, JSON.stringify(secrets), { mode: 0o600 });
   await chmod(secretStatePath, 0o600);
+}
+
+export async function writeRealTicketCameraFixture(payload: string) {
+  const width = 640;
+  const height = 480;
+  const qr = QRCode.create(payload, { errorCorrectionLevel: 'M' }).modules;
+  const quietZone = 4;
+  const scale = Math.max(1, Math.floor((height * 0.78) / (qr.size + quietZone * 2)));
+  const renderedSize = (qr.size + quietZone * 2) * scale;
+  const left = Math.floor((width - renderedSize) / 2) + quietZone * scale;
+  const top = Math.floor((height - renderedSize) / 2) + quietZone * scale;
+  const yPlane = Buffer.alloc(width * height, 235);
+  for (let row = 0; row < qr.size; row += 1) {
+    for (let column = 0; column < qr.size; column += 1) {
+      if (!qr.get(row, column)) continue;
+      const startX = left + column * scale;
+      const startY = top + row * scale;
+      for (let y = startY; y < startY + scale; y += 1) {
+        yPlane.fill(16, y * width + startX, y * width + startX + scale);
+      }
+    }
+  }
+  const chroma = Buffer.alloc((width / 2) * (height / 2), 128);
+  const frame = Buffer.concat([Buffer.from('FRAME\n'), yPlane, chroma, chroma]);
+  const frames = Array.from({ length: 30 }, () => frame);
+  await writeFile(
+    cameraPath,
+    Buffer.concat([
+      Buffer.from(`YUV4MPEG2 W${width} H${height} F10:1 Ip A1:1 C420jpeg\n`),
+      ...frames,
+    ]),
+    { mode: 0o600 },
+  );
 }
 
 export async function getSecret(name: string) {

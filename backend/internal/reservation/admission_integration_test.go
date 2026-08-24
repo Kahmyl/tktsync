@@ -143,6 +143,28 @@ func confirmedAdmissionTicket(t *testing.T, ctx context.Context, f fixture, seat
 	return ticketID, credential.QRPayload
 }
 
+func confirmedAdmissionGATicket(t *testing.T, ctx context.Context, f fixture) (uuid.UUID, string) {
+	t.Helper()
+	created, err := f.reservation.Create(ctx, reservation.CreateInput{EventID: f.eventID, PartnerID: f.partnerID, Items: []reservation.ItemInput{{InventoryKind: reservation.InventoryGA, InventoryID: f.gaMainID, Quantity: 1, SourceKind: reservation.SourceShared}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkout, err := f.reservation.BeginCheckout(ctx, f.partnerID, created.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	confirmed, err := f.reservation.Confirm(ctx, f.partnerID, created.Token, reservation.ConfirmInput{CheckoutAttemptID: checkout.CheckoutAttemptID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ticketID := confirmed.Tickets[0].TicketID
+	credential, err := f.reservation.RecoverActiveCredential(ctx, f.partnerID, ticketID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ticketID, credential.QRPayload
+}
+
 func admissionOperation(t *testing.T, ctx context.Context, f fixture, key string) uuid.UUID {
 	t.Helper()
 	id := uuid.New()
@@ -173,6 +195,15 @@ func TestAdmissionLifecycleAndCredentialStates(t *testing.T) {
 	}
 	if second.Result != "TICKET_ALREADY_ADMITTED" || second.PreviousAdmittedAt == nil {
 		t.Fatalf("second=%+v", second)
+	}
+
+	_, gaPayload := confirmedAdmissionGATicket(t, ctx, f)
+	gaAdmission, err := service.ValidateAndAdmit(ctx, admission.ScanInput{EventID: f.eventID, Credential: gaPayload, GateReference: "gate-ga", ScannerUserID: f.userID, IdempotencyOperationID: admissionOperation(t, ctx, f, "ga-display")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gaAdmission.Result != "ADMITTED" || gaAdmission.TicketDisplay.Section != "GA Main" || gaAdmission.TicketDisplay.Row != "" || gaAdmission.TicketDisplay.Seat != "" {
+		t.Fatalf("GA admission display=%+v", gaAdmission)
 	}
 	reversed, err := service.Reverse(ctx, f.userID, *first.AdmissionID, "operator correction")
 	if err != nil {

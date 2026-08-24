@@ -1,20 +1,210 @@
 import { expect, test } from '@playwright/test';
-import { recordIssue, saveVideo, screenshot } from './state';
 import { urls } from './config';
+import {
+  apiJSON,
+  entities,
+  getSecret,
+  liveCredentials,
+  operatorToken,
+  reviewNames,
+  saveVideo,
+  screenshot,
+} from './state';
+
+type TicketDetail = {
+  id: string;
+  status: 'ACTIVE' | 'VOIDED';
+  event_name: string;
+  inventory_kind: 'RESERVED' | 'GA';
+  display_label: string | null;
+  credential_state: 'ACTIVE' | 'SUPERSEDED' | 'REVOKED' | null;
+  admission_id?: string;
+  admission_state: 'ACTIVE' | 'REVERSED' | null;
+};
+
+type InventoryReport = {
+  total: {
+    capacity: number;
+    available: number;
+    sold_current: number;
+    voided_tickets: number;
+  };
+};
+
+test.use({ trace: 'off' });
 
 test('04 Admin support and reporting', async ({ page }) => {
-  test.setTimeout(90_000);
-  for (const route of ['/tickets', '/admissions', '/reports', '/integrations', '/account']) {
-    await test.step(`Protected Admin route ${route} remains behind real authentication`, async () => {
-      await page.goto(`${urls.admin}${route}`);
-      await expect(page).toHaveURL(/\/sign-in$/);
-      await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+  test.setTimeout(240_000);
+  await page.addInitScript(() => {
+    const style = document.createElement('style');
+    style.textContent =
+      'input[type="email"],input[type="password"],#manual-ticket,[data-testid="one-time-secret"],.secret-value{filter:blur(14px)!important;user-select:none!important}';
+    document.documentElement.append(style);
+  });
+
+  const ledger = await entities();
+  const eventId = ledger.events[0];
+  const ticketA = await getSecret('ticket1ID');
+  const ticketB = await getSecret('ticket2ID');
+  const token = await operatorToken();
+  expect(eventId).toMatch(/^evt_/);
+  expect(ticketA).toMatch(/^tkt_/);
+  expect(ticketB).toMatch(/^tkt_/);
+
+  await test.step('Open the authenticated Dashboard and verify real sale activity', async () => {
+    await page.goto(urls.admin);
+    await expect(page.getByRole('heading', { name: 'Upcoming events', exact: true })).toBeVisible();
+    await expect(page.getByText(reviewNames.event, { exact: true })).toBeVisible();
+    await expect(page.getByText('Tickets sold', { exact: true })).toBeVisible();
+    await screenshot(page, '04-admin-dashboard-live-activity');
+  });
+
+  let ticketBDetail = await apiJSON<TicketDetail>(`/api/v1/admin/tickets/${ticketB}`, { token });
+  expect(ticketBDetail.data.display_label).toBeTruthy();
+
+  await test.step('Find an active review ticket and reissue its credential through the real Admin UI', async () => {
+    const reissueTicketId = ticketBDetail.data.status === 'ACTIVE' ? ticketB : ticketA;
+    const reissueDetail =
+      reissueTicketId === ticketB
+        ? ticketBDetail
+        : await apiJSON<TicketDetail>(`/api/v1/admin/tickets/${reissueTicketId}`, { token });
+    expect(reissueDetail.data.status).toBe('ACTIVE');
+    await page.getByRole('link', { name: 'Tickets', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Tickets' })).toBeVisible();
+    await page.getByLabel('Filter tickets by event').selectOption(eventId);
+    const row = page
+      .getByRole('row')
+      .filter({ hasText: reissueDetail.data.display_label ?? 'Admission ticket' })
+      .first();
+    await expect(row).toBeVisible();
+    await row.click();
+    const detail = page.getByRole('dialog', { name: 'Ticket detail' });
+    await expect(detail).toContainText(reissueDetail.data.display_label!);
+    await expect(detail).toContainText('Active');
+    await detail.getByRole('button', { name: 'Reissue credential' }).click();
+    const reissue = page.getByRole('dialog', { name: 'Reissue ticket credential' });
+    await reissue.getByRole('button', { name: 'Reissue credential' }).click();
+    await expect(reissue).toBeHidden();
+    const persisted = await apiJSON<TicketDetail>(`/api/v1/admin/tickets/${reissueTicketId}`, {
+      token,
     });
-  }
-  await screenshot(page, '04-admin-operations-auth-boundary');
-  await recordIssue(
-    'LIVE-OPERATIONS-001 — Post-sale Admin operations not reachable',
-    'Tickets, admissions, reports, integrations, and account routes all correctly redirected the unauthenticated live browser to sign-in. Without a real reusable operator credential and without tickets created by the blocked upstream workflow, their read/write behavior cannot be truthfully certified in this run.',
+    expect(persisted.data.credential_state).toBe('ACTIVE');
+    await screenshot(page, '04-admin-ticket-reissued');
+  });
+
+  const inventoryBeforeVoid = await apiJSON<InventoryReport>(
+    `/api/v1/admin/events/${eventId}/reports/inventory`,
+    { token },
   );
+
+  await test.step('Void Ticket B and deliberately re-release its inventory', async () => {
+    const row = page
+      .getByRole('row')
+      .filter({ hasText: ticketBDetail.data.display_label ?? 'Admission ticket' })
+      .first();
+    if (ticketBDetail.data.status === 'ACTIVE') {
+      await row.click();
+      await page
+        .getByRole('dialog', { name: 'Ticket detail' })
+        .getByRole('button', { name: 'Void ticket' })
+        .click();
+      const voidDialog = page.getByRole('dialog', { name: 'Void ticket' });
+      await voidDialog.getByLabel('Reason').fill('Dedicated live review Ticket B completed');
+      await voidDialog.getByRole('button', { name: 'Void ticket' }).click();
+      await expect(voidDialog).toBeHidden();
+      ticketBDetail = await apiJSON<TicketDetail>(`/api/v1/admin/tickets/${ticketB}`, { token });
+    }
+    await expect(row).toContainText('Voided');
+
+    await row.click();
+    const detail = page.getByRole('dialog', { name: 'Ticket detail' });
+    await expect(detail).toContainText('Voided');
+    await detail.getByRole('button', { name: 'Re-release inventory' }).click();
+    const release = page.getByRole('dialog', { name: 'Re-release ticket inventory' });
+    await release.getByLabel('Reason').fill('Return dedicated review capacity to sale');
+    await release.getByRole('button', { name: 'Re-release inventory' }).click();
+    await expect(release).toContainText('Event policy does not permit voided inventory re-release');
+    await screenshot(page, '04-admin-policy-blocked-capacity-release');
+    await release.getByRole('button', { name: 'Cancel' }).click();
+
+    await page.reload();
+    await page.getByLabel('Filter tickets by event').selectOption(eventId);
+    await expect(
+      page
+        .getByRole('row')
+        .filter({ hasText: ticketBDetail.data.display_label ?? 'Admission ticket' })
+        .first(),
+    ).toContainText('Voided');
+    const persisted = await apiJSON<TicketDetail>(`/api/v1/admin/tickets/${ticketB}`, { token });
+    expect(persisted.data.status).toBe('VOIDED');
+    const inventoryAfterRelease = await apiJSON<InventoryReport>(
+      `/api/v1/admin/events/${eventId}/reports/inventory`,
+      { token },
+    );
+    expect(inventoryAfterRelease.data.total.available).toBe(
+      inventoryBeforeVoid.data.total.available,
+    );
+    await screenshot(page, '04-admin-ticket-voided-and-capacity-released');
+  });
+
+  await test.step('Review live Scanner activity and reverse its active admission', async () => {
+    await page.getByRole('link', { name: 'Admissions', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Admissions' })).toBeVisible();
+    await page.getByLabel('Admission event').selectOption(eventId);
+    await expect(page.getByText('Already admitted', { exact: true }).first()).toBeVisible();
+    const reverseButton = page.getByRole('button', { name: 'Reverse' }).first();
+    await expect(reverseButton).toBeVisible();
+    await reverseButton.click();
+    const reverse = page.getByRole('dialog', { name: 'Reverse admission' });
+    await reverse.getByLabel('Reason').fill('Live gate workflow completed');
+    await reverse.getByRole('button', { name: 'Reverse admission' }).click();
+    await expect(reverse).toBeHidden();
+    const ticketAState = await apiJSON<TicketDetail>(`/api/v1/admin/tickets/${ticketA}`, { token });
+    expect(ticketAState.data.admission_state).toBe('REVERSED');
+    await screenshot(page, '04-admin-admission-reversed');
+  });
+
+  await test.step('Verify inventory, sales, and admission reports from authoritative data', async () => {
+    await page.getByRole('link', { name: 'Reports', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Reports' })).toBeVisible();
+    await page.getByLabel('Report event').selectOption(eventId);
+    await expect(page.getByText('Inventory position')).toBeVisible();
+    await expect(page.getByText('Commercial performance')).toBeVisible();
+    await expect(page.getByText('Admission outcomes')).toBeVisible();
+    await expect(page.getByRole('row', { name: /Reserved seating/ })).toBeVisible();
+    await expect(page.getByRole('row', { name: /General admission/ })).toBeVisible();
+    await screenshot(page, '04-admin-authoritative-reports');
+  });
+
+  await test.step('Verify Partner webhook configuration and rotate its signing secret safely', async () => {
+    await page.getByRole('link', { name: 'Integrations', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
+    const endpoint = page.locator('.panel').filter({ hasText: reviewNames.partner }).first();
+    await expect(endpoint).toBeVisible();
+    await expect(endpoint).toContainText('Active');
+    await endpoint.getByRole('button', { name: 'Rotate signing secret' }).click();
+    const secretDialog = page.getByRole('dialog', { name: 'Signing secret rotated' });
+    await expect(secretDialog).toBeVisible();
+    await secretDialog.getByRole('button', { name: 'I have stored it' }).click();
+    await expect(secretDialog).toBeHidden();
+    await screenshot(page, '04-admin-live-integration-state');
+  });
+
+  await test.step('Inspect Account, sign out, and sign back in through real Supabase', async () => {
+    await page.getByRole('button', { name: 'Account menu' }).click();
+    await page.getByRole('link', { name: 'Account settings' }).click();
+    await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible();
+    await expect(page.getByText('Authenticated operator')).toBeVisible();
+    await screenshot(page, '04-admin-account');
+    await page.locator('.session-panel').getByRole('button', { name: 'Sign out' }).click();
+    await expect(page).toHaveURL(/\/sign-in$/);
+    await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+    const credentials = await liveCredentials();
+    await page.getByLabel('Email').fill(credentials.email);
+    await page.getByLabel('Password').fill(credentials.password);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.getByRole('heading', { name: 'Upcoming events', exact: true })).toBeVisible();
+  });
+
   await saveVideo(page, '04-admin-support-reporting.webm');
 });
