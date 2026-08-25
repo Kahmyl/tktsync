@@ -17,7 +17,8 @@ import { formatDateTime, humanName } from '../../../lib/format';
 import { adminApi } from '../../admin/api';
 import { adminKeys, useIntentMutation } from '../../admin/queries';
 import type { InventoryItem, InventoryRestriction } from '../../admin/types';
-import { InventoryTargetPicker, type InventoryTargets } from './InventoryTargetPicker';
+import { InventoryTargetPicker } from './InventoryTargetPicker';
+import type { InventoryTargets } from './inventoryTargets';
 
 const emptyTargets = (): InventoryTargets => ({
   reservedIds: [],

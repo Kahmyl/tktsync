@@ -632,6 +632,22 @@ The active QR representation can be recreated deterministically using the creden
 
 Credential retrieval is read behavior and MUST NOT silently rotate the credential.
 
+### 37.1 Hosted QR Presentation Capability
+
+TktSync MAY expose the generated QR image through a credential-bound presentation capability suitable for Partner-controlled customer delivery.
+
+The capability SHALL:
+
+- be opaque, unguessable, and authenticated-encrypted with a domain-separated key derived from the versioned QR authority;
+- contain no raw `qr1...` credential, public Ticket ID, Partner credential, Reservation token, or buyer PII;
+- authorize only retrieval of a generated QR image;
+- be redacted from routine route logs and excluded from query strings;
+- bind both Ticket and credential identity inside the encrypted capability and verify that exact credential is still `ACTIVE`;
+- become invalid when credential reissue supersedes the bound credential; authenticated retrieval returns the replacement credential and a new hosted capability;
+- fail closed when the Ticket is void, the Event/Ticket state disallows an active credential, or no active credential exists.
+
+The hosted resource is not a customer Ticket page. Partner authentication remains required for direct Ticket-ID-based QR retrieval, and the existing Partner Sale ownership join remains the cross-Partner authorization boundary.
+
 ---
 
 ## 38. QR Reissue

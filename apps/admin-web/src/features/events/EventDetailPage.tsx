@@ -52,7 +52,8 @@ import {
   useVenue,
 } from '../admin/queries';
 import type { EventState } from '../admin/types';
-import { InventoryTargetPicker, type InventoryTargets } from './inventory/InventoryTargetPicker';
+import { InventoryTargetPicker } from './inventory/InventoryTargetPicker';
+import type { InventoryTargets } from './inventory/inventoryTargets';
 import { RestrictionsPanel } from './inventory/RestrictionsPanel';
 
 const tabs = [
@@ -91,6 +92,7 @@ export function EventDetailPage() {
     sectionKeys: [],
   });
   const [assignConfirm, setAssignConfirm] = useState(false);
+  const [setupPrompt, setSetupPrompt] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [confirm, setConfirm] = useState<{
     action: LifecycleAction | 'cancel';
@@ -117,11 +119,6 @@ export function EventDetailPage() {
       variables.action === 'cancel'
         ? adminApi.cancelEvent(token, key, eventId, variables.reason ?? '')
         : adminApi.lifecycle(token, key, eventId, variables.action),
-    invalidate,
-  });
-  const policy = useIntentMutation({
-    intent: () => `${eventId}:policy`,
-    mutationFn: (token, key) => adminApi.configurePolicy(token, key, eventId),
     invalidate,
   });
   const price = useIntentMutation({
@@ -173,7 +170,12 @@ export function EventDetailPage() {
     pricing: Boolean(configuration?.price_tiers.some((tier) => tier.state === 'ACTIVE')),
     inventory: Boolean((workspace.inventory.data?.inventory.length ?? 0) > 0),
   };
-  const primary = primaryAction(detail.state);
+  const missingSetup = Object.entries(setup)
+    .filter(([, done]) => !done)
+    .map(([key]) => setupLabel(key));
+  const salesOpenTime = detail.sales_open_at ? new Date(detail.sales_open_at).getTime() : 0;
+  const salesScheduled = detail.state === 'ON_SALE' && salesOpenTime > Date.now();
+  const primary = primaryAction(detail.state, detail.sales_open_at);
   const activeTiers = configuration?.price_tiers.filter((tier) => tier.state === 'ACTIVE') ?? [];
   const pricingTargetDescription = (() => {
     const inventory = workspace.inventory.data?.inventory ?? [];
@@ -196,15 +198,14 @@ export function EventDetailPage() {
   const publishedLayouts =
     venue.layouts.data?.filter((layout) => layout.state === 'PUBLISHED') ?? [];
   const operationError =
-    lifecycle.error ??
-    policy.error ??
-    price.error ??
-    materialize.error ??
-    access.error ??
-    assign.error;
+    lifecycle.error ?? price.error ?? materialize.error ?? access.error ?? assign.error;
 
   const runPrimary = () => {
     if (!primary) return;
+    if (primary.action === 'open-sales' && missingSetup.length) {
+      setSetupPrompt(true);
+      return;
+    }
     if (
       primary.action === 'open-sales' ||
       primary.action === 'pause-sales' ||
@@ -267,7 +268,13 @@ export function EventDetailPage() {
       <PageHeader
         title={humanName(detail.name, 'Untitled event')}
         description={`${humanName(venue.venue.data?.name, 'Venue to be announced')} · ${formatDateTime(detail.starts_at)}`}
-        eyebrow={<EventStatus state={detail.state as EventState} />}
+        eyebrow={
+          salesScheduled ? (
+            <StatusPill label="Sales scheduled" tone="info" />
+          ) : (
+            <EventStatus state={detail.state as EventState} />
+          )
+        }
         actions={
           <div className="event-actions">
             {primary ? (
@@ -305,6 +312,12 @@ export function EventDetailPage() {
           </div>
         }
       />
+      {salesScheduled ? (
+        <InlineNotice tone="warning">
+          Sales are scheduled to open {formatDateTime(detail.sales_open_at)}. Buyers can review
+          inventory, but ticket holds will remain unavailable until that time.
+        </InlineNotice>
+      ) : null}
       {operationError ? <ErrorState error={operationError} /> : null}
       <div className="tabs" role="tablist">
         {tabs.map(([value, label]) => (
@@ -418,28 +431,15 @@ export function EventDetailPage() {
                     <strong>{setupLabel(key)}</strong>
                     <small>{done ? 'Configured' : 'Needs attention'}</small>
                   </div>
-                  {key === 'policy' && !done ? (
-                    <Button
-                      variant="ghost"
-                      size="small"
-                      busy={policy.isPending}
-                      onClick={() => void policy.mutateAsync(undefined)}
-                    >
-                      Use recommended policy
-                    </Button>
+                  {key === 'policy' ? (
+                    <span className="setup-default">Platform default</span>
                   ) : (
                     <Button
                       variant="ghost"
                       size="small"
                       onClick={() =>
                         setTab(
-                          key === 'layout'
-                            ? 'layout'
-                            : key === 'pricing'
-                              ? 'pricing'
-                              : key === 'inventory'
-                                ? 'inventory'
-                                : 'overview',
+                          key === 'layout' ? 'layout' : key === 'pricing' ? 'pricing' : 'inventory',
                         )
                       }
                     >
@@ -1053,6 +1053,27 @@ export function EventDetailPage() {
         </DialogActions>
       </Dialog>
       <Dialog
+        open={setupPrompt}
+        title="Finish event setup"
+        description="Complete every required item before opening sales."
+        onClose={() => setSetupPrompt(false)}
+      >
+        <div className="dialog-body form-stack">
+          <InlineNotice tone="warning">
+            <strong>Still required:</strong> {missingSetup.join(', ')}
+          </InlineNotice>
+          <p className="dialog-copy">
+            This check prevents a failed sales-opening request and keeps the event in Draft until
+            its configuration is ready.
+          </p>
+        </div>
+        <DialogActions>
+          <Button variant="secondary" onClick={() => setSetupPrompt(false)}>
+            Review setup
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
         open={Boolean(confirm)}
         title={confirm?.title ?? ''}
         description={confirm?.description}
@@ -1099,14 +1120,19 @@ export function EventDetailPage() {
 
 function primaryAction(
   state: EventState,
+  salesOpenAt?: string | null,
 ): { action: LifecycleAction; label: string; description: string; icon: ReactNode } | null {
-  if (state === 'DRAFT')
+  if (state === 'DRAFT') {
+    const scheduled = salesOpenAt ? new Date(salesOpenAt).getTime() > Date.now() : false;
     return {
       action: 'open-sales',
-      label: 'Open sales',
-      description: 'Open this event for ticket acquisition.',
+      label: scheduled ? 'Schedule sales' : 'Open sales',
+      description: scheduled
+        ? 'Publish this event now; ticket holds begin at the configured sales opening time.'
+        : 'Open this event for ticket acquisition.',
       icon: <Play size={16} />,
     };
+  }
   if (state === 'ON_SALE')
     return {
       action: 'pause-sales',

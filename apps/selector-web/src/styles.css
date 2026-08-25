@@ -55,7 +55,7 @@ button:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 0 max(20px, calc((100vw - 1120px) / 2));
+  padding: 0 max(20px, calc((100vw - 1320px) / 2));
   border-bottom: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
@@ -110,7 +110,7 @@ button:focus-visible {
 
 .selector-main,
 .selector-loading {
-  width: min(1120px, calc(100% - 40px));
+  width: min(1320px, calc(100% - 40px));
   margin: 0 auto;
   flex: 1;
   padding: 38px 0 72px;
@@ -170,6 +170,7 @@ button:focus-visible {
 }
 .spatial-map-scroll {
   max-width: 100%;
+  max-height: min(72vh, 720px);
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -178,8 +179,7 @@ button:focus-visible {
 }
 .spatial-map {
   position: relative;
-  min-width: 900px;
-  aspect-ratio: 1000 / 650;
+  min-width: 100%;
   background-image: radial-gradient(#cbd8d6 0.7px, transparent 0.7px);
   background-size: 20px 20px;
 }
@@ -188,10 +188,14 @@ button:focus-visible {
 .spatial-orientation {
   position: absolute;
   transform-origin: center;
-  min-width: 150px;
-  min-height: 90px;
+  min-width: 0;
+  min-height: 0;
+}
+.spatial-orientation span {
+  display: block;
 }
 .spatial-section {
+  z-index: 2;
   padding: 12px;
   overflow: auto;
 }
@@ -203,13 +207,27 @@ button:focus-visible {
   height: 27px;
   font-size: 10px;
 }
+.spatial-section .seat-row {
+  grid-template-columns: minmax(52px, auto) minmax(0, 1fr);
+}
+.spatial-section .row-label {
+  white-space: nowrap;
+}
+.spatial-section .seat-row > .row-label:last-child {
+  display: none;
+}
 .spatial-ga {
+  z-index: 2;
   padding: 14px;
-  align-items: center;
+  align-items: stretch;
+  flex-direction: column;
   overflow: auto;
 }
+.spatial-ga .quantity-control {
+  align-self: flex-end;
+}
 .spatial-orientation {
-  z-index: 2;
+  z-index: 1;
   display: grid;
   place-items: center;
   border: 2px solid #78a6a5;

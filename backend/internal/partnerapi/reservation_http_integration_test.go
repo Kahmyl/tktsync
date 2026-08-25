@@ -73,6 +73,16 @@ type reservationCheckoutResponse struct {
 	} `json:"checkout_attempt"`
 }
 
+type reservationPartnerEventListResponse struct {
+	Items []struct {
+		ID         string    `json:"id"`
+		Name       string    `json:"name"`
+		ServerTime time.Time `json:"server_time"`
+	} `json:"items"`
+	Total      int       `json:"total"`
+	ServerTime time.Time `json:"server_time"`
+}
+
 func TestPartnerReservationHTTP(
 	t *testing.T,
 ) {
@@ -513,8 +523,9 @@ func TestPartnerReservationHTTP(
 				Availability: inventory.NewService(
 					pool,
 				),
-				Transactions: runner,
-				Reservation:  reservationService,
+				Transactions:          runner,
+				Reservation:           reservationService,
+				TicketQRPublicBaseURL: "https://tickets.test",
 			},
 		)
 	if err != nil {
@@ -528,6 +539,10 @@ func TestPartnerReservationHTTP(
 
 	apiMux.Handle(
 		"/api/v1/partner/",
+		partnerHandler,
+	)
+	apiMux.Handle(
+		"/api/v1/ticket-qr/",
 		partnerHandler,
 	)
 
@@ -547,6 +562,44 @@ func TestPartnerReservationHTTP(
 			publicid.Event,
 			eventID,
 		)
+
+	eventListResponse :=
+		reservationPartnerHTTP(
+			t,
+			handler,
+			http.MethodGet,
+			"/api/v1/partner/events",
+			credentialA,
+			"",
+			"",
+			nil,
+			"",
+		)
+
+	if eventListResponse.Code != http.StatusOK {
+		t.Fatalf(
+			"event list status=%d body=%s",
+			eventListResponse.Code,
+			eventListResponse.Body.String(),
+		)
+	}
+
+	var eventList reservationPartnerEventListResponse
+	if err := json.Unmarshal(
+		eventListResponse.Body.Bytes(),
+		&eventList,
+	); err != nil {
+		t.Fatalf("decode event list: %v", err)
+	}
+	if eventList.Total != 1 || len(eventList.Items) != 1 {
+		t.Fatalf("event list=%+v, want exactly one accessible Event", eventList)
+	}
+	if eventList.Items[0].ID != eventPublicID {
+		t.Fatalf("event list id=%q, want %q", eventList.Items[0].ID, eventPublicID)
+	}
+	if eventList.ServerTime.IsZero() || eventList.Items[0].ServerTime.IsZero() {
+		t.Fatal("event list must include authoritative server_time values")
+	}
 
 	availabilityResponse :=
 		reservationPartnerHTTP(

@@ -40,11 +40,12 @@ The API and background worker are separate deployable binaries built from the sa
 
 ## 3. Frontend: React + Vite
 
-React + Vite is used for all three web applications:
+React + Vite is used for all four web applications:
 
 - administrative dashboard;
 - white-label buyer selector;
 - scanner interface.
+- Partner API documentation.
 
 ### Rationale
 
@@ -52,7 +53,7 @@ React provides a mature component model and ecosystem suitable for the interacti
 
 Vite provides a lightweight frontend build/runtime model without introducing server-rendering infrastructure that these applications do not require.
 
-Using the same frontend stack across all three applications also allows common UI primitives, API clients, validation helpers, and design-system packages to be shared inside the monorepo.
+Using the same frontend stack across all four applications also allows common UI primitives, API clients, validation helpers, and design-system packages to be shared inside the monorepo.
 
 ### Accepted Trade-offs
 

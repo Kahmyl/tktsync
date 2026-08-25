@@ -22,7 +22,7 @@ import type { VenueLayoutDetail } from './features/admin/types';
 import {
   targetsForEntireEvent,
   targetsForSection,
-} from './features/events/inventory/InventoryTargetPicker';
+} from './features/events/inventory/inventoryTargets';
 
 describe('admin interaction policy', () => {
   it('never automatically retries mutations', () => {

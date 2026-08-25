@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { guides } from './content';
@@ -26,6 +25,7 @@ type Operation = {
   route: string;
   method: string;
   path: string;
+  successMediaType?: string;
   title: string;
   description: string;
   destructive: boolean;
@@ -42,6 +42,7 @@ type Operation = {
   responses: readonly {
     status: string;
     description: string;
+    mediaType?: string;
     fields: readonly DocField[];
     example?: unknown;
   }[];
@@ -56,6 +57,16 @@ type Result = {
 const operationList = partnerOperations as unknown as Operation[];
 const guideGroups = [
   { title: 'Start', routes: ['/', '/quickstart'] },
+  {
+    title: 'Build your ticketing experience',
+    routes: [
+      '/workflows',
+      '/workflows/selector',
+      '/workflows/direct',
+      '/workflows/tickets',
+      '/workflows/recovery',
+    ],
+  },
   {
     title: 'Core concepts',
     routes: ['/authentication', '/errors', '/idempotency', '/pagination', '/webhooks'],
@@ -428,6 +439,48 @@ function GuidePage({ route, navigate }: { route: string; navigate(path: string):
                 ))}
               </ol>
             )}
+            {section.flow && (
+              <div className="workflow-flow" aria-label={`${section.title} workflow`}>
+                {section.flow.map((step) => {
+                  const content = (
+                    <>
+                      <span>{step.label}</span>
+                      <strong>{step.title}</strong>
+                      <p>{step.body}</p>
+                      {step.route && <small>Open this step →</small>}
+                    </>
+                  );
+                  return step.route ? (
+                    <button
+                      key={`${step.label}-${step.title}`}
+                      onClick={() => navigate(step.route!)}
+                    >
+                      {content}
+                    </button>
+                  ) : (
+                    <div key={`${step.label}-${step.title}`}>{content}</div>
+                  );
+                })}
+              </div>
+            )}
+            {section.code && (
+              <div className="guide-code">
+                <span>{section.code.label}</span>
+                <pre>
+                  <code>{section.code.value}</code>
+                </pre>
+              </div>
+            )}
+            {section.links && (
+              <div className="guide-links">
+                {section.links.map((link) => (
+                  <button key={link.route} onClick={() => navigate(link.route)}>
+                    {link.label}
+                    <Icon name="arrow" />
+                  </button>
+                ))}
+              </div>
+            )}
             {section.callout && (
               <aside className="callout">
                 <strong>Important</strong>
@@ -772,7 +825,9 @@ function Workbench({
           {operation.body && (
             <div className="body-fields">
               <h3>JSON body</h3>
-              {Object.entries(request.body as Record<string, unknown>).map(([key, value]) => (
+              {Object.entries(
+                (request.body ?? operation.body.example) as Record<string, unknown>,
+              ).map(([key, value]) => (
                 <InputValue
                   key={key}
                   label={key}
@@ -780,7 +835,10 @@ function Workbench({
                   onChange={(next) =>
                     setRequest((current) =>
                       materialEdit(current, {
-                        body: { ...(current.body as Record<string, unknown>), [key]: next },
+                        body: {
+                          ...((current.body ?? operation.body?.example) as Record<string, unknown>),
+                          [key]: next,
+                        },
                       }),
                     )
                   }
@@ -859,7 +917,7 @@ function NotFound({ navigate }: { navigate(path: string): void }) {
   );
 }
 
-function App() {
+export function App() {
   const [path, navigate] = usePath();
   const [navOpen, setNavOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);

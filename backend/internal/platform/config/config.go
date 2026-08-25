@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -20,6 +21,7 @@ type Config struct {
 	Realtime                   Realtime
 	Webhook                    Webhook
 	SelectorBaseURL            string
+	TicketQRPublicBaseURL      string
 	BrowserOrigins             []string
 	PartnerCredentialReplayKey string
 	Shutdown                   time.Duration
@@ -372,10 +374,11 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 			EncryptionKey:        get("WEBHOOK_ENCRYPTION_KEY", ""),
 			EncryptionKeyring:    get("WEBHOOK_ENCRYPTION_KEYRING", ""),
 		},
-		SelectorBaseURL: get("SELECTOR_BASE_URL", "http://localhost:5174/s"),
-		BrowserOrigins:  splitCSV(get("BROWSER_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost:5175")),
-		Shutdown:        shutdown,
-		Telemetry:       Telemetry{Enabled: telemetryEnabled, OTLPEndpoint: strings.TrimSpace(get("OTEL_EXPORTER_OTLP_ENDPOINT", "")), SampleRatio: sampleRatio},
+		SelectorBaseURL:       get("SELECTOR_BASE_URL", "http://localhost:5174/s"),
+		TicketQRPublicBaseURL: get("TICKET_QR_PUBLIC_BASE_URL", "http://localhost:8080"),
+		BrowserOrigins:        splitCSV(get("BROWSER_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost:5175")),
+		Shutdown:              shutdown,
+		Telemetry:             Telemetry{Enabled: telemetryEnabled, OTLPEndpoint: strings.TrimSpace(get("OTEL_EXPORTER_OTLP_ENDPOINT", "")), SampleRatio: sampleRatio},
 	}
 
 	if cfg.Database.URL == "" {
@@ -407,6 +410,14 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 	if len(cfg.Supabase.JWTAlgorithms) == 0 {
 		return Config{}, errors.New("SUPABASE_JWT_ALGORITHMS must contain at least one algorithm")
 	}
+
+	ticketQRBaseURL, err := normalizePublicBaseURL(
+		cfg.TicketQRPublicBaseURL,
+	)
+	if err != nil {
+		return Config{}, fmt.Errorf("TICKET_QR_PUBLIC_BASE_URL: %w", err)
+	}
+	cfg.TicketQRPublicBaseURL = ticketQRBaseURL
 
 	switch cfg.Environment {
 	case "development", "test":
@@ -446,9 +457,10 @@ func validateProduction(cfg Config) error {
 		return errors.New("all HMAC keyring active versions are required in production")
 	}
 	for name, raw := range map[string]string{
-		"SUPABASE_JWKS_URL":   cfg.Supabase.JWKSURL,
-		"SUPABASE_JWT_ISSUER": cfg.Supabase.JWTIssuer,
-		"SELECTOR_BASE_URL":   cfg.SelectorBaseURL,
+		"SUPABASE_JWKS_URL":         cfg.Supabase.JWKSURL,
+		"SUPABASE_JWT_ISSUER":       cfg.Supabase.JWTIssuer,
+		"SELECTOR_BASE_URL":         cfg.SelectorBaseURL,
+		"TICKET_QR_PUBLIC_BASE_URL": cfg.TicketQRPublicBaseURL,
 	} {
 		if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(raw)), "https://") {
 			return fmt.Errorf("%s must use HTTPS in production", name)
@@ -471,6 +483,21 @@ func validateProduction(cfg Config) error {
 		}
 	}
 	return nil
+}
+
+func normalizePublicBaseURL(raw string) (string, error) {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return "", errors.New("must be an absolute HTTP or HTTPS URL")
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", errors.New("must use HTTP or HTTPS")
+	}
+	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", errors.New("must not contain credentials, a query string, or a fragment")
+	}
+	parsed.Path = strings.TrimRight(parsed.Path, "/")
+	return parsed.String(), nil
 }
 
 func obviousPlaceholder(raw string) bool {

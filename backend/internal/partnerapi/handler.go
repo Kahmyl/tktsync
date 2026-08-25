@@ -22,24 +22,26 @@ import (
 )
 
 type Dependencies struct {
-	Database     *pgxpool.Pool
-	PartnerAuth  *auth.PartnerAuthenticator
-	Availability *inventory.Service
-	Transactions *database.Runner
-	Reservation  *reservation.Service
-	Selection    *selection.Service
-	Reporting    *reporting.Service
+	Database              *pgxpool.Pool
+	PartnerAuth           *auth.PartnerAuthenticator
+	Availability          *inventory.Service
+	Transactions          *database.Runner
+	Reservation           *reservation.Service
+	Selection             *selection.Service
+	Reporting             *reporting.Service
+	TicketQRPublicBaseURL string
 }
 
 type Handler struct {
-	db           *pgxpool.Pool
-	partnerAuth  *auth.PartnerAuthenticator
-	availability *inventory.Service
-	transactions *database.Runner
-	reservation  *reservation.Service
-	selection    *selection.Service
-	reporting    *reporting.Service
-	mux          *http.ServeMux
+	db                    *pgxpool.Pool
+	partnerAuth           *auth.PartnerAuthenticator
+	availability          *inventory.Service
+	transactions          *database.Runner
+	reservation           *reservation.Service
+	selection             *selection.Service
+	reporting             *reporting.Service
+	ticketQRPublicBaseURL string
+	mux                   *http.ServeMux
 }
 
 func New(
@@ -60,15 +62,24 @@ func New(
 		)
 	}
 
+	ticketQRPublicBaseURL := strings.TrimRight(
+		strings.TrimSpace(deps.TicketQRPublicBaseURL),
+		"/",
+	)
+	if ticketQRPublicBaseURL == "" {
+		ticketQRPublicBaseURL = "http://localhost:8080"
+	}
+
 	h := &Handler{
-		db:           deps.Database,
-		partnerAuth:  deps.PartnerAuth,
-		availability: deps.Availability,
-		transactions: deps.Transactions,
-		reservation:  deps.Reservation,
-		selection:    deps.Selection,
-		reporting:    deps.Reporting,
-		mux:          http.NewServeMux(),
+		db:                    deps.Database,
+		partnerAuth:           deps.PartnerAuth,
+		availability:          deps.Availability,
+		transactions:          deps.Transactions,
+		reservation:           deps.Reservation,
+		selection:             deps.Selection,
+		reporting:             deps.Reporting,
+		ticketQRPublicBaseURL: ticketQRPublicBaseURL,
+		mux:                   http.NewServeMux(),
 	}
 	if h.reporting == nil {
 		h.reporting = reporting.NewService(deps.Database)
@@ -87,6 +98,11 @@ func (h *Handler) ServeHTTP(
 }
 
 func (h *Handler) registerRoutes() {
+	h.mux.HandleFunc(
+		"GET /api/v1/partner/events",
+		h.listEvents,
+	)
+
 	h.mux.HandleFunc(
 		"GET /api/v1/partner/events/{event_id}",
 		h.getEvent,
@@ -143,6 +159,14 @@ func (h *Handler) registerRoutes() {
 			"GET /api/v1/partner/tickets/{ticket_id}/credential",
 			h.getTicketCredential,
 		)
+		h.mux.HandleFunc(
+			"GET /api/v1/partner/tickets/{ticket_id}/qr",
+			h.getTicketQR,
+		)
+		h.mux.HandleFunc(
+			"GET /api/v1/ticket-qr/{capability}",
+			h.getHostedTicketQR,
+		)
 
 		h.mux.HandleFunc(
 			"POST /api/v1/partner/tickets/{ticket_id}/void",
@@ -159,6 +183,77 @@ func (h *Handler) registerRoutes() {
 			h.reReleaseTicketInventory,
 		)
 	}
+}
+
+func (h *Handler) listEvents(w http.ResponseWriter, r *http.Request) {
+	principal, err := h.authenticatePartner(r)
+	if err != nil {
+		httpserver.WriteError(w, r, err)
+		return
+	}
+
+	rows, err := h.db.Query(
+		r.Context(),
+		`
+			SELECT
+				e.id, e.name, e.state, e.starts_at, e.ends_at,
+				e.sales_open_at, e.sales_close_at,
+				e.admission_open_at, e.admission_close_at,
+				e.timezone_name, v.name, v.address_text
+			FROM partner_event_access pea
+			JOIN events e ON e.id = pea.event_id
+			JOIN venues v ON v.id = e.venue_id
+			WHERE pea.partner_id = $1 AND pea.state = 'ACTIVE'
+			ORDER BY e.starts_at ASC NULLS LAST, e.created_at ASC, e.id ASC
+		`,
+		principal.PartnerID,
+	)
+	if err != nil {
+		httpserver.WriteError(w, r, err)
+		return
+	}
+	defer rows.Close()
+
+	items := make([]map[string]any, 0)
+	for rows.Next() {
+		var eventID uuid.UUID
+		var name, state, venueName string
+		var addressText *string
+		var startsAt, endsAt, salesOpenAt, salesCloseAt any
+		var admissionOpenAt, admissionCloseAt any
+		var timezoneName *string
+		if err := rows.Scan(
+			&eventID, &name, &state, &startsAt, &endsAt,
+			&salesOpenAt, &salesCloseAt, &admissionOpenAt, &admissionCloseAt,
+			&timezoneName, &venueName, &addressText,
+		); err != nil {
+			httpserver.WriteError(w, r, err)
+			return
+		}
+		items = append(items, map[string]any{
+			"id": publicid.Encode(publicid.Event, eventID), "name": name, "state": state,
+			"starts_at": startsAt, "ends_at": endsAt,
+			"sales_open_at": salesOpenAt, "sales_close_at": salesCloseAt,
+			"admission_open_at": admissionOpenAt, "admission_close_at": admissionCloseAt,
+			"timezone_name": timezoneName, "venue_name": venueName, "address_text": addressText,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		httpserver.WriteError(w, r, err)
+		return
+	}
+
+	var serverTime any
+	if err := h.db.QueryRow(r.Context(), `SELECT clock_timestamp()`).Scan(&serverTime); err != nil {
+		httpserver.WriteError(w, r, err)
+		return
+	}
+	for _, item := range items {
+		item["server_time"] = serverTime
+	}
+	httpserver.WriteJSON(w, http.StatusOK, map[string]any{
+		"items": items, "total": len(items), "server_time": serverTime,
+	})
 }
 
 func (h *Handler) authenticateEvent(

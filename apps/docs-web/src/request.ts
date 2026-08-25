@@ -1,6 +1,7 @@
 export type RequestOperation = {
   method: string;
   path: string;
+  successMediaType?: string;
   parameters: readonly { name: string; in: string; required: boolean; example: unknown }[];
   body?: { example: unknown };
 };
@@ -50,7 +51,9 @@ export function buildRequest(
 ) {
   let path = operation.path;
   const query = new URLSearchParams();
-  const headers: Record<string, string> = { Accept: 'application/json' };
+  const headers: Record<string, string> = {
+    Accept: operation.successMediaType || 'application/json',
+  };
   if (credential) headers.Authorization = `Bearer ${credential}`;
   for (const parameter of operation.parameters) {
     const value = state.values[parameter.name] || '';
@@ -72,6 +75,18 @@ export function buildRequest(
 }
 
 const shell = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
+const responseReader = (mediaType = 'application/json') => {
+  const normalized = mediaType.toLowerCase().split(';', 1)[0]!.trim();
+  if (normalized === 'application/json' || normalized.endsWith('+json')) return 'json';
+  if (
+    normalized.startsWith('text/') ||
+    normalized === 'application/xml' ||
+    normalized === 'image/svg+xml' ||
+    normalized.endsWith('+xml')
+  )
+    return 'text';
+  return 'arrayBuffer';
+};
 export function codeSample(
   language: string,
   operation: RequestOperation,
@@ -80,10 +95,11 @@ export function codeSample(
 ) {
   const request = buildRequest(operation, state, '<PARTNER_API_KEY>', baseUrl);
   const headers = Object.entries(request.headers);
+  const reader = responseReader(operation.successMediaType);
   if (language === 'javascript')
-    return `const response = await fetch(${JSON.stringify(request.url)}, {\n  method: ${JSON.stringify(operation.method)},\n  headers: ${JSON.stringify(request.headers, null, 2).replaceAll('\n', '\n  ')},${request.body ? `\n  body: ${JSON.stringify(request.body)},` : ''}\n});\n\nconst data = await response.json();`;
+    return `const response = await fetch(${JSON.stringify(request.url)}, {\n  method: ${JSON.stringify(operation.method)},\n  headers: ${JSON.stringify(request.headers, null, 2).replaceAll('\n', '\n  ')},${request.body ? `\n  body: ${JSON.stringify(request.body)},` : ''}\n});\n\nconst data = await response.${reader}();`;
   if (language === 'go')
-    return `payload := strings.NewReader(${JSON.stringify(request.body || '')})\nreq, err := http.NewRequest(${JSON.stringify(operation.method)}, ${JSON.stringify(request.url)}, payload)\nif err != nil { log.Fatal(err) }\n${headers.map(([key, value]) => `req.Header.Set(${JSON.stringify(key)}, ${JSON.stringify(value)})`).join('\n')}\nresp, err := http.DefaultClient.Do(req)`;
+    return `payload := strings.NewReader(${JSON.stringify(request.body || '')})\nreq, err := http.NewRequest(${JSON.stringify(operation.method)}, ${JSON.stringify(request.url)}, payload)\nif err != nil { log.Fatal(err) }\n${headers.map(([key, value]) => `req.Header.Set(${JSON.stringify(key)}, ${JSON.stringify(value)})`).join('\n')}\nresp, err := http.DefaultClient.Do(req)\nif err != nil { log.Fatal(err) }\ndefer resp.Body.Close()\nbody, err := io.ReadAll(resp.Body)`;
   return [
     `curl --request ${operation.method} ${shell(request.url)}`,
     ...headers.map(([key, value]) => `  --header ${shell(`${key}: ${value}`)}`),

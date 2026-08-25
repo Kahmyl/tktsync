@@ -278,9 +278,11 @@ h1 {
   color: #586173;
   font-size: 18px;
   line-height: 1.75;
+  overflow-wrap: anywhere;
 }
 .guide-section,
 .endpoint-article section {
+  min-width: 0;
   padding-top: 38px;
   margin-top: 38px;
   border-top: 1px solid var(--line);
@@ -297,12 +299,127 @@ h1 {
   color: #586173;
   font-size: 15px;
   line-height: 1.8;
+  overflow-wrap: anywhere;
 }
 .guide-section ol {
   padding-left: 22px;
 }
 .guide-section li {
   padding: 4px 0 4px 8px;
+}
+.workflow-flow {
+  display: grid;
+  gap: 18px;
+  margin-top: 26px;
+}
+.workflow-flow > div,
+.workflow-flow > button {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px 22px;
+  background: linear-gradient(135deg, #fff 0%, #fafcff 100%);
+  color: inherit;
+  text-align: left;
+}
+.workflow-flow > button {
+  cursor: pointer;
+}
+.workflow-flow > button:hover {
+  border-color: #b7adf4;
+  box-shadow: 0 8px 24px rgba(89, 69, 184, 0.09);
+  transform: translateY(-1px);
+}
+.workflow-flow > :not(:last-child)::after {
+  position: absolute;
+  bottom: -19px;
+  left: 30px;
+  width: 2px;
+  height: 18px;
+  background: #cfc9ed;
+  content: '';
+}
+.workflow-flow span {
+  color: var(--brand-dark);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.workflow-flow strong {
+  margin-top: 7px;
+  color: #1b2231;
+  font-size: 17px;
+}
+.workflow-flow p {
+  margin: 8px 0 0;
+  line-height: 1.65;
+}
+.workflow-flow small {
+  margin-top: 12px;
+  color: var(--brand-dark);
+  font-size: 12px;
+  font-weight: 750;
+}
+.guide-code {
+  margin-top: 24px;
+  overflow: hidden;
+  border: 1px solid #252c3d;
+  border-radius: 12px;
+  background: #121722;
+}
+.guide-code > span {
+  display: block;
+  border-bottom: 1px solid #293145;
+  padding: 10px 15px;
+  color: #aab4c8;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.guide-code pre {
+  margin: 0;
+  overflow-x: auto;
+  padding: 18px;
+  color: #e8ecf5;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.guide-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+.guide-links button {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d8d3f5;
+  border-radius: 9px;
+  padding: 10px 13px;
+  background: #f8f7ff;
+  color: var(--brand-dark);
+  font-weight: 750;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.guide-links button:hover {
+  border-color: #afa3ef;
+  background: #f2efff;
+}
+.guide-links svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
 }
 .callout {
   margin-top: 24px;

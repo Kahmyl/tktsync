@@ -27,7 +27,7 @@ docker run --rm --network host -v "$REPO_DIR/migrations:/migrations:ro" "$MIGRAT
 
 docker run --rm --network host -e PGPASSWORD=tktsync "$POSTGRES_IMAGE" \
   psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$POSTGRES_PORT" -U tktsync -d "$FRESH_DB" \
-  -c "SELECT 1 / CASE WHEN COUNT(*)=1 THEN 1 ELSE 0 END AS migrations_ok FROM schema_migrations WHERE version=8 AND dirty=false" \
+  -c "SELECT 1 / CASE WHEN COUNT(*)=1 THEN 1 ELSE 0 END AS migrations_ok FROM schema_migrations WHERE version=9 AND dirty=false" \
   -c "SELECT 1 / CASE WHEN COUNT(*)=4 THEN 1 ELSE 0 END AS tables_ok FROM (VALUES ('events'),('audit_events'),('sales'),('admissions')) AS required(name) WHERE to_regclass('public.' || name) IS NOT NULL" \
   -c "SELECT 1 / CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='app_users' AND column_name='email') THEN 1 ELSE 0 END AS platform_admin_email_ok" \
   -c "SELECT 1 / CASE WHEN to_regclass('public.app_users_email_uq') IS NOT NULL THEN 1 ELSE 0 END AS platform_admin_email_index_ok" \

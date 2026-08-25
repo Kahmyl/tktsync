@@ -148,6 +148,7 @@ export interface PartnerDetail {
   id: string;
   name: string;
   state: 'ACTIVE' | 'DISABLED';
+  allowed_return_urls: string[];
   created_at: string;
   disabled_at: string | null;
   credentials: Array<{

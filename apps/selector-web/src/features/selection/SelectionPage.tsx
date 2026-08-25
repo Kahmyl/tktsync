@@ -279,6 +279,62 @@ export function SelectionPage() {
     return sections;
   }, [session.layout]);
   const gaOffers = session.offers.filter((offer) => offer.kind === 'ga');
+  const spatialBounds = (() => {
+    const objects = session.layout?.geometry?.objects ?? [];
+    const expandedBounds = objects.map((item) => {
+      const section = reservedSections.get(item.object_key);
+      const hasGAPool = session.layout?.ga_pools.some(
+        (pool) => pool.section_object_key === item.object_key,
+      );
+      const orientation = ['STAGE', 'RING', 'FIELD'].includes(item.type);
+      const minimumWidth = orientation ? 180 : section || hasGAPool ? 270 : 0;
+      const minimumHeight = orientation
+        ? 90
+        : section
+          ? Math.max(190, 92 + section.rows.size * 38)
+          : hasGAPool
+            ? 210
+            : 0;
+      const width = Math.max(item.width, minimumWidth);
+      const height = Math.max(item.height, minimumHeight);
+      const radians = ((item.rotation ?? 0) * Math.PI) / 180;
+      const rotatedWidth =
+        Math.abs(width * Math.cos(radians)) + Math.abs(height * Math.sin(radians));
+      const rotatedHeight =
+        Math.abs(width * Math.sin(radians)) + Math.abs(height * Math.cos(radians));
+      const centerX = item.x + width / 2;
+      const centerY = item.y + height / 2;
+      return {
+        left: centerX - rotatedWidth / 2,
+        top: centerY - rotatedHeight / 2,
+        right: centerX + rotatedWidth / 2,
+        bottom: centerY + rotatedHeight / 2,
+      };
+    });
+    const left = Math.min(0, ...expandedBounds.map((item) => item.left));
+    const top = Math.min(0, ...expandedBounds.map((item) => item.top));
+    return {
+      offsetX: 24 - left,
+      offsetY: 24 - top,
+      width: Math.max(1000, ...expandedBounds.map((item) => item.right)) - left + 48,
+      height: Math.max(650, ...expandedBounds.map((item) => item.bottom)) - top + 48,
+    };
+  })();
+  const spatialStyle = (
+    item: NonNullable<NonNullable<Layout['geometry']>['objects']>[number],
+    contentMinimum?: { width?: number; height?: number },
+  ) => {
+    const orientation = ['STAGE', 'RING', 'FIELD'].includes(item.type);
+    const minimumWidth = contentMinimum?.width ?? (orientation ? 180 : 250);
+    const minimumHeight = contentMinimum?.height ?? (orientation ? 90 : 160);
+    return {
+      left: `${item.x + spatialBounds.offsetX}px`,
+      top: `${item.y + spatialBounds.offsetY}px`,
+      width: `${Math.max(item.width, minimumWidth)}px`,
+      height: `${Math.max(item.height, minimumHeight)}px`,
+      transform: `rotate(${item.rotation ?? 0}deg)`,
+    };
+  };
 
   const shell = (content: React.ReactNode) => (
     <div className="selector-app">
@@ -463,22 +519,22 @@ export function SelectionPage() {
                   ['STAGE', 'RING', 'FIELD'].includes(item.type),
                 ) && <div className="stage-mark">Event area</div>}
               <div className="spatial-map-scroll">
-                <div className="spatial-map" aria-label="Interactive venue floor plan">
+                <div
+                  className="spatial-map"
+                  aria-label="Interactive venue floor plan"
+                  style={{ width: spatialBounds.width, height: spatialBounds.height }}
+                >
                   {(session.layout?.geometry?.objects ?? [])
                     .filter((item) => ['STAGE', 'RING', 'FIELD'].includes(item.type))
                     .map((item) => (
                       <div
                         className="spatial-orientation"
                         key={item.object_key}
-                        style={{
-                          left: `${item.x / 10}%`,
-                          top: `${item.y / 6.5}%`,
-                          width: `${item.width / 10}%`,
-                          height: `${item.height / 6.5}%`,
-                          transform: `rotate(${item.rotation ?? 0}deg)`,
-                        }}
+                        style={spatialStyle(item)}
                       >
-                        {humanLabel(item.label, item.type)}
+                        <span style={{ transform: `rotate(${-(item.rotation ?? 0)}deg)` }}>
+                          {humanLabel(item.label, item.type)}
+                        </span>
                       </div>
                     ))}
                   {[...reservedSections.entries()].map(([sectionKey, sectionData]) => {
@@ -494,13 +550,10 @@ export function SelectionPage() {
                         aria-label={section}
                         style={
                           geo
-                            ? {
-                                left: `${geo.x / 10}%`,
-                                top: `${geo.y / 6.5}%`,
-                                width: `${geo.width / 10}%`,
-                                height: `${geo.height / 6.5}%`,
-                                transform: `rotate(${geo.rotation ?? 0}deg)`,
-                              }
+                            ? spatialStyle(geo, {
+                                width: 270,
+                                height: Math.max(190, 92 + rows.size * 38),
+                              })
                             : undefined
                         }
                       >
@@ -582,17 +635,7 @@ export function SelectionPage() {
                         className={`ga-card ${geo ? 'spatial-ga' : 'spatial-fallback'}`}
                         key={offer.offer_id}
                         aria-label={humanLabel(offer.label, 'General admission')}
-                        style={
-                          geo
-                            ? {
-                                left: `${geo.x / 10}%`,
-                                top: `${geo.y / 6.5}%`,
-                                width: `${geo.width / 10}%`,
-                                height: `${geo.height / 6.5}%`,
-                                transform: `rotate(${geo.rotation ?? 0}deg)`,
-                              }
-                            : undefined
-                        }
+                        style={geo ? spatialStyle(geo, { width: 270, height: 210 }) : undefined}
                       >
                         <div className="ga-details">
                           <span className="ga-icon">

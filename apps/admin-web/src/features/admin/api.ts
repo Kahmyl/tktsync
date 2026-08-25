@@ -461,6 +461,22 @@ export const adminApi = {
             },
           }),
     ),
+  setPartnerAllowedReturnURLs: (
+    token: string,
+    idempotencyKey: string,
+    partnerId: string,
+    urls: string[],
+  ) =>
+    result<{ partner_id: string; urls: string[] }>(
+      client.PUT('/api/v1/admin/partners/{partner_id}/allowed-return-urls', {
+        headers: headers(token, idempotencyKey),
+        params: {
+          path: { partner_id: partnerId },
+          header: { 'Idempotency-Key': idempotencyKey },
+        },
+        body: { urls },
+      }),
+    ),
   issuePartnerCredential: (token: string, idempotencyKey: string, partnerId: string) =>
     result<{ id: string; partner_id: string; credential: string }>(
       client.POST('/api/v1/admin/partners/{partner_id}/credentials', {

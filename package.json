@@ -18,6 +18,7 @@
     "api:routes": "node scripts/check-route-parity.mjs",
     "docs:generate": "node scripts/generate-partner-docs.mjs",
     "docs:check": "node scripts/generate-partner-docs.mjs --check",
+    "compose:check": "node scripts/check-compose-config.mjs",
     "e2e": "playwright test"
   },
   "devDependencies": {

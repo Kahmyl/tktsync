@@ -2641,6 +2641,26 @@
         }
       }
     },
+    "/api/v1/partner/events": {
+      "get": {
+        "operationId": "partnerListEvents",
+        "description": "Lists every event for which the authenticated Partner currently has active access. Use this operation to discover event IDs before retrieving layout, availability, or creating a selection session.",
+        "security": [{ "PartnerBearer": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/XRequestID" }],
+        "responses": {
+          "200": {
+            "description": "Accessible Partner events.",
+            "headers": { "X-Request-ID": { "$ref": "#/components/headers/XRequestID" } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PartnerEventList" }
+              }
+            }
+          },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    },
     "/api/v1/partner/events/{event_id}": {
       "get": {
         "operationId": "partnerGetEvent",
@@ -3392,6 +3412,7 @@
     "/api/v1/partner/tickets/{ticket_id}/credential": {
       "get": {
         "operationId": "partnerGetTicketCredential",
+        "description": "Recovers the current active qr1 credential for a Ticket owned by the authenticated Partner. The qr_url is an opaque credential-bound hosted presentation capability that Partners can embed in their own ticket experience.",
         "security": [
           {
             "PartnerBearer": []
@@ -3427,6 +3448,70 @@
           "default": {
             "$ref": "#/components/responses/ErrorResponse"
           }
+        }
+      }
+    },
+    "/api/v1/partner/tickets/{ticket_id}/qr": {
+      "get": {
+        "operationId": "partnerGetTicketQR",
+        "description": "Returns a TktSync-generated QR image containing the complete current active qr1 credential for a Ticket owned by the authenticated Partner.",
+        "security": [{ "PartnerBearer": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/TicketID" },
+          { "$ref": "#/components/parameters/XRequestID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Generated QR image for the current active credential.",
+            "headers": {
+              "X-Request-ID": { "$ref": "#/components/headers/XRequestID" },
+              "Cache-Control": { "$ref": "#/components/headers/CacheControlNoStore" },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/XContentTypeOptionsNoSniff"
+              }
+            },
+            "content": {
+              "image/svg+xml": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            }
+          },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    },
+    "/api/v1/ticket-qr/{capability}": {
+      "get": {
+        "operationId": "getHostedTicketQR",
+        "description": "Returns only the TktSync-generated QR image authorized by an opaque, authenticated-encrypted presentation capability bound to one Ticket credential. The URL contains no raw credential or public Ticket ID. Credential reissue invalidates the old capability, and authenticated retrieval supplies a new hosted URL. The capability authorizes presentation only and must be treated as sensitive bearer material.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "capability",
+            "in": "path",
+            "required": true,
+            "description": "Opaque ticket QR presentation capability returned by the authenticated credential endpoint.",
+            "schema": { "type": "string", "pattern": "^tqp1_[A-Za-z0-9_-]+$" }
+          },
+          { "$ref": "#/components/parameters/XRequestID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Generated QR image for the current active credential.",
+            "headers": {
+              "X-Request-ID": { "$ref": "#/components/headers/XRequestID" },
+              "Cache-Control": { "$ref": "#/components/headers/CacheControlNoStore" },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/XContentTypeOptionsNoSniff"
+              }
+            },
+            "content": {
+              "image/svg+xml": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            }
+          },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
         }
       }
     },
@@ -4238,6 +4323,7 @@
     "/api/v1/partner/selection-sessions": {
       "post": {
         "operationId": "partnerCreateSelectionSession",
+        "description": "Creates an opaque Selector session for an accessible Event. The return_url must exactly match an HTTPS checkout destination registered during Partner integration onboarding.",
         "security": [
           {
             "PartnerBearer": []
@@ -5978,6 +6064,27 @@
         },
         "additionalProperties": false
       },
+      "PartnerEventList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "total", "server_time"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PartnerEvent"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "server_time": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "Price": {
         "type": "object",
         "additionalProperties": false,
@@ -6592,7 +6699,7 @@
       "TicketCredentialResponse": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["ticket_id", "credential_id", "status", "qr_payload"],
+        "required": ["ticket_id", "credential_id", "status", "qr_payload", "qr_url"],
         "properties": {
           "ticket_id": {
             "type": "string",
@@ -6609,6 +6716,12 @@
           "qr_payload": {
             "type": "string",
             "pattern": "^qr1\\."
+          },
+          "qr_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Opaque credential-bound TktSync-hosted QR presentation URL. Credential reissue invalidates this URL and authenticated retrieval returns a replacement. It is suitable for embedding in Partner-owned HTML, email, PDF, image, or app presentation.",
+            "example": "https://api.example.test/api/v1/ticket-qr/tqp1_opaque-capability"
           }
         }
       },
@@ -7151,7 +7264,9 @@
           },
           "return_url": {
             "type": "string",
-            "format": "uri"
+            "format": "uri",
+            "description": "Absolute HTTPS checkout destination registered during Partner integration onboarding. Paths, ports, query strings, and trailing slashes must match exactly.",
+            "example": "https://partner.example/checkout/return"
           }
         }
       },
@@ -7740,10 +7855,17 @@
         }
       },
       "CacheControlNoStore": {
-        "description": "Reservation responses containing protected state must not be cached.",
+        "description": "Responses containing protected or dynamically revocable state must not be cached.",
         "schema": {
           "type": "string",
           "const": "no-store"
+        }
+      },
+      "XContentTypeOptionsNoSniff": {
+        "description": "Prevents browsers from interpreting the QR image as a different content type.",
+        "schema": {
+          "type": "string",
+          "const": "nosniff"
         }
       }
     }

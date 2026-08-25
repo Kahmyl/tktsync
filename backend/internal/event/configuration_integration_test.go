@@ -215,6 +215,18 @@ func TestEventConfigurationFlow(t *testing.T) {
 		t.Fatalf("create Event: %v", err)
 	}
 
+	var defaultHoldDuration, defaultMaxHold int
+	if err := pool.QueryRow(
+		ctx,
+		`SELECT hold_duration_seconds,max_hold_quantity FROM event_transaction_policies WHERE event_id=$1`,
+		eventID,
+	).Scan(&defaultHoldDuration, &defaultMaxHold); err != nil {
+		t.Fatalf("read default Event policy: %v", err)
+	}
+	if defaultHoldDuration != 600 || defaultMaxHold != 12 {
+		t.Fatalf("default Event policy = hold %d max %d, want hold 600 max 12", defaultHoldDuration, defaultMaxHold)
+	}
+
 	if err := eventService.MaterializeLayout(
 		ctx,
 		actorID,

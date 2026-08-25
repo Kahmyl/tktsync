@@ -178,6 +178,8 @@ type SelectorMockOptions = {
   availabilityForRead?: (read: number) => ReturnType<typeof availability>;
   realtimeGate?: Promise<void>;
   holdExpiresAt?: string;
+  layout?: Record<string, unknown>;
+  reservationError?: { code: string; message: string; status: number };
 };
 
 async function mockSelector(page: Page, options: SelectorMockOptions = {}) {
@@ -210,7 +212,7 @@ async function mockSelector(page: Page, options: SelectorMockOptions = {}) {
       return;
     }
     if (request.method() === 'GET' && url.pathname === '/api/v1/selection/layout') {
-      await json(route, 200, baseLayout);
+      await json(route, 200, options.layout ?? baseLayout);
       return;
     }
     if (request.method() === 'GET' && url.pathname === '/api/v1/selection/availability') {
@@ -238,6 +240,17 @@ async function mockSelector(page: Page, options: SelectorMockOptions = {}) {
     }
     if (request.method() === 'POST' && url.pathname === '/api/v1/selection/reservations') {
       reservationBody = request.postDataJSON();
+      if (options.reservationError) {
+        await json(route, options.reservationError.status, {
+          error: {
+            code: options.reservationError.code,
+            message: options.reservationError.message,
+            details: null,
+            request_id: crypto.randomUUID(),
+          },
+        });
+        return;
+      }
       await json(route, 201, {
         id: 'res_1',
         status: 'HELD',
@@ -396,6 +409,157 @@ test('Selector consumes its fragment, keeps unavailable seats visible, bounds GA
   await page.getByRole('button', { name: 'Change selection' }).click();
   await expect(page.getByText('Choose your tickets').first()).toBeVisible();
   expect(mocked.releaseCalls).toBe(1);
+});
+
+test('Selector preserves authored spatial geometry when a visual object intersects', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const reservedUnits = [
+    ...['A', 'B', 'C'].flatMap((row) =>
+      ['1', '2', '3', '4', '5'].map((seat) => ({
+        inventory_id: `inv_reserved_${row}_${seat}`,
+        section_id: 'sec_reserved',
+        section_object_key: 'reserved-section',
+        section_name: 'Reserved section',
+        row,
+        seat,
+        display_label: `${row}${seat}`,
+      })),
+    ),
+    ...['Table 1', 'Table 2', 'Table 3'].flatMap((table) =>
+      ['1', '2', '3', '4'].map((seat) => ({
+        inventory_id: `inv_${table}_${seat}`,
+        section_id: 'sec_table',
+        section_object_key: 'table-area',
+        section_name: 'Table area',
+        table,
+        seat,
+        display_label: `${table} Seat ${seat}`,
+      })),
+    ),
+  ];
+  await mockSelector(page, {
+    layout: {
+      event_id: 'evt_1',
+      geometry: {
+        objects: [
+          {
+            object_key: 'stage',
+            type: 'STAGE',
+            label: 'Stage',
+            x: 360,
+            y: 120,
+            width: 300,
+            height: 90,
+          },
+          {
+            object_key: 'reserved-section',
+            type: 'SECTION',
+            label: 'Reserved section',
+            x: 240,
+            y: 150,
+            width: 270,
+            height: 160,
+            rotation: 12,
+          },
+          {
+            object_key: 'table-area',
+            type: 'SECTION',
+            label: 'Table area',
+            x: 570,
+            y: 200,
+            width: 270,
+            height: 160,
+          },
+          {
+            object_key: 'ga-section',
+            type: 'SECTION',
+            label: 'General admission',
+            x: 360,
+            y: 400,
+            width: 270,
+            height: 160,
+          },
+        ],
+      },
+      reserved_units: reservedUnits,
+      ga_pools: [
+        {
+          inventory_id: 'inv_ga',
+          section_id: 'sec_ga',
+          section_object_key: 'ga-section',
+          section_name: 'General admission',
+          name: 'General admission',
+          capacity: 100,
+        },
+      ],
+    },
+  });
+  await page.goto('http://127.0.0.1:4174/#spatial-card-capability');
+
+  const cards = page.locator('.spatial-section, .spatial-ga');
+  await expect(cards).toHaveCount(3);
+  const reserved = page.locator('section.spatial-section[aria-label="Reserved section"]');
+  await expect(reserved).toHaveCSS('position', 'absolute');
+  expect(await reserved.getAttribute('style')).toContain('left: 264px');
+  expect(await reserved.getAttribute('style')).toContain('top: 174px');
+  expect(await reserved.getAttribute('style')).toContain('rotate(12deg)');
+  await expect(page.locator('.spatial-orientation')).toHaveCSS('position', 'absolute');
+  expect(
+    await page
+      .locator('.spatial-map-scroll')
+      .evaluate((element) => element.scrollWidth > element.clientWidth),
+  ).toBe(true);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
+  const clipping = await cards.evaluateAll((elements) =>
+    elements.map((element) => ({
+      label: element.getAttribute('aria-label'),
+      clippedVertically: element.scrollHeight > element.clientHeight,
+      clippedHorizontally: element.scrollWidth > element.clientWidth,
+    })),
+  );
+  expect(clipping).toEqual([
+    { label: 'Reserved section', clippedVertically: false, clippedHorizontally: false },
+    { label: 'Table area', clippedVertically: false, clippedHorizontally: false },
+    { label: 'Standing', clippedVertically: false, clippedHorizontally: false },
+  ]);
+  await expect(page.getByRole('button', { name: /Table area, Table 3 · Seat 4/ })).toBeVisible();
+});
+
+test('Selector explains a future sales window instead of blaming availability', async ({
+  page,
+}) => {
+  await mockSelector(page, {
+    reservationError: {
+      code: 'EVENT_NOT_ON_SALE',
+      message: 'Event sales have not opened',
+      status: 409,
+    },
+  });
+  await page.goto('http://127.0.0.1:4174/#future-sales-capability');
+  await page.getByRole('button', { name: /VIP, Row A · Seat 1/ }).click();
+  await page.getByRole('button', { name: 'Hold tickets' }).click();
+  await expect(
+    page.getByText('Ticket sales have not opened yet. Please return when the sales window begins.'),
+  ).toBeVisible();
+  await expect(page.getByText(/review the latest availability/i)).toHaveCount(0);
+});
+
+test('Selector visibly counts down an active hold', async ({ page }) => {
+  await mockSelector(page, { holdExpiresAt: new Date(Date.now() + 125_000).toISOString() });
+  await page.goto('http://127.0.0.1:4174/#countdown-capability');
+  await page.getByRole('button', { name: /VIP, Row A · Seat 1/ }).click();
+  await page.getByRole('button', { name: 'Hold tickets' }).click();
+
+  const timer = page.locator('.hold-timer strong');
+  const firstValue = await timer.innerText();
+  await expect(timer).not.toHaveText(firstValue, { timeout: 3_000 });
+  expect(await timer.innerText()).toMatch(/^\d{2}:\d{2}$/);
 });
 
 test('Selector realtime removes a selected seat that becomes unavailable without fabricating success', async ({

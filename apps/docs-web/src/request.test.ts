@@ -21,6 +21,24 @@ describe('request model', () => {
       state.idempotencyKey,
     );
   });
+  it('uses the declared successful response media type for SVG and binary responses', () => {
+    const svgOperation = {
+      method: 'GET',
+      path: '/api/v1/partner/tickets/{ticket_id}/qr',
+      successMediaType: 'image/svg+xml',
+      parameters: [{ name: 'ticket_id', in: 'path', required: true, example: 'tkt_example' }],
+    } as const;
+    const svgState = initialRequest(svgOperation);
+    expect(buildRequest(svgOperation, svgState, 'secret').headers.Accept).toBe('image/svg+xml');
+    expect(codeSample('javascript', svgOperation, svgState, 'https://api.example')).toContain(
+      'await response.text()',
+    );
+
+    const binaryOperation = { ...svgOperation, successMediaType: 'application/pdf' } as const;
+    expect(codeSample('javascript', binaryOperation, svgState, 'https://api.example')).toContain(
+      'await response.arrayBuffer()',
+    );
+  });
   it('rotates automatic keys after material edits and preserves manual keys', () => {
     vi.spyOn(crypto, 'randomUUID')
       .mockReturnValueOnce('00000000-0000-4000-8000-000000000001')
