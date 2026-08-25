@@ -513,8 +513,9 @@ func TestPartnerReservationHTTP(
 				Availability: inventory.NewService(
 					pool,
 				),
-				Transactions: runner,
-				Reservation:  reservationService,
+				Transactions:          runner,
+				Reservation:           reservationService,
+				TicketQRPublicBaseURL: "https://tickets.test",
 			},
 		)
 	if err != nil {
@@ -528,6 +529,10 @@ func TestPartnerReservationHTTP(
 
 	apiMux.Handle(
 		"/api/v1/partner/",
+		partnerHandler,
+	)
+	apiMux.Handle(
+		"/api/v1/ticket-qr/",
 		partnerHandler,
 	)
 

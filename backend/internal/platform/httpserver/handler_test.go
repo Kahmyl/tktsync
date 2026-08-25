@@ -108,6 +108,17 @@ func TestRequestPanicIsContained(t *testing.T) {
 	}
 }
 
+func TestRouteClassRedactsTicketQRCapability(t *testing.T) {
+	capability := "tqp1_AAAAAf3Qj2uRSOaP-yjViKRBdABm3pkQHVGTQ5ayTwGuQRnYfjJk-LJQ_vdpM4Cmu9kOaA"
+	classified := routeClass("/api/v1/ticket-qr/" + capability)
+	if classified != "/api/v1/ticket-qr/{capability}" {
+		t.Fatalf("route class=%q", classified)
+	}
+	if strings.Contains(classified, capability) {
+		t.Fatal("ticket QR capability leaked into route class")
+	}
+}
+
 func TestRequestDeadlinePropagatesToHandler(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		<-r.Context().Done()

@@ -828,7 +828,42 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
+    /** @description Recovers the current active qr1 credential for a Ticket owned by the authenticated Partner. The qr_url is an opaque hosted presentation capability that Partners can embed in their own ticket experience. */
     get: operations['partnerGetTicketCredential'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/partner/tickets/{ticket_id}/qr': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Returns a TktSync-generated QR image containing the complete current active qr1 credential for a Ticket owned by the authenticated Partner. */
+    get: operations['partnerGetTicketQR'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/ticket-qr/{capability}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Returns only the TktSync-generated QR image authorized by an opaque, authenticated-encrypted presentation capability. The URL contains no raw credential or public Ticket ID and dynamically renders the Ticket's current active qr1 credential, so ordinary credential reissue does not require a new buyer-facing URL. The capability authorizes presentation only and must be treated as sensitive bearer material. */
+    get: operations['getHostedTicketQR'];
     put?: never;
     post?: never;
     delete?: never;
@@ -1817,6 +1852,12 @@ export interface components {
       /** @constant */
       status: 'ACTIVE';
       qr_payload: string;
+      /**
+       * Format: uri
+       * @description Opaque TktSync-hosted QR presentation URL. It renders the current active credential and is suitable for embedding in Partner-owned HTML, email, PDF, image, or app presentation.
+       * @example https://api.example.test/api/v1/ticket-qr/tqp1_opaque-capability
+       */
+      qr_url: string;
     };
     VoidTicketRequest: {
       reason?: string;
@@ -2248,8 +2289,10 @@ export interface components {
   headers: {
     /** @description Request/correlation identifier generated or normalized by TktSync. */
     XRequestID: string;
-    /** @description Reservation responses containing protected state must not be cached. */
+    /** @description Responses containing protected or dynamically revocable state must not be cached. */
     CacheControlNoStore: 'no-store';
+    /** @description Prevents browsers from interpreting the QR image as a different content type. */
+    XContentTypeOptionsNoSniff: 'nosniff';
   };
   pathItems: never;
 }
@@ -4233,6 +4276,65 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['TicketCredentialResponse'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  partnerGetTicketQR: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        ticket_id: components['parameters']['TicketID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Generated QR image for the current active credential. */
+      200: {
+        headers: {
+          'X-Request-ID': components['headers']['XRequestID'];
+          'Cache-Control': components['headers']['CacheControlNoStore'];
+          'X-Content-Type-Options': components['headers']['XContentTypeOptionsNoSniff'];
+          [name: string]: unknown;
+        };
+        content: {
+          'image/svg+xml': string;
+        };
+      };
+      default: components['responses']['ErrorResponse'];
+    };
+  };
+  getHostedTicketQR: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path: {
+        /** @description Opaque ticket QR presentation capability returned by the authenticated credential endpoint. */
+        capability: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Generated QR image for the current active credential. */
+      200: {
+        headers: {
+          'X-Request-ID': components['headers']['XRequestID'];
+          'Cache-Control': components['headers']['CacheControlNoStore'];
+          'X-Content-Type-Options': components['headers']['XContentTypeOptionsNoSniff'];
+          [name: string]: unknown;
+        };
+        content: {
+          'image/svg+xml': string;
         };
       };
       default: components['responses']['ErrorResponse'];

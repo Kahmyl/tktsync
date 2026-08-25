@@ -3392,6 +3392,7 @@
     "/api/v1/partner/tickets/{ticket_id}/credential": {
       "get": {
         "operationId": "partnerGetTicketCredential",
+        "description": "Recovers the current active qr1 credential for a Ticket owned by the authenticated Partner. The qr_url is an opaque hosted presentation capability that Partners can embed in their own ticket experience.",
         "security": [
           {
             "PartnerBearer": []
@@ -3427,6 +3428,70 @@
           "default": {
             "$ref": "#/components/responses/ErrorResponse"
           }
+        }
+      }
+    },
+    "/api/v1/partner/tickets/{ticket_id}/qr": {
+      "get": {
+        "operationId": "partnerGetTicketQR",
+        "description": "Returns a TktSync-generated QR image containing the complete current active qr1 credential for a Ticket owned by the authenticated Partner.",
+        "security": [{ "PartnerBearer": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/TicketID" },
+          { "$ref": "#/components/parameters/XRequestID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Generated QR image for the current active credential.",
+            "headers": {
+              "X-Request-ID": { "$ref": "#/components/headers/XRequestID" },
+              "Cache-Control": { "$ref": "#/components/headers/CacheControlNoStore" },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/XContentTypeOptionsNoSniff"
+              }
+            },
+            "content": {
+              "image/svg+xml": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            }
+          },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    },
+    "/api/v1/ticket-qr/{capability}": {
+      "get": {
+        "operationId": "getHostedTicketQR",
+        "description": "Returns only the TktSync-generated QR image authorized by an opaque, authenticated-encrypted presentation capability. The URL contains no raw credential or public Ticket ID and dynamically renders the Ticket's current active qr1 credential, so ordinary credential reissue does not require a new buyer-facing URL. The capability authorizes presentation only and must be treated as sensitive bearer material.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "capability",
+            "in": "path",
+            "required": true,
+            "description": "Opaque ticket QR presentation capability returned by the authenticated credential endpoint.",
+            "schema": { "type": "string", "pattern": "^tqp1_[A-Za-z0-9_-]+$" }
+          },
+          { "$ref": "#/components/parameters/XRequestID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Generated QR image for the current active credential.",
+            "headers": {
+              "X-Request-ID": { "$ref": "#/components/headers/XRequestID" },
+              "Cache-Control": { "$ref": "#/components/headers/CacheControlNoStore" },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/XContentTypeOptionsNoSniff"
+              }
+            },
+            "content": {
+              "image/svg+xml": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            }
+          },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
         }
       }
     },
@@ -6592,7 +6657,7 @@
       "TicketCredentialResponse": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["ticket_id", "credential_id", "status", "qr_payload"],
+        "required": ["ticket_id", "credential_id", "status", "qr_payload", "qr_url"],
         "properties": {
           "ticket_id": {
             "type": "string",
@@ -6609,6 +6674,12 @@
           "qr_payload": {
             "type": "string",
             "pattern": "^qr1\\."
+          },
+          "qr_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Opaque TktSync-hosted QR presentation URL. It renders the current active credential and is suitable for embedding in Partner-owned HTML, email, PDF, image, or app presentation.",
+            "example": "https://api.example.test/api/v1/ticket-qr/tqp1_opaque-capability"
           }
         }
       },
@@ -7740,10 +7811,17 @@
         }
       },
       "CacheControlNoStore": {
-        "description": "Reservation responses containing protected state must not be cached.",
+        "description": "Responses containing protected or dynamically revocable state must not be cached.",
         "schema": {
           "type": "string",
           "const": "no-store"
+        }
+      },
+      "XContentTypeOptionsNoSniff": {
+        "description": "Prevents browsers from interpreting the QR image as a different content type.",
+        "schema": {
+          "type": "string",
+          "const": "nosniff"
         }
       }
     }

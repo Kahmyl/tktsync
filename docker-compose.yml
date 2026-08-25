@@ -27,6 +27,7 @@ x-backend-environment: &backend-environment
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
   OTEL_TRACE_SAMPLE_RATIO: ${OTEL_TRACE_SAMPLE_RATIO:-0.1}
   SELECTOR_BASE_URL: http://localhost:${SELECTOR_HOST_PORT:-54471}/s
+  TICKET_QR_PUBLIC_BASE_URL: http://localhost:${API_HOST_PORT:-58480}
   BROWSER_ALLOWED_ORIGINS: http://localhost:${ADMIN_HOST_PORT:-54470},http://localhost:${SELECTOR_HOST_PORT:-54471},http://localhost:${SCANNER_HOST_PORT:-54472}
 
 x-frontend-build: &frontend-build

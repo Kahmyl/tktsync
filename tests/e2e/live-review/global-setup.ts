@@ -78,30 +78,35 @@ async function prepareRuntime(rootEnv: string) {
   );
   await writeFile(webhookReceiverLogPath, '', { mode: 0o600 });
 
-  if (!(await exists(composeEnvPath))) {
-    const key = () => randomBytes(32).toString('base64url');
-    const runtime = [
-      rootEnv.trimEnd(),
-      '',
-      '# Ephemeral live-review runtime. Never commit this file.',
-      'REALTIME_ENABLED=true',
-      'WEBHOOK_ENABLED=true',
-      'SELECTION_KEYRING_ACTIVE_VERSION=1',
-      `SELECTION_KEYRING_KEYS=1:${key()}`,
-      'RESERVATION_KEYRING_ACTIVE_VERSION=1',
-      `RESERVATION_KEYRING_KEYS=1:${key()}`,
-      'QR_KEYRING_ACTIVE_VERSION=1',
-      `QR_KEYRING_KEYS=1:${key()}`,
-      `PARTNER_CREDENTIAL_REPLAY_KEY=${key()}`,
-      'WEBHOOK_ENCRYPTION_KEY_VERSION=1',
-      `WEBHOOK_ENCRYPTION_KEY=${key()}`,
-      `LIVE_REVIEW_TLS_KEY_PATH=${tlsKeyPath}`,
-      `LIVE_REVIEW_TLS_CERT_PATH=${tlsCertPath}`,
-      `LIVE_REVIEW_WEBHOOK_LOG_PATH=${webhookReceiverLogPath}`,
-      '',
-    ].join('\n');
-    await writeFile(composeEnvPath, runtime, { mode: 0o600 });
-  }
+  const existingRuntime = (await exists(composeEnvPath))
+    ? await readFile(composeEnvPath, 'utf8')
+    : '';
+  const rootValues = parseEnv(rootEnv);
+  const existingValues = parseEnv(existingRuntime);
+  const key = () => randomBytes(32).toString('base64url');
+  const stable = (name: string, fallback: () => string) =>
+    rootValues[name] || existingValues[name] || fallback();
+  const runtime = [
+    rootEnv.trimEnd(),
+    '',
+    '# Ephemeral live-review runtime. Never commit this file.',
+    'REALTIME_ENABLED=true',
+    'WEBHOOK_ENABLED=true',
+    `SELECTION_KEYRING_ACTIVE_VERSION=${stable('SELECTION_KEYRING_ACTIVE_VERSION', () => '1')}`,
+    `SELECTION_KEYRING_KEYS=${stable('SELECTION_KEYRING_KEYS', () => `1:${key()}`)}`,
+    `RESERVATION_KEYRING_ACTIVE_VERSION=${stable('RESERVATION_KEYRING_ACTIVE_VERSION', () => '1')}`,
+    `RESERVATION_KEYRING_KEYS=${stable('RESERVATION_KEYRING_KEYS', () => `1:${key()}`)}`,
+    `QR_KEYRING_ACTIVE_VERSION=${stable('QR_KEYRING_ACTIVE_VERSION', () => '1')}`,
+    `QR_KEYRING_KEYS=${stable('QR_KEYRING_KEYS', () => `1:${key()}`)}`,
+    `PARTNER_CREDENTIAL_REPLAY_KEY=${stable('PARTNER_CREDENTIAL_REPLAY_KEY', key)}`,
+    `WEBHOOK_ENCRYPTION_KEY_VERSION=${stable('WEBHOOK_ENCRYPTION_KEY_VERSION', () => '1')}`,
+    `WEBHOOK_ENCRYPTION_KEY=${stable('WEBHOOK_ENCRYPTION_KEY', key)}`,
+    `LIVE_REVIEW_TLS_KEY_PATH=${tlsKeyPath}`,
+    `LIVE_REVIEW_TLS_CERT_PATH=${tlsCertPath}`,
+    `LIVE_REVIEW_WEBHOOK_LOG_PATH=${webhookReceiverLogPath}`,
+    '',
+  ].join('\n');
+  await writeFile(composeEnvPath, runtime, { mode: 0o600 });
 
   const composeAction = [
     'compose',

@@ -2335,7 +2335,8 @@ export const partnerOperations = [
     method: 'GET',
     path: '/api/v1/partner/tickets/{ticket_id}/credential',
     title: 'Retrieve a ticket credential',
-    description: '',
+    description:
+      'Recovers the current active qr1 credential for a Ticket owned by the authenticated Partner. The qr_url is an opaque hosted presentation capability that Partners can embed in their own ticket experience.',
     destructive: false,
     security: ['PartnerBearer'],
     parameters: [
@@ -2389,13 +2390,109 @@ export const partnerOperations = [
             description: '',
             children: [],
           },
+          {
+            name: 'qr_url',
+            required: true,
+            type: 'string · uri',
+            description:
+              'Opaque TktSync-hosted QR presentation URL. It renders the current active credential and is suitable for embedding in Partner-owned HTML, email, PDF, image, or app presentation.',
+            children: [],
+          },
         ],
         example: {
           ticket_id: 'tkt_AAAAAAAAAAAAAAAAAAAAAA',
           credential_id: 'credential_id_example',
           status: 'status_example',
           qr_payload: 'qr_payload_example',
+          qr_url: 'https://api.example.test/api/v1/ticket-qr/tqp1_opaque-capability',
         },
+      },
+      {
+        status: 'default',
+        description: 'Machine-readable error response.',
+        fields: [
+          {
+            name: 'error',
+            required: true,
+            type: 'object',
+            description: '',
+            children: [
+              {
+                name: 'code',
+                required: true,
+                type: 'string',
+                description: '',
+                children: [],
+              },
+              {
+                name: 'message',
+                required: true,
+                type: 'string',
+                description: '',
+                children: [],
+              },
+              {
+                name: 'request_id',
+                required: true,
+                type: 'string · uuid',
+                description: '',
+                children: [],
+              },
+              {
+                name: 'details',
+                required: true,
+                type: 'object',
+                description: '',
+                children: [],
+              },
+            ],
+          },
+        ],
+        example: {
+          error: {
+            code: 'code_example',
+            message: 'message_example',
+            request_id: 'request_id_example',
+            details: 'details_example',
+          },
+        },
+      },
+    ],
+  },
+  {
+    operationId: 'partnerGetTicketQR',
+    group: 'Tickets',
+    route: '/api/tickets/retrieve-qr',
+    method: 'GET',
+    path: '/api/v1/partner/tickets/{ticket_id}/qr',
+    title: 'Retrieve a ticket QR image',
+    description:
+      'Returns a TktSync-generated QR image containing the complete current active qr1 credential for a Ticket owned by the authenticated Partner.',
+    destructive: false,
+    security: ['PartnerBearer'],
+    parameters: [
+      {
+        name: 'ticket_id',
+        in: 'path',
+        required: true,
+        type: 'string',
+        description: '',
+        example: 'tkt_AAAAAAAAAAAAAAAAAAAAAA',
+      },
+      {
+        name: 'X-Request-ID',
+        in: 'header',
+        required: false,
+        type: 'string · uuid',
+        description: 'Optional client request/correlation UUID.',
+        example: 'X-Request-ID_example',
+      },
+    ],
+    responses: [
+      {
+        status: '200',
+        description: 'Generated QR image for the current active credential.',
+        fields: [],
       },
       {
         status: 'default',

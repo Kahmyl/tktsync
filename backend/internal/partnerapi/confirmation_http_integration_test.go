@@ -6,12 +6,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tktsync/tktsync/backend/internal/platform/publicid"
+	"github.com/tktsync/tktsync/backend/internal/ticketqr"
 )
 
 type ticketingConfirmationResponse struct {
@@ -34,6 +38,7 @@ type ticketingCredentialResponse struct {
 	CredentialID string `json:"credential_id"`
 	Status       string `json:"status"`
 	QRPayload    string `json:"qr_payload"`
+	QRURL        string `json:"qr_url"`
 }
 
 func ticketingAssertPartnerConfirmationHTTP(
@@ -409,7 +414,8 @@ func ticketingAssertPartnerConfirmationHTTP(
 			confirmed.Tickets[0].
 				CredentialID ||
 		credential.Status != "ACTIVE" ||
-		credential.QRPayload == "" {
+		credential.QRPayload == "" ||
+		credential.QRURL == "" {
 		t.Fatalf(
 			"invalid Ticketing credential: %s",
 			credentialResponse.Body.String(),
@@ -424,6 +430,94 @@ func ticketingAssertPartnerConfirmationHTTP(
 			"Ticketing credential payload is not an opaque qr1 credential: %q",
 			credential.QRPayload,
 		)
+	}
+
+	hostedQRPath := ticketingHostedQRPath(
+		t,
+		credential.QRURL,
+		confirmed.Tickets[0].ID,
+		credential.QRPayload,
+	)
+
+	authenticatedQR := reservationPartnerHTTP(
+		t,
+		handler,
+		http.MethodGet,
+		"/api/v1/partner/tickets/"+
+			confirmed.Tickets[0].ID+
+			"/qr",
+		credentialA,
+		"",
+		"",
+		nil,
+		"",
+	)
+	ticketingRequireQRResponse(
+		t,
+		authenticatedQR,
+		credential.QRPayload,
+	)
+
+	hostedQR := reservationPartnerHTTP(
+		t,
+		handler,
+		http.MethodGet,
+		hostedQRPath,
+		"",
+		"",
+		"",
+		nil,
+		"",
+	)
+	ticketingRequireQRResponse(t, hostedQR, credential.QRPayload)
+
+	crossPartnerQR := reservationPartnerHTTP(
+		t,
+		handler,
+		http.MethodGet,
+		"/api/v1/partner/tickets/"+
+			confirmed.Tickets[0].ID+
+			"/qr",
+		credentialB,
+		"",
+		"",
+		nil,
+		"",
+	)
+	reservationRequireErrorCode(t, crossPartnerQR, "RESOURCE_NOT_FOUND")
+
+	unknownQR := reservationPartnerHTTP(
+		t,
+		handler,
+		http.MethodGet,
+		"/api/v1/partner/tickets/"+
+			publicid.Encode(publicid.Ticket, uuid.New())+
+			"/qr",
+		credentialA,
+		"",
+		"",
+		nil,
+		"",
+	)
+	reservationRequireErrorCode(t, unknownQR, "RESOURCE_NOT_FOUND")
+
+	for _, path := range []string{
+		"/api/v1/ticket-qr/random-capability",
+		"/api/v1/ticket-qr/tqp1_not-base64!",
+		hostedQRPath + "tampered",
+	} {
+		response := reservationPartnerHTTP(
+			t,
+			handler,
+			http.MethodGet,
+			path,
+			"",
+			"",
+			"",
+			nil,
+			"",
+		)
+		reservationRequireErrorCode(t, response, "RESOURCE_NOT_FOUND")
 	}
 
 	secondCredentialResponse :=
@@ -467,6 +561,13 @@ func ticketingAssertPartnerConfirmationHTTP(
 			"Ticketing credential retrieval was not reproducible: first=%s second=%s",
 			credentialResponse.Body.String(),
 			secondCredentialResponse.Body.String(),
+		)
+	}
+	if secondCredential.QRURL != credential.QRURL {
+		t.Fatalf(
+			"hosted QR URL changed without ticket/key rotation: first=%q second=%q",
+			credential.QRURL,
+			secondCredential.QRURL,
 		)
 	}
 
@@ -599,6 +700,115 @@ func ticketingAssertPartnerConfirmationHTTP(
 		)
 	}
 
+	noActiveCredentialResponse := reservationPartnerHTTP(
+		t,
+		handler,
+		http.MethodGet,
+		"/api/v1/partner/tickets/"+
+			confirmed.Tickets[2].ID+
+			"/credential",
+		credentialA,
+		"",
+		"",
+		nil,
+		"",
+	)
+	if noActiveCredentialResponse.Code != http.StatusOK {
+		t.Fatalf(
+			"credential before no-active test status=%d body=%s",
+			noActiveCredentialResponse.Code,
+			noActiveCredentialResponse.Body.String(),
+		)
+	}
+	var noActiveCredential ticketingCredentialResponse
+	if err := json.Unmarshal(
+		noActiveCredentialResponse.Body.Bytes(),
+		&noActiveCredential,
+	); err != nil {
+		t.Fatalf("decode credential before no-active test: %v", err)
+	}
+	noActiveHostedPath := ticketingHostedQRPath(
+		t,
+		noActiveCredential.QRURL,
+		confirmed.Tickets[2].ID,
+		noActiveCredential.QRPayload,
+	)
+
+	noActiveTicketID, err := publicid.Parse(
+		confirmed.Tickets[2].ID,
+		publicid.Ticket,
+	)
+	if err != nil {
+		t.Fatalf("parse no-active-credential Ticket: %v", err)
+	}
+	if _, err := pool.Exec(
+		t.Context(),
+		`UPDATE qr_credentials SET status='REVOKED', revoked_at=clock_timestamp() WHERE ticket_entitlement_id=$1 AND status='ACTIVE'`,
+		noActiveTicketID,
+	); err != nil {
+		t.Fatalf("revoke credential for no-active test: %v", err)
+	}
+	noActiveQR := reservationPartnerHTTP(
+		t,
+		handler,
+		http.MethodGet,
+		"/api/v1/partner/tickets/"+
+			confirmed.Tickets[2].ID+
+			"/qr",
+		credentialA,
+		"",
+		"",
+		nil,
+		"",
+	)
+	reservationRequireErrorCode(t, noActiveQR, "CREDENTIAL_REVOKED")
+	noActiveHostedQR := reservationPartnerHTTP(
+		t,
+		handler,
+		http.MethodGet,
+		noActiveHostedPath,
+		"",
+		"",
+		"",
+		nil,
+		"",
+	)
+	reservationRequireErrorCode(t, noActiveHostedQR, "CREDENTIAL_REVOKED")
+
+	cancelledCredentialResponse := reservationPartnerHTTP(
+		t,
+		handler,
+		http.MethodGet,
+		"/api/v1/partner/tickets/"+
+			confirmed.Tickets[1].ID+
+			"/credential",
+		credentialA,
+		"",
+		"",
+		nil,
+		"",
+	)
+	if cancelledCredentialResponse.Code != http.StatusOK {
+		t.Fatalf(
+			"credential before cancellation status=%d body=%s",
+			cancelledCredentialResponse.Code,
+			cancelledCredentialResponse.Body.String(),
+		)
+	}
+	var cancelledCredential ticketingCredentialResponse
+	if err := json.Unmarshal(
+		cancelledCredentialResponse.Body.Bytes(),
+		&cancelledCredential,
+	); err != nil {
+		t.Fatalf("decode credential before cancellation: %v", err)
+	}
+	cancelledHostedPath := ticketingHostedQRPath(
+		t,
+		cancelledCredential.QRURL,
+		confirmed.Tickets[1].ID,
+		cancelledCredential.QRPayload,
+	)
+
 	ticketingAssertPartnerTicketLifecycle(
 		t,
 		handler,
@@ -607,7 +817,114 @@ func ticketingAssertPartnerConfirmationHTTP(
 		credentialB,
 		confirmed.Tickets[0].ID,
 		confirmed.Tickets[0].CredentialID,
+		credential.QRPayload,
+		credential.QRURL,
 	)
+
+	eventID, err := publicid.Parse(eventPublicID, publicid.Event)
+	if err != nil {
+		t.Fatalf("parse Event for cancellation: %v", err)
+	}
+	if _, err := pool.Exec(
+		t.Context(),
+		`UPDATE events SET state='CANCELLED', cancelled_at=clock_timestamp() WHERE id=$1`,
+		eventID,
+	); err != nil {
+		t.Fatalf("cancel Event for hosted QR test: %v", err)
+	}
+	cancelledQR := reservationPartnerHTTP(
+		t,
+		handler,
+		http.MethodGet,
+		"/api/v1/partner/tickets/"+
+			confirmed.Tickets[1].ID+
+			"/qr",
+		credentialA,
+		"",
+		"",
+		nil,
+		"",
+	)
+	reservationRequireErrorCode(t, cancelledQR, "EVENT_CANCELLED")
+	cancelledHostedQR := reservationPartnerHTTP(
+		t,
+		handler,
+		http.MethodGet,
+		cancelledHostedPath,
+		"",
+		"",
+		"",
+		nil,
+		"",
+	)
+	reservationRequireErrorCode(t, cancelledHostedQR, "EVENT_CANCELLED")
+}
+
+func ticketingHostedQRPath(
+	t *testing.T,
+	rawURL string,
+	ticketPublicID string,
+	qrPayload string,
+) string {
+	t.Helper()
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		t.Fatalf("parse hosted QR URL: %v", err)
+	}
+	if parsed.Scheme != "https" ||
+		parsed.Host != "tickets.test" ||
+		!strings.HasPrefix(parsed.Path, "/api/v1/ticket-qr/tqp1_") ||
+		parsed.RawQuery != "" ||
+		parsed.Fragment != "" ||
+		parsed.User != nil {
+		t.Fatalf("unsafe hosted QR URL: %q", rawURL)
+	}
+	for _, forbidden := range []string{
+		qrPayload,
+		"qr1.",
+		ticketPublicID,
+	} {
+		if strings.Contains(rawURL, forbidden) {
+			t.Fatalf("hosted QR URL contains forbidden value %q: %q", forbidden, rawURL)
+		}
+	}
+	return parsed.EscapedPath()
+}
+
+func ticketingRequireQRResponse(
+	t *testing.T,
+	response *httptest.ResponseRecorder,
+	qrPayload string,
+) {
+	t.Helper()
+	httpResponse := response.Result()
+	defer httpResponse.Body.Close()
+	if httpResponse.StatusCode != http.StatusOK {
+		t.Fatalf("QR status=%d", httpResponse.StatusCode)
+	}
+	for header, expected := range map[string]string{
+		"Content-Type":           "image/svg+xml",
+		"Cache-Control":          "no-store",
+		"X-Content-Type-Options": "nosniff",
+		"Referrer-Policy":        "no-referrer",
+	} {
+		if actual := httpResponse.Header.Get(header); actual != expected {
+			t.Fatalf("QR %s=%q want=%q", header, actual, expected)
+		}
+	}
+
+	expected, err := ticketqr.RenderSVG(qrPayload)
+	if err != nil {
+		t.Fatalf("render expected QR: %v", err)
+	}
+	body := response.Body.Bytes()
+	if !bytes.Equal(body, expected) {
+		t.Fatal("QR endpoint did not render the exact active credential")
+	}
+	if bytes.Contains(body, []byte(qrPayload)) ||
+		bytes.Contains(body, []byte("qr1.")) {
+		t.Fatal("QR response leaked the raw credential as SVG metadata")
+	}
 }
 
 func ticketingAssertPartnerTicketLifecycle(
@@ -618,6 +935,8 @@ func ticketingAssertPartnerTicketLifecycle(
 	credentialB string,
 	ticketPublicID string,
 	originalCredentialPublicID string,
+	originalQRPayload string,
+	hostedQRURL string,
 ) {
 	t.Helper()
 
@@ -793,11 +1112,39 @@ func ticketingAssertPartnerTicketLifecycle(
 
 	if current.CredentialID !=
 		reissued.CredentialID ||
-		current.QRPayload == "" {
+		current.QRPayload == "" ||
+		current.QRPayload == originalQRPayload ||
+		current.QRURL != hostedQRURL {
 		t.Fatalf(
 			"credential recovery did not return replacement: %s",
 			currentCredential.Body.String(),
 		)
+	}
+
+	hostedQRPath := ticketingHostedQRPath(
+		t,
+		current.QRURL,
+		ticketPublicID,
+		current.QRPayload,
+	)
+	hostedAfterReissue := reservationPartnerHTTP(
+		t,
+		handler,
+		http.MethodGet,
+		hostedQRPath,
+		"",
+		"",
+		"",
+		nil,
+		"",
+	)
+	ticketingRequireQRResponse(t, hostedAfterReissue, current.QRPayload)
+	originalSVG, err := ticketqr.RenderSVG(originalQRPayload)
+	if err != nil {
+		t.Fatalf("render original QR for reissue comparison: %v", err)
+	}
+	if bytes.Equal(hostedAfterReissue.Body.Bytes(), originalSVG) {
+		t.Fatal("stable hosted QR URL returned the superseded credential after reissue")
 	}
 
 	ticketID, err := publicid.Parse(
@@ -1037,6 +1384,39 @@ func ticketingAssertPartnerTicketLifecycle(
 		credentialAfterVoid,
 		"TICKET_VOID",
 	)
+
+	qrAfterVoid := reservationPartnerHTTP(
+		t,
+		handler,
+		http.MethodGet,
+		"/api/v1/partner/tickets/"+
+			ticketPublicID+
+			"/qr",
+		credentialA,
+		"",
+		"",
+		nil,
+		"",
+	)
+	reservationRequireErrorCode(t, qrAfterVoid, "TICKET_VOID")
+
+	hostedAfterVoid := reservationPartnerHTTP(
+		t,
+		handler,
+		http.MethodGet,
+		ticketingHostedQRPath(
+			t,
+			hostedQRURL,
+			ticketPublicID,
+			originalQRPayload,
+		),
+		"",
+		"",
+		"",
+		nil,
+		"",
+	)
+	reservationRequireErrorCode(t, hostedAfterVoid, "TICKET_VOID")
 
 	reissueAfterVoid :=
 		reservationPartnerHTTP(

@@ -22,24 +22,26 @@ import (
 )
 
 type Dependencies struct {
-	Database     *pgxpool.Pool
-	PartnerAuth  *auth.PartnerAuthenticator
-	Availability *inventory.Service
-	Transactions *database.Runner
-	Reservation  *reservation.Service
-	Selection    *selection.Service
-	Reporting    *reporting.Service
+	Database              *pgxpool.Pool
+	PartnerAuth           *auth.PartnerAuthenticator
+	Availability          *inventory.Service
+	Transactions          *database.Runner
+	Reservation           *reservation.Service
+	Selection             *selection.Service
+	Reporting             *reporting.Service
+	TicketQRPublicBaseURL string
 }
 
 type Handler struct {
-	db           *pgxpool.Pool
-	partnerAuth  *auth.PartnerAuthenticator
-	availability *inventory.Service
-	transactions *database.Runner
-	reservation  *reservation.Service
-	selection    *selection.Service
-	reporting    *reporting.Service
-	mux          *http.ServeMux
+	db                    *pgxpool.Pool
+	partnerAuth           *auth.PartnerAuthenticator
+	availability          *inventory.Service
+	transactions          *database.Runner
+	reservation           *reservation.Service
+	selection             *selection.Service
+	reporting             *reporting.Service
+	ticketQRPublicBaseURL string
+	mux                   *http.ServeMux
 }
 
 func New(
@@ -60,15 +62,24 @@ func New(
 		)
 	}
 
+	ticketQRPublicBaseURL := strings.TrimRight(
+		strings.TrimSpace(deps.TicketQRPublicBaseURL),
+		"/",
+	)
+	if ticketQRPublicBaseURL == "" {
+		ticketQRPublicBaseURL = "http://localhost:8080"
+	}
+
 	h := &Handler{
-		db:           deps.Database,
-		partnerAuth:  deps.PartnerAuth,
-		availability: deps.Availability,
-		transactions: deps.Transactions,
-		reservation:  deps.Reservation,
-		selection:    deps.Selection,
-		reporting:    deps.Reporting,
-		mux:          http.NewServeMux(),
+		db:                    deps.Database,
+		partnerAuth:           deps.PartnerAuth,
+		availability:          deps.Availability,
+		transactions:          deps.Transactions,
+		reservation:           deps.Reservation,
+		selection:             deps.Selection,
+		reporting:             deps.Reporting,
+		ticketQRPublicBaseURL: ticketQRPublicBaseURL,
+		mux:                   http.NewServeMux(),
 	}
 	if h.reporting == nil {
 		h.reporting = reporting.NewService(deps.Database)
@@ -142,6 +153,14 @@ func (h *Handler) registerRoutes() {
 		h.mux.HandleFunc(
 			"GET /api/v1/partner/tickets/{ticket_id}/credential",
 			h.getTicketCredential,
+		)
+		h.mux.HandleFunc(
+			"GET /api/v1/partner/tickets/{ticket_id}/qr",
+			h.getTicketQR,
+		)
+		h.mux.HandleFunc(
+			"GET /api/v1/ticket-qr/{capability}",
+			h.getHostedTicketQR,
 		)
 
 		h.mux.HandleFunc(

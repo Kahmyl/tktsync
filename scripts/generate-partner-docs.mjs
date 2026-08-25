@@ -29,6 +29,7 @@ const routes = {
     '/api/tickets/retrieve-credential',
     'Retrieve a ticket credential',
   ],
+  partnerGetTicketQR: ['Tickets', '/api/tickets/retrieve-qr', 'Retrieve a ticket QR image'],
   partnerVoidTicket: ['Tickets', '/api/tickets/void', 'Void a ticket'],
   partnerReissueTicketCredential: [
     'Tickets',

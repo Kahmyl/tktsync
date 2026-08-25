@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -88,6 +90,106 @@ func (k *HMACKeyring) Verify(version int, message, presented []byte) bool {
 	}
 
 	return subtle.ConstantTimeCompare(expected, presented) == 1
+}
+
+// SealDeterministic encrypts a stable opaque identifier for capability URLs.
+// The nonce is derived from the purpose and plaintext, so callers must use it
+// only for high-entropy values that are unique within the named purpose.
+func (k *HMACKeyring) SealDeterministic(
+	version int,
+	purpose string,
+	plaintext []byte,
+) ([]byte, error) {
+	gcm, key, err := k.deterministicAEAD(version, purpose)
+	if err != nil {
+		return nil, err
+	}
+	if len(plaintext) == 0 {
+		return nil, errors.New("deterministic plaintext is required")
+	}
+
+	nonce := deterministicNonce(key, purpose, plaintext, gcm.NonceSize())
+	sealed := make([]byte, 0, len(nonce)+len(plaintext)+gcm.Overhead())
+	sealed = append(sealed, nonce...)
+	return gcm.Seal(
+		sealed,
+		nonce,
+		plaintext,
+		Canonical("deterministic-aead", strconv.Itoa(version), purpose),
+	), nil
+}
+
+// OpenDeterministic authenticates and decrypts a value from SealDeterministic.
+func (k *HMACKeyring) OpenDeterministic(
+	version int,
+	purpose string,
+	sealed []byte,
+) ([]byte, error) {
+	gcm, key, err := k.deterministicAEAD(version, purpose)
+	if err != nil {
+		return nil, err
+	}
+	if len(sealed) < gcm.NonceSize()+gcm.Overhead()+1 {
+		return nil, errors.New("deterministic ciphertext is invalid")
+	}
+
+	nonce := sealed[:gcm.NonceSize()]
+	plaintext, err := gcm.Open(
+		nil,
+		nonce,
+		sealed[gcm.NonceSize():],
+		Canonical("deterministic-aead", strconv.Itoa(version), purpose),
+	)
+	if err != nil {
+		return nil, errors.New("deterministic ciphertext is invalid")
+	}
+
+	expectedNonce := deterministicNonce(key, purpose, plaintext, gcm.NonceSize())
+	if subtle.ConstantTimeCompare(nonce, expectedNonce) != 1 {
+		return nil, errors.New("deterministic ciphertext is invalid")
+	}
+	return plaintext, nil
+}
+
+func (k *HMACKeyring) deterministicAEAD(
+	version int,
+	purpose string,
+) (cipher.AEAD, []byte, error) {
+	purpose = strings.TrimSpace(purpose)
+	if purpose == "" {
+		return nil, nil, errors.New("deterministic encryption purpose is required")
+	}
+
+	rootKey, ok := k.keys[version]
+	if !ok {
+		return nil, nil, fmt.Errorf("unknown key version %d", version)
+	}
+	key := hmacSHA256(rootKey, Canonical("deterministic-aead-key", purpose))
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, nil, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, nil, err
+	}
+	return gcm, key, nil
+}
+
+func deterministicNonce(
+	key []byte,
+	purpose string,
+	plaintext []byte,
+	size int,
+) []byte {
+	message := append(Canonical("deterministic-aead-nonce", purpose), plaintext...)
+	return hmacSHA256(key, message)[:size]
+}
+
+func hmacSHA256(key, message []byte) []byte {
+	mac := hmac.New(sha256.New, key)
+	_, _ = mac.Write(message)
+	return mac.Sum(nil)
 }
 
 func Canonical(parts ...string) []byte {

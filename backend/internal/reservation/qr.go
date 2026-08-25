@@ -86,6 +86,7 @@ func (s *Service) RecoverActiveCredential(
 		func(tx pgx.Tx) error {
 			var (
 				eventID     uuid.UUID
+				eventState  string
 				ticketState string
 			)
 
@@ -94,8 +95,11 @@ func (s *Service) RecoverActiveCredential(
 				`
 					SELECT
 						t.event_id,
-						t.status
+						t.status,
+						e.state
 					FROM ticket_entitlements t
+					JOIN events e
+					  ON e.id = t.event_id
 					JOIN sale_items si
 					  ON si.id =
 					     t.origin_sale_item_id
@@ -109,6 +113,7 @@ func (s *Service) RecoverActiveCredential(
 			).Scan(
 				&eventID,
 				&ticketState,
+				&eventState,
 			)
 			if err != nil {
 				if errors.Is(
@@ -135,6 +140,13 @@ func (s *Service) RecoverActiveCredential(
 				return apierror.New(
 					apierror.CodeTicketInvalid,
 					"Ticket is not active",
+				)
+			}
+
+			if eventState == "CANCELLED" {
+				return apierror.New(
+					apierror.CodeEventCancelled,
+					"Event is cancelled",
 				)
 			}
 
@@ -294,8 +306,9 @@ func (s *Service) RecoverActiveCredentialAdmin(ctx context.Context, ticketID uui
 	var result ActiveCredential
 	err := s.transactions.Run(ctx, func(tx pgx.Tx) error {
 		var eventID uuid.UUID
+		var eventState string
 		var ticketState string
-		if err := tx.QueryRow(ctx, `SELECT event_id,status FROM ticket_entitlements WHERE id=$1`, ticketID).Scan(&eventID, &ticketState); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT t.event_id,t.status,e.state FROM ticket_entitlements t JOIN events e ON e.id=t.event_id WHERE t.id=$1`, ticketID).Scan(&eventID, &ticketState, &eventState); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return apierror.New(apierror.CodeResourceNotFound, "Ticket not found")
 			}
@@ -306,6 +319,9 @@ func (s *Service) RecoverActiveCredentialAdmin(ctx context.Context, ticketID uui
 		}
 		if ticketState != "ACTIVE" {
 			return apierror.New(apierror.CodeTicketInvalid, "Ticket is not active")
+		}
+		if eventState == "CANCELLED" {
+			return apierror.New(apierror.CodeEventCancelled, "Event is cancelled")
 		}
 		var credentialID uuid.UUID
 		var credentialState string

@@ -23,6 +23,7 @@ func TestLoadUsesTypedValues(t *testing.T) {
 		"DB_MAX_CONNECTIONS":        "32",
 		"DB_MIN_CONNECTIONS":        "4",
 		"WORKER_OUTBOX_CONCURRENCY": "6",
+		"TICKET_QR_PUBLIC_BASE_URL": "https://tickets.acme.test/",
 	}
 
 	cfg, err := load(func(key string) (string, bool) {
@@ -58,6 +59,32 @@ func TestLoadUsesTypedValues(t *testing.T) {
 	}
 	if cfg.Worker.OutboxConcurrency != 6 {
 		t.Fatalf("unexpected outbox concurrency: %d", cfg.Worker.OutboxConcurrency)
+	}
+	if cfg.TicketQRPublicBaseURL != "https://tickets.acme.test" {
+		t.Fatalf("unexpected Ticket QR base URL: %q", cfg.TicketQRPublicBaseURL)
+	}
+}
+
+func TestLoadRejectsInvalidTicketQRPublicBaseURL(t *testing.T) {
+	for _, value := range []string{
+		"",
+		"tickets.example.test",
+		"ftp://tickets.example.test",
+		"https://user:pass@tickets.example.test",
+		"https://tickets.example.test?credential=secret",
+		"https://tickets.example.test#fragment",
+	} {
+		values := map[string]string{
+			"DATABASE_URL":              "postgres://example",
+			"TICKET_QR_PUBLIC_BASE_URL": value,
+		}
+		_, err := load(func(key string) (string, bool) {
+			candidate, ok := values[key]
+			return candidate, ok
+		})
+		if err == nil || !strings.Contains(err.Error(), "TICKET_QR_PUBLIC_BASE_URL") {
+			t.Fatalf("base URL %q error=%v", value, err)
+		}
 	}
 }
 
@@ -140,6 +167,7 @@ func TestLoadAcceptsCompleteProductionConfiguration(t *testing.T) {
 		"QR_KEYRING_ACTIVE_VERSION": "1", "QR_KEYRING_KEYS": "production-qr-keyring",
 		"PARTNER_CREDENTIAL_REPLAY_KEY": "production-replay-protection-key",
 		"SELECTOR_BASE_URL":             "https://select.acme.internal/s", "BROWSER_ALLOWED_ORIGINS": "https://admin.acme.internal,https://scanner.acme.internal",
+		"TICKET_QR_PUBLIC_BASE_URL": "https://tickets.acme.internal",
 	}
 	cfg, err := load(func(key string) (string, bool) { value, ok := values[key]; return value, ok })
 	if err != nil {
@@ -157,6 +185,7 @@ func TestLoadRejectsInsecureProductionBrowserOrigin(t *testing.T) {
 		"SUPABASE_URL": "https://identity.acme.internal", "SUPABASE_SECRET_KEY": "production-secret-key", "ADMIN_INVITE_REDIRECT_URL": "https://admin.acme.internal",
 		"SELECTION_KEYRING_ACTIVE_VERSION": "1", "SELECTION_KEYRING_KEYS": "production-selection-keyring", "RESERVATION_KEYRING_ACTIVE_VERSION": "1", "RESERVATION_KEYRING_KEYS": "production-reservation-keyring", "QR_KEYRING_ACTIVE_VERSION": "1", "QR_KEYRING_KEYS": "production-qr-keyring",
 		"PARTNER_CREDENTIAL_REPLAY_KEY": "production-replay-protection-key", "SELECTOR_BASE_URL": "https://select.acme.internal/s", "BROWSER_ALLOWED_ORIGINS": "http://localhost:5173",
+		"TICKET_QR_PUBLIC_BASE_URL": "https://tickets.acme.internal",
 	}
 	_, err := load(func(key string) (string, bool) { value, ok := values[key]; return value, ok })
 	if err == nil || !strings.Contains(err.Error(), "only HTTPS") {
@@ -172,6 +201,7 @@ func TestLoadRejectsProductionPlaceholder(t *testing.T) {
 		"SUPABASE_URL": "https://identity.acme.internal", "SUPABASE_SECRET_KEY": "production-secret-key", "ADMIN_INVITE_REDIRECT_URL": "https://admin.acme.internal",
 		"SELECTION_KEYRING_ACTIVE_VERSION": "1", "SELECTION_KEYRING_KEYS": "production-selection-keyring", "RESERVATION_KEYRING_ACTIVE_VERSION": "1", "RESERVATION_KEYRING_KEYS": "production-reservation-keyring", "QR_KEYRING_ACTIVE_VERSION": "1", "QR_KEYRING_KEYS": "production-qr-keyring",
 		"PARTNER_CREDENTIAL_REPLAY_KEY": "production-replay-protection-key", "SELECTOR_BASE_URL": "https://select.acme.internal/s", "BROWSER_ALLOWED_ORIGINS": "https://admin.acme.internal",
+		"TICKET_QR_PUBLIC_BASE_URL": "https://tickets.acme.internal",
 	}
 	_, err := load(func(key string) (string, bool) { value, ok := values[key]; return value, ok })
 	if err == nil || !strings.Contains(err.Error(), "placeholder value") {

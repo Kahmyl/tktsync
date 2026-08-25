@@ -285,6 +285,16 @@ func (h *Handler) getTicketCredential(
 		return
 	}
 
+	qrURL, err := h.ticketQRURL(credential.TicketID)
+	if err != nil {
+		httpserver.WriteError(
+			w,
+			r,
+			err,
+		)
+		return
+	}
+
 	w.Header().Set(
 		"Cache-Control",
 		"no-store",
@@ -305,6 +315,7 @@ func (h *Handler) getTicketCredential(
 			"status": credential.State,
 			"qr_payload": credential.
 				QRPayload,
+			"qr_url": qrURL,
 		},
 	)
 }

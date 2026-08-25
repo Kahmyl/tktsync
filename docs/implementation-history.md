@@ -2421,4 +2421,19 @@ Perform complete traceability review against every governing TktSync document.
 
 ---
 
+## 119. Hosted Ticket QR Gap Closure
+
+TktSync now generates an actual SVG QR image from the complete authoritative `qr1...` credential and exposes two narrow delivery surfaces:
+
+- authenticated Partner retrieval at `GET /api/v1/partner/tickets/{ticket_id}/qr`, using the existing commercial Ticket ownership boundary;
+- buyer-usable retrieval at `GET /api/v1/ticket-qr/{opaque-capability}`, using an authenticated-encrypted, unguessable ticket-level presentation capability.
+
+The credential response includes `qr_url`. The capability contains no raw credential, public Ticket ID, Partner credential, or Reservation token. It authorizes QR presentation only, is redacted from request route logging, and resolves dynamically to the current active credential.
+
+Credential reissue invalidates the previous `qr1...` credential while the same hosted URL renders the replacement. Ticket void or any no-active-credential state returns a non-success business response and never serves stale QR content. Both image routes return generated `image/svg+xml` with `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`.
+
+This closes QR image generation and hosting without adding a hosted ticket page: Partners retain ticket design, branding, payment, and customer-delivery responsibility.
+
+---
+
 **End of Document**

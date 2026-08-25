@@ -185,6 +185,8 @@ func run(ctx context.Context) error {
 			Reservation:  reservationService,
 			Selection:    selectionService,
 			Reporting:    reportingService,
+			TicketQRPublicBaseURL: resources.Config.
+				TicketQRPublicBaseURL,
 		},
 	)
 	if err != nil {
@@ -205,6 +207,10 @@ func run(ctx context.Context) error {
 
 	apiMux.Handle(
 		"/api/v1/partner/",
+		partnerHandler,
+	)
+	apiMux.Handle(
+		"/api/v1/ticket-qr/",
 		partnerHandler,
 	)
 	apiMux.Handle("/api/v1/selection/", selectionHandler)

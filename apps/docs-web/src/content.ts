@@ -26,8 +26,15 @@ export const guides: Guide[] = [
           'Create one atomic Reservation.',
           'Begin checkout before attempting payment.',
           'Confirm a known success, or report a definitive failure.',
-          'Deliver and manage the resulting ticket credentials.',
+          'Retrieve each ticket credential and hosted QR URL.',
+          'Embed the TktSync-hosted QR in your own branded ticket and deliver it.',
         ],
+      },
+      {
+        title: 'Hosted QR responsibility boundary',
+        body: 'TktSync generates and hosts the QR image for the current active qr1 credential. Your integration owns the surrounding ticket visual design, branding, email/SMS/app delivery, and whether the image is embedded in HTML, a PDF, or an app screen.',
+        callout:
+          'The hosted QR URL is an opaque presentation capability, not a hosted ticket page. Treat it as bearer material and do not place it in analytics or routine logs.',
       },
       {
         title: 'Start safely',

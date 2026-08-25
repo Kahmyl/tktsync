@@ -325,6 +325,9 @@ func routeClass(path string) string {
 	if !strings.HasPrefix(path, "/api/v1/") {
 		return path
 	}
+	if strings.HasPrefix(path, "/api/v1/ticket-qr/") {
+		return "/api/v1/ticket-qr/{capability}"
+	}
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	for i, p := range parts {
 		if (strings.Contains(p, "_") || strings.Contains(p, "-")) && len(p) > 20 {
