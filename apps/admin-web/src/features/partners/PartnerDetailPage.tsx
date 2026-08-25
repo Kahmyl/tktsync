@@ -1,5 +1,13 @@
-import { KeyRound, Link2, Plus, ShieldAlert, Webhook } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import {
+  CheckCircle2,
+  KeyRound,
+  Link2,
+  LockKeyhole,
+  Plus,
+  ShieldAlert,
+  Webhook,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   Button,
@@ -7,6 +15,7 @@ import {
   DialogActions,
   EmptyState,
   ErrorState,
+  Field,
   LoadingState,
   PageHeader,
   Panel,
@@ -15,6 +24,7 @@ import {
   SectionHeading,
   Select,
   StatusPill,
+  Textarea,
 } from '../../components/ui';
 import {
   formatDateTime,
@@ -38,6 +48,8 @@ export function PartnerDetailPage() {
   const [grantEventId, setGrantEventId] = useState('');
   const [revokeId, setRevokeId] = useState('');
   const [stateConfirm, setStateConfirm] = useState(false);
+  const [returnURLs, setReturnURLs] = useState('');
+  const [returnURLsSaved, setReturnURLsSaved] = useState(false);
   const invalidate = [adminKeys.partner(partnerId), adminKeys.partners(), adminKeys.webhooks];
   const issue = useIntentMutation({
     intent: () => `${partnerId}:credential`,
@@ -61,15 +73,44 @@ export function PartnerDetailPage() {
       adminApi.setEventAccess(token, key, variables.eventId, partnerId, variables.enabled),
     invalidate,
   });
+  const checkoutURLs = useIntentMutation({
+    intent: (urls: string[]) => `${partnerId}:allowed-return-urls:${urls.join('|')}`,
+    mutationFn: (token, key, urls) =>
+      adminApi.setPartnerAllowedReturnURLs(token, key, partnerId, urls),
+    invalidate,
+  });
   const partnerWebhooks = useMemo(
     () => (webhooks.data?.items ?? []).filter((endpoint) => endpoint.partner_id === partnerId),
     [partnerId, webhooks.data],
   );
+  const allowedReturnURLs = partner.data?.allowed_return_urls;
+  useEffect(() => {
+    if (allowedReturnURLs) setReturnURLs(allowedReturnURLs.join('\n'));
+  }, [allowedReturnURLs]);
 
   if (partner.isLoading) return <LoadingState rows={8} />;
   if (partner.error || !partner.data)
     return <ErrorState error={partner.error} onRetry={() => void partner.refetch()} />;
   const data = partner.data;
+  const parsedReturnURLs = returnURLs
+    .split(/\r?\n/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const invalidReturnURL = parsedReturnURLs.find((value) => {
+    try {
+      const parsed = new URL(value);
+      return (
+        parsed.protocol !== 'https:' || Boolean(parsed.username || parsed.password || parsed.hash)
+      );
+    } catch {
+      return true;
+    }
+  });
+  const saveReturnURLs = async () => {
+    if (invalidReturnURL) return;
+    await checkoutURLs.mutateAsync(parsedReturnURLs);
+    setReturnURLsSaved(true);
+  };
   const issueCredential = async () => {
     const created = await issue.mutateAsync(undefined);
     setSecret(created.credential);
@@ -118,8 +159,10 @@ export function PartnerDetailPage() {
           </>
         }
       />
-      {issue.error || state.error || access.error || revoke.error ? (
-        <ErrorState error={issue.error ?? state.error ?? access.error ?? revoke.error} />
+      {issue.error || state.error || access.error || revoke.error || checkoutURLs.error ? (
+        <ErrorState
+          error={issue.error ?? state.error ?? access.error ?? revoke.error ?? checkoutURLs.error}
+        />
       ) : null}
       <div className="tabs" role="tablist">
         {(
@@ -191,6 +234,61 @@ export function PartnerDetailPage() {
                   <dd>{partnerWebhooks.reduce((sum, item) => sum + item.failed_24h, 0)}</dd>
                 </div>
               </dl>
+            </PanelBody>
+          </Panel>
+          <Panel className="checkout-return-panel">
+            <SectionHeading
+              title="Checkout return URLs"
+              description="Where Selector securely returns buyers after they reserve tickets."
+            />
+            <div className="panel-divider" />
+            <PanelBody className="checkout-return-body">
+              <div className="checkout-return-form">
+                <Field
+                  label="Allowed HTTPS URLs"
+                  hint="Enter one complete URL per line."
+                  error={
+                    invalidReturnURL
+                      ? `Use a complete HTTPS URL without credentials or a fragment: ${invalidReturnURL}`
+                      : undefined
+                  }
+                >
+                  <Textarea
+                    id="partner-return-urls"
+                    rows={3}
+                    value={returnURLs}
+                    placeholder="https://shop.example.com/checkout/tktsync"
+                    onChange={(event) => {
+                      setReturnURLs(event.target.value);
+                      setReturnURLsSaved(false);
+                    }}
+                  />
+                </Field>
+                <div className="checkout-return-actions">
+                  <Button
+                    disabled={Boolean(invalidReturnURL)}
+                    busy={checkoutURLs.isPending}
+                    onClick={() => void saveReturnURLs()}
+                  >
+                    Save checkout URLs
+                  </Button>
+                  {returnURLsSaved ? (
+                    <span className="checkout-save-status" role="status">
+                      <CheckCircle2 size={16} /> Saved
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              <div className="checkout-return-note">
+                <LockKeyhole size={20} />
+                <div>
+                  <strong>Exact-match security</strong>
+                  <p>
+                    Selector only returns buyers to a URL registered here. Paths, ports and trailing
+                    slashes must match the Partner request exactly.
+                  </p>
+                </div>
+              </div>
             </PanelBody>
           </Panel>
         </div>

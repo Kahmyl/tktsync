@@ -279,6 +279,44 @@ export function SelectionPage() {
     return sections;
   }, [session.layout]);
   const gaOffers = session.offers.filter((offer) => offer.kind === 'ga');
+  const spatialBounds = useMemo(() => {
+    const objects = session.layout?.geometry?.objects ?? [];
+    return {
+      width: Math.max(1000, ...objects.map((item) => item.x + item.width)),
+      height: Math.max(650, ...objects.map((item) => item.y + item.height)),
+    };
+  }, [session.layout]);
+  const hasSpatialCollision = useMemo(() => {
+    const objects = session.layout?.geometry?.objects ?? [];
+    return objects.some((item, index) =>
+      objects
+        .slice(index + 1)
+        .some(
+          (other) =>
+            item.x < other.x + other.width &&
+            item.x + item.width > other.x &&
+            item.y < other.y + other.height &&
+            item.y + item.height > other.y,
+        ),
+    );
+  }, [session.layout]);
+  const spatialStyle = (
+    item: NonNullable<NonNullable<Layout['geometry']>['objects']>[number],
+    contentMinimum?: { width?: number; height?: number },
+  ) => {
+    const orientation = ['STAGE', 'RING', 'FIELD'].includes(item.type);
+    const minimumWidth = contentMinimum?.width ?? (orientation ? 180 : 250);
+    const minimumHeight = contentMinimum?.height ?? (orientation ? 90 : 160);
+    const left = 2 + (item.x / spatialBounds.width) * 96;
+    const top = 2 + (item.y / spatialBounds.height) * 96;
+    return {
+      left: `min(${left}%, calc(98% - ${minimumWidth}px))`,
+      top: `min(${top}%, calc(98% - ${minimumHeight}px))`,
+      width: `max(${(item.width / spatialBounds.width) * 96}%, ${minimumWidth}px)`,
+      height: `max(${(item.height / spatialBounds.height) * 96}%, ${minimumHeight}px)`,
+      transform: `rotate(${item.rotation ?? 0}deg)`,
+    };
+  };
 
   const shell = (content: React.ReactNode) => (
     <div className="selector-app">
@@ -463,22 +501,22 @@ export function SelectionPage() {
                   ['STAGE', 'RING', 'FIELD'].includes(item.type),
                 ) && <div className="stage-mark">Event area</div>}
               <div className="spatial-map-scroll">
-                <div className="spatial-map" aria-label="Interactive venue floor plan">
+                <div
+                  className={`spatial-map ${hasSpatialCollision ? 'collision-safe-layout' : ''}`}
+                  aria-label="Interactive venue floor plan"
+                  style={{ aspectRatio: `${spatialBounds.width} / ${spatialBounds.height}` }}
+                >
                   {(session.layout?.geometry?.objects ?? [])
                     .filter((item) => ['STAGE', 'RING', 'FIELD'].includes(item.type))
                     .map((item) => (
                       <div
                         className="spatial-orientation"
                         key={item.object_key}
-                        style={{
-                          left: `${item.x / 10}%`,
-                          top: `${item.y / 6.5}%`,
-                          width: `${item.width / 10}%`,
-                          height: `${item.height / 6.5}%`,
-                          transform: `rotate(${item.rotation ?? 0}deg)`,
-                        }}
+                        style={spatialStyle(item)}
                       >
-                        {humanLabel(item.label, item.type)}
+                        <span style={{ transform: `rotate(${-(item.rotation ?? 0)}deg)` }}>
+                          {humanLabel(item.label, item.type)}
+                        </span>
                       </div>
                     ))}
                   {[...reservedSections.entries()].map(([sectionKey, sectionData]) => {
@@ -494,13 +532,10 @@ export function SelectionPage() {
                         aria-label={section}
                         style={
                           geo
-                            ? {
-                                left: `${geo.x / 10}%`,
-                                top: `${geo.y / 6.5}%`,
-                                width: `${geo.width / 10}%`,
-                                height: `${geo.height / 6.5}%`,
-                                transform: `rotate(${geo.rotation ?? 0}deg)`,
-                              }
+                            ? spatialStyle(geo, {
+                                width: 270,
+                                height: Math.max(190, 92 + rows.size * 38),
+                              })
                             : undefined
                         }
                       >
@@ -582,17 +617,7 @@ export function SelectionPage() {
                         className={`ga-card ${geo ? 'spatial-ga' : 'spatial-fallback'}`}
                         key={offer.offer_id}
                         aria-label={humanLabel(offer.label, 'General admission')}
-                        style={
-                          geo
-                            ? {
-                                left: `${geo.x / 10}%`,
-                                top: `${geo.y / 6.5}%`,
-                                width: `${geo.width / 10}%`,
-                                height: `${geo.height / 6.5}%`,
-                                transform: `rotate(${geo.rotation ?? 0}deg)`,
-                              }
-                            : undefined
-                        }
+                        style={geo ? spatialStyle(geo, { width: 270, height: 210 }) : undefined}
                       >
                         <div className="ga-details">
                           <span className="ga-icon">

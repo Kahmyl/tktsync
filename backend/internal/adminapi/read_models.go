@@ -387,9 +387,10 @@ func (h *Handler) getPartner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var name, state string
+	var allowedReturnURLs []string
 	var createdAt time.Time
 	var disabledAt *time.Time
-	err = h.db.QueryRow(r.Context(), `SELECT name,state,created_at,disabled_at FROM partners WHERE id=$1`, partnerID).Scan(&name, &state, &createdAt, &disabledAt)
+	err = h.db.QueryRow(r.Context(), `SELECT name,state,created_at,disabled_at,COALESCE(ARRAY(SELECT jsonb_array_elements_text(COALESCE(metadata->'allowed_return_urls','[]'::jsonb))),ARRAY[]::text[]) FROM partners WHERE id=$1`, partnerID).Scan(&name, &state, &createdAt, &disabledAt, &allowedReturnURLs)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpserver.WriteError(w, r, apierror.New(apierror.CodeResourceNotFound, "partner not found"))
 		return
@@ -474,7 +475,7 @@ func (h *Handler) getPartner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpserver.WriteJSON(w, http.StatusOK, map[string]any{"id": publicid.Encode(publicid.Partner, partnerID), "name": name, "state": state, "created_at": createdAt, "disabled_at": disabledAt, "credentials": credentials, "event_access": access, "activity": activity})
+	httpserver.WriteJSON(w, http.StatusOK, map[string]any{"id": publicid.Encode(publicid.Partner, partnerID), "name": name, "state": state, "created_at": createdAt, "disabled_at": disabledAt, "allowed_return_urls": allowedReturnURLs, "credentials": credentials, "event_access": access, "activity": activity})
 }
 
 func (h *Handler) listTickets(w http.ResponseWriter, r *http.Request) {

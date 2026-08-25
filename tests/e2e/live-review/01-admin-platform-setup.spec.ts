@@ -217,30 +217,16 @@ test('01 Admin platform setup', async ({ page }) => {
     await addEntity('events', eventId);
 
     await page.getByRole('button', { name: 'Open sales' }).click();
-    await expect(page.getByText(/ready|layout|pricing|policy/i).last()).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Finish event setup' })).toBeVisible();
+    await expect(page.getByText(/Sales policy|Layout & seats|Pricing/)).toBeVisible();
+    await expect(page.getByText("We couldn't load this view.")).toHaveCount(0);
+    await page.getByRole('button', { name: 'Review setup' }).click();
   });
 
-  await test.step('Configure policy, layout, pricing, and inventory', async () => {
+  await test.step('Verify default policy, then configure layout, pricing, and inventory', async () => {
     const token = await operatorToken();
     await page.goto(`${urls.admin}/events/${eventId}`);
     let configuration = await apiJSON<{
-      layout?: { finalized_at?: string | null };
-      price_tiers: Array<{ id: string; code: string; state: string }>;
-      transaction_policy?: { hold_duration_seconds: number } | null;
-    }>(`/api/v1/admin/events/${eventId}/configuration`, { token });
-    const policyAction = page.getByRole('button', { name: 'Use recommended policy' });
-    if (!configuration.data.transaction_policy) {
-      await expect(policyAction).toBeVisible();
-      const policyResponse = page.waitForResponse(
-        (response) =>
-          response.url().endsWith(`/api/v1/admin/events/${eventId}/transaction-policy`) &&
-          response.request().method() === 'PUT',
-      );
-      await policyAction.click();
-      expect((await policyResponse).ok()).toBe(true);
-    }
-
-    configuration = await apiJSON<{
       layout?: { finalized_at?: string | null };
       price_tiers: Array<{ id: string; code: string; state: string }>;
       transaction_policy?: { hold_duration_seconds: number } | null;
@@ -547,12 +533,22 @@ test('01 Admin platform setup', async ({ page }) => {
     }
     await expect(page.getByText('Enabled', { exact: true })).toBeVisible();
 
-    await apiJSON(`/api/v1/admin/partners/${partnerId}/allowed-return-urls`, {
-      method: 'PUT',
-      token,
-      idempotencyKey: randomUUID(),
-      body: { urls: ['https://127.0.0.1:45991/checkout'] },
-    });
+    await page.getByRole('tab', { name: 'Overview' }).click();
+    await page.getByLabel('Allowed HTTPS URLs').fill('https://127.0.0.1:45991/checkout');
+    const returnURLResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/v1/admin/partners/${partnerId}/allowed-return-urls`) &&
+        response.request().method() === 'PUT',
+    );
+    await page.getByRole('button', { name: 'Save checkout URLs' }).click();
+    expect((await returnURLResponse).ok()).toBe(true);
+    await expect(page.getByRole('status')).toHaveText('Saved');
+    const configured = await apiJSON<{ allowed_return_urls: string[] }>(
+      `/api/v1/admin/partners/${partnerId}`,
+      { token },
+    );
+    expect(configured.data.allowed_return_urls).toEqual(['https://127.0.0.1:45991/checkout']);
+    await screenshot(page, '01-admin-partner-checkout-urls');
   });
 
   await test.step('Configure a real webhook endpoint and retain its identity', async () => {

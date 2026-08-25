@@ -75,6 +75,7 @@ export function useSelectionSession() {
         event: eventResponse.data as EventView,
         layout: layoutResponse.data as unknown as Layout,
         availability: availabilityResponse.data as Availability,
+        receivedAt: Date.now(),
       };
     },
   });
@@ -83,7 +84,9 @@ export function useSelectionSession() {
   const event = bootstrap.data?.event;
   const layout = bootstrap.data?.layout;
   const availability = bootstrap.data?.availability;
-  const serverOffsetMs = availability ? serverOffset(availability.server_time) : 0;
+  const serverOffsetMs = availability
+    ? serverOffset(availability.server_time, bootstrap.data?.receivedAt)
+    : 0;
 
   const layoutByInventory = useMemo(
     () =>
@@ -244,7 +247,19 @@ export function useSelectionSession() {
 
       if (response.error) {
         clearIntentKey(intentKeys.current, intent);
-        setMutationError('Those tickets could not be held. Please review the latest availability.');
+        const failure = response.error as {
+          error?: { code?: string; message?: string };
+        };
+        const code = failure.error?.code;
+        setMutationError(
+          code === 'EVENT_NOT_ON_SALE'
+            ? 'Ticket sales have not opened yet. Please return when the sales window begins.'
+            : code === 'EVENT_SALES_CLOSED'
+              ? 'Ticket sales for this event are closed.'
+              : code === 'EVENT_PAUSED'
+                ? 'Ticket sales are temporarily paused.'
+                : 'Those tickets could not be held. Please review the latest availability.',
+        );
         await refresh();
         return;
       }

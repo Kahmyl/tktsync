@@ -6,6 +6,7 @@ const outputPath = new URL('../apps/docs-web/src/generated/docs-model.ts', impor
 const spec = JSON.parse(await readFile(openapiPath, 'utf8'));
 
 const routes = {
+  partnerListEvents: ['Events', '/api/events', 'List accessible events'],
   partnerGetEvent: ['Events', '/api/events/retrieve', 'Retrieve an event'],
   partnerGetEventLayout: ['Events', '/api/events/layout', 'Retrieve event layout'],
   partnerGetAvailability: ['Events', '/api/events/availability', 'Retrieve availability'],
@@ -26,8 +27,8 @@ const routes = {
   partnerConfirmReservation: ['Reservations', '/api/reservations/confirm', 'Confirm a reservation'],
   partnerGetTicketCredential: [
     'Tickets',
-    '/api/tickets/retrieve-credential',
-    'Retrieve a ticket credential',
+    '/api/tickets/retrieve',
+    'Retrieve a ticket',
   ],
   partnerGetTicketQR: ['Tickets', '/api/tickets/retrieve-qr', 'Retrieve a ticket QR image'],
   partnerVoidTicket: ['Tickets', '/api/tickets/void', 'Void a ticket'],

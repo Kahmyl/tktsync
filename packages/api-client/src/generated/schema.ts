@@ -677,6 +677,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/partner/events': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Lists every event for which the authenticated Partner currently has active access. Use this operation to discover event IDs before retrieving layout, availability, or creating a selection session. */
+    get: operations['partnerListEvents'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/partner/events/{event_id}': {
     parameters: {
       query?: never;
@@ -1153,6 +1170,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
+    /** @description Creates an opaque Selector session for an accessible Event. The return_url must exactly match an HTTPS checkout destination registered during Partner integration onboarding. */
     post: operations['partnerCreateSelectionSession'];
     delete?: never;
     options?: never;
@@ -1659,6 +1677,12 @@ export interface components {
       /** Format: date-time */
       server_time: string;
     };
+    PartnerEventList: {
+      items: components['schemas']['PartnerEvent'][];
+      total: number;
+      /** Format: date-time */
+      server_time: string;
+    };
     Price: {
       /** Format: int64 */
       amount_minor: number;
@@ -2024,7 +2048,11 @@ export interface components {
     CreateSelectionSessionRequest: {
       event_id: string;
       buyer_session_ref?: string;
-      /** Format: uri */
+      /**
+       * Format: uri
+       * @description Absolute HTTPS checkout destination registered during Partner integration onboarding. Paths, ports, query strings, and trailing slashes must match exactly.
+       * @example https://partner.example/checkout/return
+       */
       return_url: string;
     };
     CreateSelectionSessionResponse: {
@@ -3858,6 +3886,31 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
+    };
+  };
+  partnerListEvents: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Optional client request/correlation UUID. */
+        'X-Request-ID'?: components['parameters']['XRequestID'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Accessible Partner events. */
+      200: {
+        headers: {
+          'X-Request-ID': components['headers']['XRequestID'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PartnerEventList'];
+        };
+      };
+      default: components['responses']['ErrorResponse'];
     };
   };
   partnerGetEvent: {

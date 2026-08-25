@@ -17,6 +17,83 @@ test('search navigates to one deep Partner endpoint page', async ({ page }) => {
   ).toBeVisible();
 });
 
+test('documents event discovery and Partner-facing return URL onboarding', async ({ page }) => {
+  await page.goto(`${base}/api/events`);
+  await expect(page.getByRole('heading', { name: 'List accessible events' })).toBeVisible();
+  await expect(page.getByText(/discover event IDs before retrieving layout/i)).toBeVisible();
+
+  await page.goto(`${base}/guides/embedded-selector`);
+  await page
+    .locator('.left-nav')
+    .getByRole('button', { name: /Create a selection session/ })
+    .click();
+  await expect(
+    page.locator('.lede').getByText(/registered during Partner integration onboarding/),
+  ).toBeVisible();
+  await expect(
+    page.locator('input[value="https://partner.example/checkout/return"]'),
+  ).toBeVisible();
+});
+
+test('client navigation from a bodyless endpoint to selection creation does not blank', async ({
+  page,
+}) => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.goto(`${base}/api/events`);
+  await page
+    .locator('.left-nav')
+    .getByRole('button', { name: /Create a selection session/ })
+    .click();
+
+  await expect(page).toHaveURL(/\/api\/selection-sessions\/create$/);
+  await expect(page.getByRole('heading', { name: 'Create a selection session' })).toBeVisible();
+  await expect(page.locator('.body-fields')).toContainText('return_url');
+  expect(pageErrors).toEqual([]);
+});
+
+test('teaches the complete Selector checkout and ticket-delivery workflows', async ({ page }) => {
+  await page.goto(`${base}/workflows`);
+  await expect(
+    page.getByRole('heading', { name: 'Build ticket sales with TktSync' }),
+  ).toBeVisible();
+  await expect(page.getByText(/Your website or app sells tickets for Events/)).toBeVisible();
+  await expect(page.getByText(/Show Events for sale/)).toBeVisible();
+  await expect(page.getByText(/Customer chooses an Event/)).toBeVisible();
+  await page.getByRole('button', { name: /Recommended: use the TktSync Selector/ }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Add ticket selection and checkout' }),
+  ).toBeVisible();
+  await expect(page.getByText(/reservation_id and reservation_token/).first()).toBeVisible();
+  await expect(page.getByText(/application\/x-www-form-urlencoded fields/)).toBeVisible();
+  await expect(page.getByText(/token is intentionally absent from the browser URL/)).toBeVisible();
+  await expect(page.locator('.workflow-flow')).toHaveCount(1);
+
+  await page.getByRole('button', { name: /Retrieve and deliver each ticket/ }).click();
+  await expect(page).toHaveURL(/\/workflows\/tickets$/);
+  await expect(page.getByRole('heading', { name: 'Deliver a visible ticket' })).toBeVisible();
+  await expect(
+    page.getByText(/Do not create a QR code whose contents are the qr_url/),
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: 'Retrieve credential and hosted URL' }).click();
+  await expect(page).toHaveURL(/\/api\/tickets\/retrieve$/);
+  await expect(page.getByRole('heading', { name: 'Retrieve a ticket' })).toBeVisible();
+});
+
+test('workflow guide remains readable on a phone viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${base}/workflows/selector`);
+  await expect(
+    page.getByRole('heading', { name: 'Add ticket selection and checkout' }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
+});
+
 test('credential remains memory-only and a mocked request preserves response status', async ({
   page,
 }) => {

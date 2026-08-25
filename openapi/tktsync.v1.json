@@ -2641,6 +2641,26 @@
         }
       }
     },
+    "/api/v1/partner/events": {
+      "get": {
+        "operationId": "partnerListEvents",
+        "description": "Lists every event for which the authenticated Partner currently has active access. Use this operation to discover event IDs before retrieving layout, availability, or creating a selection session.",
+        "security": [{ "PartnerBearer": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/XRequestID" }],
+        "responses": {
+          "200": {
+            "description": "Accessible Partner events.",
+            "headers": { "X-Request-ID": { "$ref": "#/components/headers/XRequestID" } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PartnerEventList" }
+              }
+            }
+          },
+          "default": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    },
     "/api/v1/partner/events/{event_id}": {
       "get": {
         "operationId": "partnerGetEvent",
@@ -4303,6 +4323,7 @@
     "/api/v1/partner/selection-sessions": {
       "post": {
         "operationId": "partnerCreateSelectionSession",
+        "description": "Creates an opaque Selector session for an accessible Event. The return_url must exactly match an HTTPS checkout destination registered during Partner integration onboarding.",
         "security": [
           {
             "PartnerBearer": []
@@ -6043,6 +6064,27 @@
         },
         "additionalProperties": false
       },
+      "PartnerEventList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "total", "server_time"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PartnerEvent"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "server_time": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "Price": {
         "type": "object",
         "additionalProperties": false,
@@ -7222,7 +7264,9 @@
           },
           "return_url": {
             "type": "string",
-            "format": "uri"
+            "format": "uri",
+            "description": "Absolute HTTPS checkout destination registered during Partner integration onboarding. Paths, ports, query strings, and trailing slashes must match exactly.",
+            "example": "https://partner.example/checkout/return"
           }
         }
       },
