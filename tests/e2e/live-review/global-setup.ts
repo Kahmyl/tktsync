@@ -134,28 +134,6 @@ async function prepareRuntime(rootEnv: string) {
   execFileSync('docker', composeAction, { cwd: repoRoot, stdio: 'ignore' });
 }
 
-async function createRealSession(supabaseURL: string, anonKey: string): Promise<SupabaseSession> {
-  const response = await fetch(`${supabaseURL}/auth/v1/signup`, {
-    method: 'POST',
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ data: { purpose: 'tktsync-live-e2e', run_id: runId } }),
-  });
-  const body = (await response.json()) as SupabaseSession & {
-    error_code?: string;
-    msg?: string;
-  };
-  if (!response.ok || !body.access_token || !body.user?.id) {
-    throw new Error(
-      `Real Supabase anonymous sign-in failed (${response.status} ${body.error_code ?? 'UNKNOWN'}): ${body.msg ?? 'request rejected'}`,
-    );
-  }
-  return body;
-}
-
 async function createPasswordSession(
   supabaseURL: string,
   anonKey: string,
@@ -185,21 +163,6 @@ async function createPasswordSession(
   return body;
 }
 
-async function readUsableSession(): Promise<SupabaseSession | undefined> {
-  if (!(await exists(authStatePath))) return undefined;
-  const state = JSON.parse(await readFile(authStatePath, 'utf8')) as {
-    origins?: Array<{ localStorage?: Array<{ name: string; value: string }> }>;
-  };
-  for (const origin of state.origins ?? []) {
-    for (const item of origin.localStorage ?? []) {
-      if (!item.name.endsWith('-auth-token')) continue;
-      const session = JSON.parse(item.value) as SupabaseSession;
-      if ((session.expires_at ?? 0) > Date.now() / 1000 + 300) return session;
-    }
-  }
-  return undefined;
-}
-
 async function writeAuthState(session: SupabaseSession, supabaseURL: string) {
   const entry = { name: storageKey(supabaseURL), value: JSON.stringify(session) };
   await writeFile(
@@ -210,24 +173,6 @@ async function writeAuthState(session: SupabaseSession, supabaseURL: string) {
         origins: [
           { origin: urls.admin, localStorage: [entry] },
           { origin: urls.scanner, localStorage: [entry] },
-        ],
-      },
-      null,
-      2,
-    ),
-    { mode: 0o600 },
-  );
-}
-
-async function writeEmptyAuthState() {
-  await writeFile(
-    authStatePath,
-    JSON.stringify(
-      {
-        cookies: [],
-        origins: [
-          { origin: urls.admin, localStorage: [] },
-          { origin: urls.scanner, localStorage: [] },
         ],
       },
       null,
@@ -323,29 +268,14 @@ export default async function globalSetup() {
 
   await prepareRuntime(rootEnv);
   await prepareRealTicketCameraFixture();
-  let auth = 'unavailable';
-  let authUI = 'blocked: no reusable email/password credential in local configuration';
-  if (await exists(credentialPath)) {
-    const session = await createPasswordSession(supabaseURL, anonKey);
-    await writeAuthState(session, supabaseURL);
-    authorizeLocally(session.user.id);
-    auth = 'real Supabase password session';
-    authUI = 'real email/password; visible UI sign-in verified in Workflow 1';
-  } else {
-    try {
-      const session =
-        (await readUsableSession()) ?? (await createRealSession(supabaseURL, anonKey));
-      await writeAuthState(session, supabaseURL);
-      authorizeLocally(session.user.id);
-      auth = 'real Supabase anonymous session; local platform-admin bootstrap';
-      authUI = 'blocked: no reusable email/password credential in local configuration';
-    } catch (error) {
-      await writeEmptyAuthState();
-      const message = error instanceof Error ? error.message : 'real authentication unavailable';
-      auth = `blocked: ${message}`;
-      authUI = 'blocked: no reusable email/password credential and anonymous sign-ins are disabled';
-    }
+  if (!(await exists(credentialPath))) {
+    throw new Error(
+      `Authenticated live review requires an email/password credential file at ${credentialPath}. Set LIVE_REVIEW_CREDENTIAL_PATH to use another protected file.`,
+    );
   }
+  const session = await createPasswordSession(supabaseURL, anonKey);
+  await writeAuthState(session, supabaseURL);
+  authorizeLocally(session.user.id);
 
   const composeState = execFileSync(
     'docker',
@@ -367,8 +297,8 @@ export default async function globalSetup() {
     JSON.stringify(
       {
         run_id: runId,
-        auth,
-        auth_ui_success: authUI,
+        auth: 'real Supabase password session',
+        auth_ui_success: 'real email/password; visible UI sign-in verified in Workflow 1',
         realtime_enabled_for_review: true,
         webhooks_enabled_for_review: true,
         urls,

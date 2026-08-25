@@ -428,7 +428,7 @@ export const guides: Guide[] = [
       },
       {
         title: 'Reissue and void are different',
-        body: 'Reissue when the credential may have been exposed but the Ticket should remain valid. The old credential becomes superseded and the hosted presentation URL renders the new active credential. Void when the Ticket itself must no longer admit anyone. Voiding does not automatically make the sold inventory available again.',
+        body: 'Reissue when the credential or hosted QR URL may have been exposed but the Ticket should remain valid. The old credential and old hosted presentation URL become invalid; retrieve the replacement pair for customer delivery. Void when the Ticket itself must no longer admit anyone. Voiding does not automatically make the sold inventory available again.',
         links: [
           { label: 'Reissue a credential', route: '/api/tickets/reissue-credential' },
           { label: 'Void a Ticket', route: '/api/tickets/void' },

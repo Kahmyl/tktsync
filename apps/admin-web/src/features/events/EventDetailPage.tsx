@@ -52,7 +52,8 @@ import {
   useVenue,
 } from '../admin/queries';
 import type { EventState } from '../admin/types';
-import { InventoryTargetPicker, type InventoryTargets } from './inventory/InventoryTargetPicker';
+import { InventoryTargetPicker } from './inventory/InventoryTargetPicker';
+import type { InventoryTargets } from './inventory/inventoryTargets';
 import { RestrictionsPanel } from './inventory/RestrictionsPanel';
 
 const tabs = [

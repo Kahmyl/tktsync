@@ -1114,12 +1114,31 @@ func ticketingAssertPartnerTicketLifecycle(
 		reissued.CredentialID ||
 		current.QRPayload == "" ||
 		current.QRPayload == originalQRPayload ||
-		current.QRURL != hostedQRURL {
+		current.QRURL == hostedQRURL {
 		t.Fatalf(
 			"credential recovery did not return replacement: %s",
 			currentCredential.Body.String(),
 		)
 	}
+
+	originalHostedPath := ticketingHostedQRPath(
+		t,
+		hostedQRURL,
+		ticketPublicID,
+		originalQRPayload,
+	)
+	expiredHosted := reservationPartnerHTTP(
+		t,
+		handler,
+		http.MethodGet,
+		originalHostedPath,
+		"",
+		"",
+		"",
+		nil,
+		"",
+	)
+	reservationRequireErrorCode(t, expiredHosted, "RESOURCE_NOT_FOUND")
 
 	hostedQRPath := ticketingHostedQRPath(
 		t,
@@ -1144,7 +1163,7 @@ func ticketingAssertPartnerTicketLifecycle(
 		t.Fatalf("render original QR for reissue comparison: %v", err)
 	}
 	if bytes.Equal(hostedAfterReissue.Body.Bytes(), originalSVG) {
-		t.Fatal("stable hosted QR URL returned the superseded credential after reissue")
+		t.Fatal("replacement hosted QR returned the superseded credential after reissue")
 	}
 
 	ticketID, err := publicid.Parse(

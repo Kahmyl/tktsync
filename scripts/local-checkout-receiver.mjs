@@ -100,7 +100,8 @@ const server = createServer(
 
       response.writeHead(200, {
         'cache-control': 'no-store',
-        'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'",
+        'content-security-policy':
+          "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'",
         'content-type': 'text/html; charset=utf-8',
         'referrer-policy': 'no-referrer',
         'x-content-type-options': 'nosniff',

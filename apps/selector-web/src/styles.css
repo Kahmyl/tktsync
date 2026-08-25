@@ -170,6 +170,7 @@ button:focus-visible {
 }
 .spatial-map-scroll {
   max-width: 100%;
+  max-height: min(72vh, 720px);
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -178,7 +179,7 @@ button:focus-visible {
 }
 .spatial-map {
   position: relative;
-  min-width: 0;
+  min-width: 100%;
   background-image: radial-gradient(#cbd8d6 0.7px, transparent 0.7px);
   background-size: 20px 20px;
 }
@@ -187,41 +188,16 @@ button:focus-visible {
 .spatial-orientation {
   position: absolute;
   transform-origin: center;
-  min-width: 150px;
-  min-height: 90px;
+  min-width: 0;
+  min-height: 0;
 }
 .spatial-orientation span {
   display: block;
 }
-.spatial-map.collision-safe-layout {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 16px;
-  padding: 24px;
-  aspect-ratio: auto !important;
-}
-.collision-safe-layout .spatial-section,
-.collision-safe-layout .spatial-ga,
-.collision-safe-layout .spatial-orientation {
-  position: relative;
-  inset: auto !important;
-  width: auto !important;
-  height: auto !important;
-  min-width: 0;
-  min-height: 0;
-  transform: none !important;
-  overflow: hidden;
-}
-.collision-safe-layout .spatial-orientation {
-  grid-column: 1 / -1;
-  min-height: 72px;
-}
-.collision-safe-layout .spatial-orientation span {
-  transform: none !important;
-}
 .spatial-section {
+  z-index: 2;
   padding: 12px;
-  overflow: hidden;
+  overflow: auto;
 }
 .spatial-section .section-heading {
   margin-bottom: 8px;
@@ -241,16 +217,17 @@ button:focus-visible {
   display: none;
 }
 .spatial-ga {
+  z-index: 2;
   padding: 14px;
   align-items: stretch;
   flex-direction: column;
-  overflow: hidden;
+  overflow: auto;
 }
 .spatial-ga .quantity-control {
   align-self: flex-end;
 }
 .spatial-orientation {
-  z-index: 2;
+  z-index: 1;
   display: grid;
   place-items: center;
   border: 2px solid #78a6a5;
@@ -977,42 +954,6 @@ button:focus-visible {
     border-radius: 50%;
     background: #f0f4f3;
     cursor: pointer;
-  }
-}
-
-@media (max-width: 1300px) {
-  .spatial-map-scroll {
-    overflow: visible;
-    border: 0;
-    background: transparent;
-  }
-  .spatial-map {
-    min-width: 0;
-    aspect-ratio: auto !important;
-    display: grid;
-    gap: 12px;
-    background: transparent;
-  }
-  .spatial-section,
-  .spatial-ga,
-  .spatial-orientation {
-    position: relative;
-    inset: auto !important;
-    width: auto !important;
-    height: auto !important;
-    min-width: 0;
-    min-height: 0;
-    transform: none !important;
-  }
-  .spatial-section,
-  .spatial-ga {
-    overflow: hidden;
-  }
-  .spatial-orientation {
-    min-height: 58px;
-  }
-  .spatial-orientation span {
-    transform: none !important;
   }
 }
 

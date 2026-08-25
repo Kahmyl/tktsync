@@ -7,7 +7,6 @@ import {
   liveCredentials,
   operatorToken,
   readSecrets,
-  recordIssue,
   reviewNames,
   saveVideo,
   screenshot,
@@ -28,54 +27,27 @@ test('01 Admin platform setup', async ({ page }) => {
 
   await test.step('Restore a real Supabase-authenticated operator session', async () => {
     await page.goto(urls.admin);
-    let credentials: Awaited<ReturnType<typeof liveCredentials>> | undefined;
-    try {
-      credentials = await liveCredentials();
-    } catch {
-      credentials = undefined;
-    }
-    if (credentials) {
-      await page.evaluate(() => localStorage.clear());
-      await page.goto(`${urls.admin}/sign-in`);
-      await page.getByLabel('Email').fill(credentials.email);
-      await page.getByLabel('Password').fill(credentials.password);
-      await page.getByRole('button', { name: 'Sign in' }).click();
-      const retry = page.getByRole('button', { name: 'Try again' });
-      for (let attempt = 0; attempt < 8; attempt += 1) {
-        if (
-          await page
-            .getByRole('heading', { name: 'Upcoming events', exact: true })
-            .isVisible()
-            .catch(() => false)
-        )
-          break;
-        if (await retry.isVisible().catch(() => false)) await retry.click();
-        await page.waitForTimeout(2_000);
-      }
-      await expect(
-        page.getByRole('heading', { name: 'Upcoming events', exact: true }),
-      ).toBeVisible();
-      await screenshot(page, '01-admin-dashboard-start');
-      return;
-    }
-    if (await page.getByRole('heading', { name: 'Welcome back' }).isVisible()) {
-      await page.getByLabel('Email').fill('live-review-blocked@invalid.example');
-      await page.getByLabel('Password').fill('not-a-real-credential');
-      await page.getByRole('button', { name: 'Sign in' }).click();
-      await expect(page.getByText(/invalid|incorrect|credentials/i)).toBeVisible();
-      await screenshot(page, '01-admin-auth-blocked');
-      await recordIssue(
-        'LIVE-AUTH-001 — Admin and Scanner success authentication blocked',
-        'The configured Supabase project has anonymous sign-ins disabled, and the ignored local environment contains public Supabase configuration plus an authorized subject but no reusable email/password credential. A real invalid login was exercised and rejected; no fake token, storage state, or mocked Supabase response was substituted. Consequently all authenticated Admin, Partner setup, Selector ticket issuance, and Scanner admission workflows are blocked at their real authentication prerequisite.',
-      );
-      await saveVideo(page, '01-admin-platform-setup.webm');
-      return;
+    const credentials = await liveCredentials();
+    await page.evaluate(() => localStorage.clear());
+    await page.goto(`${urls.admin}/sign-in`);
+    await page.getByLabel('Email').fill(credentials.email);
+    await page.getByLabel('Password').fill(credentials.password);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    const retry = page.getByRole('button', { name: 'Try again' });
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      if (
+        await page
+          .getByRole('heading', { name: 'Upcoming events', exact: true })
+          .isVisible()
+          .catch(() => false)
+      )
+        break;
+      if (await retry.isVisible().catch(() => false)) await retry.click();
+      await page.waitForTimeout(2_000);
     }
     await expect(page.getByRole('heading', { name: 'Upcoming events', exact: true })).toBeVisible();
     await screenshot(page, '01-admin-dashboard-start');
   });
-
-  if (page.isClosed()) return;
 
   const ledger = await entities();
   let venueId = ledger.venues[0] ?? '';
@@ -217,8 +189,12 @@ test('01 Admin platform setup', async ({ page }) => {
     await addEntity('events', eventId);
 
     await page.getByRole('button', { name: 'Open sales' }).click();
-    await expect(page.getByRole('dialog', { name: 'Finish event setup' })).toBeVisible();
-    await expect(page.getByText(/Sales policy|Layout & seats|Pricing/)).toBeVisible();
+    const setupDialog = page.getByRole('dialog', { name: 'Finish event setup' });
+    await expect(setupDialog).toBeVisible();
+    const remainingSetup = setupDialog.locator('.inline-notice');
+    await expect(remainingSetup).toContainText('Layout & seats');
+    await expect(remainingSetup).toContainText('Pricing');
+    await expect(remainingSetup).toContainText('Inventory');
     await expect(page.getByText("We couldn't load this view.")).toHaveCount(0);
     await page.getByRole('button', { name: 'Review setup' }).click();
   });
@@ -492,7 +468,7 @@ test('01 Admin platform setup', async ({ page }) => {
     );
   });
 
-  let partnerId = ledger.partners[0] ?? '';
+  let partnerId = (await readSecrets()).corePartnerID ?? '';
   await test.step('Create Partner, issue a redacted credential, and grant Event access', async () => {
     if (partnerId) {
       await page.goto(`${urls.admin}/partners/${partnerId}`);
@@ -507,17 +483,20 @@ test('01 Admin platform setup', async ({ page }) => {
       partnerId = new URL(page.url()).pathname.split('/').at(-1) ?? '';
       expect(partnerId).toMatch(/^ptr_/);
       await addEntity('partners', partnerId);
+      await setSecret('corePartnerID', partnerId);
     }
 
     const secrets = await readSecrets();
-    if (!secrets.partnerCredential) {
+    let corePartnerCredential = secrets.corePartnerCredential;
+    if (!corePartnerCredential) {
       await page.getByRole('button', { name: 'Issue credential' }).first().click();
       const secretLocator = page.getByTestId('one-time-secret');
-      const credential = (await secretLocator.textContent())?.trim() ?? '';
-      expect(credential).toBeTruthy();
-      await setSecret('partnerCredential', credential);
+      corePartnerCredential = (await secretLocator.textContent())?.trim() ?? '';
+      expect(corePartnerCredential).toBeTruthy();
+      await setSecret('corePartnerCredential', corePartnerCredential);
       await page.getByRole('button', { name: 'I have stored it' }).click();
     }
+    await setSecret('partnerCredential', corePartnerCredential);
     const token = await operatorToken();
     const partner = await apiJSON<{
       credentials: Array<{ id: string; state: string }>;

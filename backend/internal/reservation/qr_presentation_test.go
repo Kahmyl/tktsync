@@ -12,15 +12,16 @@ import (
 	"github.com/tktsync/tktsync/backend/internal/platform/publicid"
 )
 
-func TestTicketQRPresentationCapabilityIsOpaqueStableAndTicketBound(t *testing.T) {
+func TestTicketQRPresentationCapabilityIsOpaqueStableAndCredentialBound(t *testing.T) {
 	service := NewService(nil, nil, testTicketQRKeyring(t))
 	ticketID := uuid.New()
+	credentialID := uuid.New()
 
-	first, err := service.TicketQRPresentationCapability(ticketID)
+	first, err := service.TicketQRPresentationCapability(ticketID, credentialID)
 	if err != nil {
 		t.Fatalf("build capability: %v", err)
 	}
-	second, err := service.TicketQRPresentationCapability(ticketID)
+	second, err := service.TicketQRPresentationCapability(ticketID, credentialID)
 	if err != nil {
 		t.Fatalf("rebuild capability: %v", err)
 	}
@@ -34,13 +35,15 @@ func TestTicketQRPresentationCapabilityIsOpaqueStableAndTicketBound(t *testing.T
 	if err != nil {
 		t.Fatalf("decode capability: %v", err)
 	}
-	if bytes.Contains(raw, ticketID[:]) {
-		t.Fatal("decoded capability exposes the ticket UUID bytes")
+	if bytes.Contains(raw, ticketID[:]) || bytes.Contains(raw, credentialID[:]) {
+		t.Fatal("decoded capability exposes identity UUID bytes")
 	}
 	for _, forbidden := range []string{
 		"qr1",
 		ticketID.String(),
 		publicid.Encode(publicid.Ticket, ticketID),
+		credentialID.String(),
+		publicid.Encode(publicid.Credential, credentialID),
 		"Bearer",
 		"?",
 	} {
@@ -49,26 +52,33 @@ func TestTicketQRPresentationCapabilityIsOpaqueStableAndTicketBound(t *testing.T
 		}
 	}
 
-	parsed, err := service.parseTicketQRPresentationCapability(first)
+	parsedTicket, parsedCredential, err := service.parseTicketQRPresentationCapability(first)
 	if err != nil {
 		t.Fatalf("parse capability: %v", err)
 	}
-	if parsed != ticketID {
-		t.Fatalf("parsed ticket=%s want=%s", parsed, ticketID)
+	if parsedTicket != ticketID || parsedCredential != credentialID {
+		t.Fatalf("parsed identities=%s/%s want=%s/%s", parsedTicket, parsedCredential, ticketID, credentialID)
 	}
 
-	other, err := service.TicketQRPresentationCapability(uuid.New())
+	other, err := service.TicketQRPresentationCapability(uuid.New(), credentialID)
 	if err != nil {
 		t.Fatalf("build other capability: %v", err)
 	}
 	if other == first {
 		t.Fatal("different tickets received the same capability")
 	}
+	reissued, err := service.TicketQRPresentationCapability(ticketID, uuid.New())
+	if err != nil {
+		t.Fatalf("build reissued capability: %v", err)
+	}
+	if reissued == first {
+		t.Fatal("different credentials received the same capability")
+	}
 }
 
 func TestTicketQRPresentationCapabilityRejectsMalformedRandomAndTamperedValues(t *testing.T) {
 	service := NewService(nil, nil, testTicketQRKeyring(t))
-	capability, err := service.TicketQRPresentationCapability(uuid.New())
+	capability, err := service.TicketQRPresentationCapability(uuid.New(), uuid.New())
 	if err != nil {
 		t.Fatalf("build capability: %v", err)
 	}
@@ -85,7 +95,7 @@ func TestTicketQRPresentationCapabilityRejectsMalformedRandomAndTamperedValues(t
 		capability + "extra",
 		tampered,
 	} {
-		_, parseErr := service.parseTicketQRPresentationCapability(value)
+		_, _, parseErr := service.parseTicketQRPresentationCapability(value)
 		apiErr, ok := apierror.As(parseErr)
 		if !ok || apiErr.Code != apierror.CodeResourceNotFound {
 			t.Fatalf("parse %q error=%v want safe not found", value, parseErr)

@@ -1,6 +1,6 @@
 x-backend-environment: &backend-environment
   APP_ENV: ${APP_ENV:-development}
-  DATABASE_URL: ${COMPOSE_DATABASE_URL:-postgres://tktsync:tktsync@postgres:5432/tktsync?sslmode=disable}
+  DATABASE_URL: postgres://tktsync:tktsync@postgres:5432/tktsync?sslmode=disable
   LOG_LEVEL: ${LOG_LEVEL:-info}
   LOG_FORMAT: ${LOG_FORMAT:-json}
   SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-10s}
@@ -52,15 +52,15 @@ x-backend-environment: &backend-environment
   OTEL_ENABLED: ${OTEL_ENABLED:-false}
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
   OTEL_TRACE_SAMPLE_RATIO: ${OTEL_TRACE_SAMPLE_RATIO:-0.1}
-  SELECTOR_BASE_URL: ${SELECTOR_BASE_URL:-http://localhost:54471/s}
-  TICKET_QR_PUBLIC_BASE_URL: ${TICKET_QR_PUBLIC_BASE_URL:-http://localhost:58480}
-  BROWSER_ALLOWED_ORIGINS: ${BROWSER_ALLOWED_ORIGINS:-http://localhost:54470,http://localhost:54471,http://localhost:54472}
+  SELECTOR_BASE_URL: ${SELECTOR_BASE_URL:-http://localhost:${SELECTOR_HOST_PORT:-54471}/s}
+  TICKET_QR_PUBLIC_BASE_URL: ${TICKET_QR_PUBLIC_BASE_URL:-http://localhost:${API_HOST_PORT:-58480}}
+  BROWSER_ALLOWED_ORIGINS: ${BROWSER_ALLOWED_ORIGINS:-http://localhost:${ADMIN_HOST_PORT:-54470},http://localhost:${SELECTOR_HOST_PORT:-54471},http://localhost:${SCANNER_HOST_PORT:-54472}}
 
 x-frontend-build: &frontend-build
   context: .
   dockerfile: Dockerfile.frontend
   args: &frontend-build-args
-    VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:58480}
+    VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:${API_HOST_PORT:-58480}}
     VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
     VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
     VITE_BROWSER_TELEMETRY_ENDPOINT: ${VITE_BROWSER_TELEMETRY_ENDPOINT:-}
@@ -77,14 +77,13 @@ services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-tktsync}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tktsync}
-      POSTGRES_DB: ${POSTGRES_DB:-tktsync}
+      POSTGRES_USER: tktsync
+      POSTGRES_PASSWORD: tktsync
+      POSTGRES_DB: tktsync
     ports:
       - ${POSTGRES_PORT:-55439}:5432
     healthcheck:
-      test:
-        [CMD-SHELL, "pg_isready -U ${POSTGRES_USER:-tktsync} -d ${POSTGRES_DB:-tktsync}"]
+      test: [CMD-SHELL, 'pg_isready -U tktsync -d tktsync']
       interval: 5s
       start_interval: 1s
       timeout: 3s
@@ -97,7 +96,7 @@ services:
     image: migrate/migrate:v4.18.3
     command:
       - -path=/migrations
-      - -database=${MIGRATION_DATABASE_URL:-postgres://tktsync:tktsync@postgres:5432/tktsync?sslmode=disable}
+      - -database=postgres://tktsync:tktsync@postgres:5432/tktsync?sslmode=disable
       - up
     depends_on:
       postgres:
@@ -110,7 +109,7 @@ services:
     image: postgres:17-alpine
     command: [sh, /scripts/seed-local.sh]
     environment:
-      DATABASE_URL: ${COMPOSE_DATABASE_URL:-postgres://tktsync:tktsync@postgres:5432/tktsync?sslmode=disable}
+      DATABASE_URL: postgres://tktsync:tktsync@postgres:5432/tktsync?sslmode=disable
       LOCAL_OPERATOR_AUTH_SUBJECT: ${LOCAL_OPERATOR_AUTH_SUBJECT:-}
       LOCAL_OPERATOR_DISPLAY_NAME: ${LOCAL_OPERATOR_DISPLAY_NAME:-Local Platform Admin}
       LOCAL_OPERATOR_PLATFORM_ADMIN: ${LOCAL_OPERATOR_PLATFORM_ADMIN:-true}
@@ -128,8 +127,8 @@ services:
       dockerfile: Dockerfile.api
     environment:
       <<: *backend-environment
-      API_HOST: ${API_CONTAINER_HOST:-0.0.0.0}
-      API_PORT: ${API_CONTAINER_PORT:-8080}
+      API_HOST: 0.0.0.0
+      API_PORT: 8080
       SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY:-}
       ADMIN_INVITE_REDIRECT_URL: ${ADMIN_INVITE_REDIRECT_URL:-http://localhost:${ADMIN_HOST_PORT:-54470}/set-password}
     depends_on:
@@ -205,7 +204,7 @@ services:
         APP_PACKAGE: '@tktsync/docs-web'
         APP_DIRECTORY: docs-web
         NGINX_CONFIG: nginx-docs.conf
-        VITE_DOCS_LOCAL_API_BASE_URL: ${DOCS_LOCAL_API_BASE_URL:-http://localhost:58480}
+        VITE_DOCS_LOCAL_API_BASE_URL: ${DOCS_LOCAL_API_BASE_URL:-http://localhost:${API_HOST_PORT:-58480}}
         VITE_DOCS_SANDBOX_API_BASE_URL: ${DOCS_SANDBOX_API_BASE_URL:-}
         VITE_DOCS_PRODUCTION_API_BASE_URL: ${DOCS_PRODUCTION_API_BASE_URL:-}
     depends_on:

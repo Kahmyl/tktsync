@@ -3,7 +3,6 @@ package partnerapi
 import (
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/tktsync/tktsync/backend/internal/platform/apierror"
 	"github.com/tktsync/tktsync/backend/internal/platform/httpserver"
 	"github.com/tktsync/tktsync/backend/internal/reservation"
@@ -26,7 +25,7 @@ func (h *Handler) getTicketQR(
 		return
 	}
 
-	credential, err := h.reservation.RecoverActiveCredential(
+	credential, err := h.reservation.RecoverActiveCredentialForPartner(
 		r.Context(),
 		principal.PartnerID,
 		ticketID,
@@ -56,9 +55,12 @@ func (h *Handler) getHostedTicketQR(
 }
 
 func (h *Handler) ticketQRURL(
-	ticketID uuid.UUID,
+	credential reservation.ActiveCredential,
 ) (string, error) {
-	capability, err := h.reservation.TicketQRPresentationCapability(ticketID)
+	capability, err := h.reservation.TicketQRPresentationCapability(
+		credential.TicketID,
+		credential.CredentialID,
+	)
 	if err != nil {
 		return "", err
 	}

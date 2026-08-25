@@ -40,6 +40,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm api:check
       - run: pnpm api:routes
+      - run: pnpm docs:check
+      - run: pnpm compose:check
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test

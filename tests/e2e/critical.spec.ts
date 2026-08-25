@@ -411,7 +411,10 @@ test('Selector consumes its fragment, keeps unavailable seats visible, bounds GA
   expect(mocked.releaseCalls).toBe(1);
 });
 
-test('Selector spatial cards expand to reveal every configured row', async ({ page }) => {
+test('Selector preserves authored spatial geometry when a visual object intersects', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   const reservedUnits = [
     ...['A', 'B', 'C'].flatMap((row) =>
       ['1', '2', '3', '4', '5'].map((seat) => ({
@@ -446,7 +449,7 @@ test('Selector spatial cards expand to reveal every configured row', async ({ pa
             type: 'STAGE',
             label: 'Stage',
             x: 360,
-            y: 10,
+            y: 120,
             width: 300,
             height: 90,
           },
@@ -458,6 +461,7 @@ test('Selector spatial cards expand to reveal every configured row', async ({ pa
             y: 150,
             width: 270,
             height: 160,
+            rotation: 12,
           },
           {
             object_key: 'table-area',
@@ -496,6 +500,22 @@ test('Selector spatial cards expand to reveal every configured row', async ({ pa
 
   const cards = page.locator('.spatial-section, .spatial-ga');
   await expect(cards).toHaveCount(3);
+  const reserved = page.locator('section.spatial-section[aria-label="Reserved section"]');
+  await expect(reserved).toHaveCSS('position', 'absolute');
+  expect(await reserved.getAttribute('style')).toContain('left: 264px');
+  expect(await reserved.getAttribute('style')).toContain('top: 174px');
+  expect(await reserved.getAttribute('style')).toContain('rotate(12deg)');
+  await expect(page.locator('.spatial-orientation')).toHaveCSS('position', 'absolute');
+  expect(
+    await page
+      .locator('.spatial-map-scroll')
+      .evaluate((element) => element.scrollWidth > element.clientWidth),
+  ).toBe(true);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
   const clipping = await cards.evaluateAll((elements) =>
     elements.map((element) => ({
       label: element.getAttribute('aria-label'),

@@ -279,27 +279,47 @@ export function SelectionPage() {
     return sections;
   }, [session.layout]);
   const gaOffers = session.offers.filter((offer) => offer.kind === 'ga');
-  const spatialBounds = useMemo(() => {
+  const spatialBounds = (() => {
     const objects = session.layout?.geometry?.objects ?? [];
+    const expandedBounds = objects.map((item) => {
+      const section = reservedSections.get(item.object_key);
+      const hasGAPool = session.layout?.ga_pools.some(
+        (pool) => pool.section_object_key === item.object_key,
+      );
+      const orientation = ['STAGE', 'RING', 'FIELD'].includes(item.type);
+      const minimumWidth = orientation ? 180 : section || hasGAPool ? 270 : 0;
+      const minimumHeight = orientation
+        ? 90
+        : section
+          ? Math.max(190, 92 + section.rows.size * 38)
+          : hasGAPool
+            ? 210
+            : 0;
+      const width = Math.max(item.width, minimumWidth);
+      const height = Math.max(item.height, minimumHeight);
+      const radians = ((item.rotation ?? 0) * Math.PI) / 180;
+      const rotatedWidth =
+        Math.abs(width * Math.cos(radians)) + Math.abs(height * Math.sin(radians));
+      const rotatedHeight =
+        Math.abs(width * Math.sin(radians)) + Math.abs(height * Math.cos(radians));
+      const centerX = item.x + width / 2;
+      const centerY = item.y + height / 2;
+      return {
+        left: centerX - rotatedWidth / 2,
+        top: centerY - rotatedHeight / 2,
+        right: centerX + rotatedWidth / 2,
+        bottom: centerY + rotatedHeight / 2,
+      };
+    });
+    const left = Math.min(0, ...expandedBounds.map((item) => item.left));
+    const top = Math.min(0, ...expandedBounds.map((item) => item.top));
     return {
-      width: Math.max(1000, ...objects.map((item) => item.x + item.width)),
-      height: Math.max(650, ...objects.map((item) => item.y + item.height)),
+      offsetX: 24 - left,
+      offsetY: 24 - top,
+      width: Math.max(1000, ...expandedBounds.map((item) => item.right)) - left + 48,
+      height: Math.max(650, ...expandedBounds.map((item) => item.bottom)) - top + 48,
     };
-  }, [session.layout]);
-  const hasSpatialCollision = useMemo(() => {
-    const objects = session.layout?.geometry?.objects ?? [];
-    return objects.some((item, index) =>
-      objects
-        .slice(index + 1)
-        .some(
-          (other) =>
-            item.x < other.x + other.width &&
-            item.x + item.width > other.x &&
-            item.y < other.y + other.height &&
-            item.y + item.height > other.y,
-        ),
-    );
-  }, [session.layout]);
+  })();
   const spatialStyle = (
     item: NonNullable<NonNullable<Layout['geometry']>['objects']>[number],
     contentMinimum?: { width?: number; height?: number },
@@ -307,13 +327,11 @@ export function SelectionPage() {
     const orientation = ['STAGE', 'RING', 'FIELD'].includes(item.type);
     const minimumWidth = contentMinimum?.width ?? (orientation ? 180 : 250);
     const minimumHeight = contentMinimum?.height ?? (orientation ? 90 : 160);
-    const left = 2 + (item.x / spatialBounds.width) * 96;
-    const top = 2 + (item.y / spatialBounds.height) * 96;
     return {
-      left: `min(${left}%, calc(98% - ${minimumWidth}px))`,
-      top: `min(${top}%, calc(98% - ${minimumHeight}px))`,
-      width: `max(${(item.width / spatialBounds.width) * 96}%, ${minimumWidth}px)`,
-      height: `max(${(item.height / spatialBounds.height) * 96}%, ${minimumHeight}px)`,
+      left: `${item.x + spatialBounds.offsetX}px`,
+      top: `${item.y + spatialBounds.offsetY}px`,
+      width: `${Math.max(item.width, minimumWidth)}px`,
+      height: `${Math.max(item.height, minimumHeight)}px`,
       transform: `rotate(${item.rotation ?? 0}deg)`,
     };
   };
@@ -502,9 +520,9 @@ export function SelectionPage() {
                 ) && <div className="stage-mark">Event area</div>}
               <div className="spatial-map-scroll">
                 <div
-                  className={`spatial-map ${hasSpatialCollision ? 'collision-safe-layout' : ''}`}
+                  className="spatial-map"
                   aria-label="Interactive venue floor plan"
-                  style={{ aspectRatio: `${spatialBounds.width} / ${spatialBounds.height}` }}
+                  style={{ width: spatialBounds.width, height: spatialBounds.height }}
                 >
                   {(session.layout?.geometry?.objects ?? [])
                     .filter((item) => ['STAGE', 'RING', 'FIELD'].includes(item.type))

@@ -1142,13 +1142,13 @@ Both QR image surfaces return `Cache-Control: no-store` and `X-Content-Type-Opti
 
 Credential retrieval MUST be reproducible for the currently active credential without creating a new Ticket identity.
 
-The implementation MAY derive the opaque QR presentation capability deterministically from protected server secrets and Ticket identity, or use another secure recoverable design.
+The implementation MAY derive the opaque QR presentation capability deterministically from protected server secrets plus Ticket and credential identity, or use another secure recoverable design. Neither identity is exposed in plaintext.
 
 This preserves Partner recovery after a lost confirmation response while remaining compatible with database storage that does not require ordinary plaintext credential persistence.
 
 If the Ticket is VOIDED or no active credential is valid, the endpoint MUST NOT manufacture a new credential as a side effect of a read. It returns the corresponding Ticket/credential business state.
 
-The hosted presentation URL is ticket-level and dynamically renders the current active credential. A normal credential reissue invalidates the old `qr1...` credential while the same hosted URL renders the replacement. Ticket void, credential revocation without replacement, cancellation, or any other no-active-credential state stops both QR image surfaces from returning scannable content.
+The hosted presentation URL is credential-bound. A normal credential reissue invalidates both the old `qr1...` credential and its hosted URL; authenticated credential retrieval returns a new credential and new hosted URL for the unchanged Ticket. Ticket void, credential revocation, cancellation, or any other no-active-credential state stops both QR image surfaces from returning scannable content.
 
 ### 40.2 Credential Reissue
 
@@ -1180,7 +1180,7 @@ Ticket void does not automatically make inventory available.
 
 Rotates the active QR credential while preserving Ticket identity.
 
-The previous credential becomes invalid and the Partner can retrieve the replacement credential through the credential endpoint. The stable hosted QR presentation URL then renders the replacement credential without moving ticket presentation or customer-delivery responsibility away from the Partner.
+The previous credential and its hosted QR presentation URL become invalid. The Partner retrieves the replacement credential and replacement hosted URL through the credential endpoint, without moving ticket presentation or customer-delivery responsibility away from the Partner.
 
 ### 41.3 Inventory Re-release
 

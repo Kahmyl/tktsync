@@ -271,7 +271,7 @@ func (h *Handler) getTicketCredential(
 
 	credential, err :=
 		h.reservation.
-			RecoverActiveCredential(
+			RecoverActiveCredentialForPartner(
 				r.Context(),
 				principal.PartnerID,
 				ticketID,
@@ -285,7 +285,7 @@ func (h *Handler) getTicketCredential(
 		return
 	}
 
-	qrURL, err := h.ticketQRURL(credential.TicketID)
+	qrURL, err := h.ticketQRURL(credential)
 	if err != nil {
 		httpserver.WriteError(
 			w,

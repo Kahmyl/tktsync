@@ -278,9 +278,11 @@ h1 {
   color: #586173;
   font-size: 18px;
   line-height: 1.75;
+  overflow-wrap: anywhere;
 }
 .guide-section,
 .endpoint-article section {
+  min-width: 0;
   padding-top: 38px;
   margin-top: 38px;
   border-top: 1px solid var(--line);
@@ -297,6 +299,7 @@ h1 {
   color: #586173;
   font-size: 15px;
   line-height: 1.8;
+  overflow-wrap: anywhere;
 }
 .guide-section ol {
   padding-left: 22px;
@@ -313,6 +316,7 @@ h1 {
 .workflow-flow > button {
   position: relative;
   display: grid;
+  min-width: 0;
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -394,6 +398,7 @@ h1 {
 }
 .guide-links button {
   display: inline-flex;
+  min-width: 0;
   align-items: center;
   gap: 8px;
   border: 1px solid #d8d3f5;
@@ -402,6 +407,7 @@ h1 {
   background: #f8f7ff;
   color: var(--brand-dark);
   font-weight: 750;
+  overflow-wrap: anywhere;
   cursor: pointer;
 }
 .guide-links button:hover {

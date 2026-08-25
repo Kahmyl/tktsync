@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { guides } from './content';
@@ -26,6 +25,7 @@ type Operation = {
   route: string;
   method: string;
   path: string;
+  successMediaType?: string;
   title: string;
   description: string;
   destructive: boolean;
@@ -42,6 +42,7 @@ type Operation = {
   responses: readonly {
     status: string;
     description: string;
+    mediaType?: string;
     fields: readonly DocField[];
     example?: unknown;
   }[];
@@ -916,7 +917,7 @@ function NotFound({ navigate }: { navigate(path: string): void }) {
   );
 }
 
-function App() {
+export function App() {
   const [path, navigate] = usePath();
   const [navOpen, setNavOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);

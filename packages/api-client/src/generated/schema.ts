@@ -845,7 +845,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Recovers the current active qr1 credential for a Ticket owned by the authenticated Partner. The qr_url is an opaque hosted presentation capability that Partners can embed in their own ticket experience. */
+    /** @description Recovers the current active qr1 credential for a Ticket owned by the authenticated Partner. The qr_url is an opaque credential-bound hosted presentation capability that Partners can embed in their own ticket experience. */
     get: operations['partnerGetTicketCredential'];
     put?: never;
     post?: never;
@@ -879,7 +879,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Returns only the TktSync-generated QR image authorized by an opaque, authenticated-encrypted presentation capability. The URL contains no raw credential or public Ticket ID and dynamically renders the Ticket's current active qr1 credential, so ordinary credential reissue does not require a new buyer-facing URL. The capability authorizes presentation only and must be treated as sensitive bearer material. */
+    /** @description Returns only the TktSync-generated QR image authorized by an opaque, authenticated-encrypted presentation capability bound to one Ticket credential. The URL contains no raw credential or public Ticket ID. Credential reissue invalidates the old capability, and authenticated retrieval supplies a new hosted URL. The capability authorizes presentation only and must be treated as sensitive bearer material. */
     get: operations['getHostedTicketQR'];
     put?: never;
     post?: never;
@@ -1878,7 +1878,7 @@ export interface components {
       qr_payload: string;
       /**
        * Format: uri
-       * @description Opaque TktSync-hosted QR presentation URL. It renders the current active credential and is suitable for embedding in Partner-owned HTML, email, PDF, image, or app presentation.
+       * @description Opaque credential-bound TktSync-hosted QR presentation URL. Credential reissue invalidates this URL and authenticated retrieval returns a replacement. It is suitable for embedding in Partner-owned HTML, email, PDF, image, or app presentation.
        * @example https://api.example.test/api/v1/ticket-qr/tqp1_opaque-capability
        */
       qr_url: string;

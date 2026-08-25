@@ -2432,6 +2432,8 @@ The credential response includes `qr_url`. The capability contains no raw creden
 
 Credential reissue invalidates the previous `qr1...` credential while the same hosted URL renders the replacement. Ticket void or any no-active-credential state returns a non-success business response and never serves stale QR content. Both image routes return generated `image/svg+xml` with `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`.
 
+Historical note: final submission hardening changed the current governing design to a credential-bound hosted capability. Under the released contract, reissue invalidates both the old `qr1...` credential and old hosted URL; authenticated retrieval returns the replacement pair. See the Security and API Contract documents for current behavior.
+
 This closes QR image generation and hosting without adding a hosted ticket page: Partners retain ticket design, branding, payment, and customer-delivery responsibility.
 
 ---

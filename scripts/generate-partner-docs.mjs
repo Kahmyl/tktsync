@@ -25,11 +25,7 @@ const routes = {
   ],
   partnerReleaseReservation: ['Reservations', '/api/reservations/release', 'Release a reservation'],
   partnerConfirmReservation: ['Reservations', '/api/reservations/confirm', 'Confirm a reservation'],
-  partnerGetTicketCredential: [
-    'Tickets',
-    '/api/tickets/retrieve',
-    'Retrieve a ticket',
-  ],
+  partnerGetTicketCredential: ['Tickets', '/api/tickets/retrieve', 'Retrieve a ticket'],
   partnerGetTicketQR: ['Tickets', '/api/tickets/retrieve-qr', 'Retrieve a ticket QR image'],
   partnerVoidTicket: ['Tickets', '/api/tickets/void', 'Void a ticket'],
   partnerReissueTicketCredential: [
@@ -154,10 +150,12 @@ for (const [path, pathItem] of Object.entries(spec.paths || {})) {
     const bodySchema = bodyContent?.schema;
     const responses = Object.entries(operation.responses || {}).map(([status, rawResponse]) => {
       const response = dereference(rawResponse);
-      const content = jsonContent(response.content);
+      const mediaType = Object.keys(response.content || {})[0];
+      const content = jsonContent(response.content) || response.content?.[mediaType];
       return {
         status,
         description: response.description || '',
+        mediaType,
         fields: fields(content?.schema),
         example:
           content?.example ||
@@ -189,6 +187,7 @@ for (const [path, pathItem] of Object.entries(spec.paths || {})) {
             example: bodyContent.example || sampleValue(bodySchema, 'request'),
           }
         : undefined,
+      successMediaType: responses.find((response) => /^2\d\d$/.test(response.status))?.mediaType,
       responses,
     });
   }

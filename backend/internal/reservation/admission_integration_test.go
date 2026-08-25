@@ -16,11 +16,104 @@ import (
 	"github.com/tktsync/tktsync/backend/internal/admission"
 	"github.com/tktsync/tktsync/backend/internal/admissionapi"
 	"github.com/tktsync/tktsync/backend/internal/auth"
+	eventsvc "github.com/tktsync/tktsync/backend/internal/event"
 	"github.com/tktsync/tktsync/backend/internal/idempotency"
 	"github.com/tktsync/tktsync/backend/internal/platform/apierror"
 	"github.com/tktsync/tktsync/backend/internal/platform/publicid"
 	"github.com/tktsync/tktsync/backend/internal/reservation"
 )
+
+func TestAdmissionCredentialRecoveryWrappersShareStateSemantics(t *testing.T) {
+	f := newFixture(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	ticketID, _ := confirmedAdmissionTicket(t, ctx, f, "A7")
+
+	partnerCredential, err := f.reservation.RecoverActiveCredentialForPartner(
+		ctx,
+		f.partnerID,
+		ticketID,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adminCredential, err := f.reservation.RecoverActiveCredentialAdmin(ctx, ticketID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	capability, err := f.reservation.TicketQRPresentationCapability(
+		ticketID,
+		partnerCredential.CredentialID,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	presentationCredential, err := f.reservation.RecoverActiveCredentialForPresentation(
+		ctx,
+		capability,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, credential := range map[string]reservation.ActiveCredential{
+		"admin":        adminCredential,
+		"presentation": presentationCredential,
+	} {
+		if credential != partnerCredential {
+			t.Fatalf("%s recovery=%+v want=%+v", name, credential, partnerCredential)
+		}
+	}
+
+	if _, err = f.reservation.ReissuePartnerCredential(ctx, f.partnerID, ticketID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.reservation.RecoverActiveCredentialForPresentation(ctx, capability); err == nil {
+		t.Fatal("superseded presentation capability remained valid")
+	} else if apiErr, ok := apierror.As(err); !ok || apiErr.Code != apierror.CodeResourceNotFound {
+		t.Fatalf("superseded presentation error=%v want safe not found", err)
+	}
+
+	current, err := f.reservation.RecoverActiveCredentialForPartner(ctx, f.partnerID, ticketID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	currentCapability, err := f.reservation.TicketQRPresentationCapability(
+		ticketID,
+		current.CredentialID,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = eventsvc.NewService(f.runner).CancelEvent(
+		ctx,
+		f.userID,
+		f.eventID,
+		"Credential recovery state test",
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	_, partnerErr := f.reservation.RecoverActiveCredentialForPartner(
+		ctx,
+		f.partnerID,
+		ticketID,
+	)
+	_, adminErr := f.reservation.RecoverActiveCredentialAdmin(ctx, ticketID)
+	_, presentationErr := f.reservation.RecoverActiveCredentialForPresentation(
+		ctx,
+		currentCapability,
+	)
+	for name, recoveryErr := range map[string]error{
+		"partner":      partnerErr,
+		"admin":        adminErr,
+		"presentation": presentationErr,
+	} {
+		apiErr, ok := apierror.As(recoveryErr)
+		if !ok || apiErr.Code != apierror.CodeEventCancelled {
+			t.Fatalf("%s recovery error=%v want EVENT_CANCELLED", name, recoveryErr)
+		}
+	}
+}
 
 func TestAdmissionHTTPIdempotencyReplayAndConflict(t *testing.T) {
 	f := newFixture(t)
@@ -136,7 +229,7 @@ func confirmedAdmissionTicket(t *testing.T, ctx context.Context, f fixture, seat
 		t.Fatal(err)
 	}
 	ticketID := confirmed.Tickets[0].TicketID
-	credential, err := f.reservation.RecoverActiveCredential(ctx, f.partnerID, ticketID)
+	credential, err := f.reservation.RecoverActiveCredentialForPartner(ctx, f.partnerID, ticketID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +251,7 @@ func confirmedAdmissionGATicket(t *testing.T, ctx context.Context, f fixture) (u
 		t.Fatal(err)
 	}
 	ticketID := confirmed.Tickets[0].TicketID
-	credential, err := f.reservation.RecoverActiveCredential(ctx, f.partnerID, ticketID)
+	credential, err := f.reservation.RecoverActiveCredentialForPartner(ctx, f.partnerID, ticketID)
 	if err != nil {
 		t.Fatal(err)
 	}

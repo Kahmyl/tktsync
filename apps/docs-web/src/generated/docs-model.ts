@@ -21,10 +21,12 @@ export const partnerOperations = [
         example: 'X-Request-ID_example',
       },
     ],
+    successMediaType: 'application/json',
     responses: [
       {
         status: '200',
         description: 'Accessible Partner events.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'items',
@@ -157,6 +159,7 @@ export const partnerOperations = [
       {
         status: 'default',
         description: 'Machine-readable error response.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',
@@ -238,6 +241,7 @@ export const partnerOperations = [
       {
         status: '2XX',
         description: 'Successful response',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'id',
@@ -342,6 +346,7 @@ export const partnerOperations = [
       {
         status: 'default',
         description: 'Error response',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',
@@ -423,12 +428,14 @@ export const partnerOperations = [
       {
         status: '2XX',
         description: 'Successful response',
+        mediaType: 'application/json',
         fields: [],
         example: {},
       },
       {
         status: 'default',
         description: 'Error response',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',
@@ -510,6 +517,7 @@ export const partnerOperations = [
       {
         status: '2XX',
         description: 'Successful response',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'event_id',
@@ -674,6 +682,7 @@ export const partnerOperations = [
       {
         status: 'default',
         description: 'Error response',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',
@@ -817,10 +826,12 @@ export const partnerOperations = [
         ],
       },
     },
+    successMediaType: 'application/json',
     responses: [
       {
         status: '201',
         description: 'Reservation created atomically.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'reservation',
@@ -1071,6 +1082,7 @@ export const partnerOperations = [
       {
         status: 'default',
         description: 'Error response',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',
@@ -1148,10 +1160,12 @@ export const partnerOperations = [
         example: 'X-Request-ID_example',
       },
     ],
+    successMediaType: 'application/json',
     responses: [
       {
         status: '200',
         description: 'Authoritative Reservation state for the owning Partner.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'id',
@@ -1384,6 +1398,7 @@ export const partnerOperations = [
       {
         status: 'default',
         description: 'Error response',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',
@@ -1548,10 +1563,12 @@ export const partnerOperations = [
         ],
       },
     },
+    successMediaType: 'application/json',
     responses: [
       {
         status: '200',
         description: 'Reservation modified atomically.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'id',
@@ -1784,6 +1801,7 @@ export const partnerOperations = [
       {
         status: 'default',
         description: 'Error response',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',
@@ -1877,10 +1895,12 @@ export const partnerOperations = [
         example: 'X-Request-ID_example',
       },
     ],
+    successMediaType: 'application/json',
     responses: [
       {
         status: '200',
         description: 'Protected checkout window established before Partner payment.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'reservation_id',
@@ -1947,6 +1967,7 @@ export const partnerOperations = [
       {
         status: 'default',
         description: 'Error response',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',
@@ -2080,10 +2101,12 @@ export const partnerOperations = [
         requested_disposition: 'RETRY',
       },
     },
+    successMediaType: 'application/json',
     responses: [
       {
         status: '200',
         description: 'Definitive non-charge recorded and Reservation moved to retry or released.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'reservation_id',
@@ -2125,6 +2148,7 @@ export const partnerOperations = [
       {
         status: 'default',
         description: 'Error response',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',
@@ -2218,10 +2242,12 @@ export const partnerOperations = [
         example: 'X-Request-ID_example',
       },
     ],
+    successMediaType: 'application/json',
     responses: [
       {
         status: '200',
         description: 'Payment-safe Reservation released with source-aware inventory restoration.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'reservation_id',
@@ -2254,6 +2280,7 @@ export const partnerOperations = [
       {
         status: 'default',
         description: 'Error response',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',
@@ -2378,10 +2405,12 @@ export const partnerOperations = [
         partner_payment_ref: 'partner_payment_ref_example',
       },
     },
+    successMediaType: 'application/json',
     responses: [
       {
         status: '200',
         description: 'Reservation confirmed atomically into one Sale and its Tickets.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'reservation_id',
@@ -2485,6 +2514,7 @@ export const partnerOperations = [
       {
         status: 'default',
         description: 'Machine-readable error response.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',
@@ -2542,7 +2572,7 @@ export const partnerOperations = [
     path: '/api/v1/partner/tickets/{ticket_id}/credential',
     title: 'Retrieve a ticket',
     description:
-      'Recovers the current active qr1 credential for a Ticket owned by the authenticated Partner. The qr_url is an opaque hosted presentation capability that Partners can embed in their own ticket experience.',
+      'Recovers the current active qr1 credential for a Ticket owned by the authenticated Partner. The qr_url is an opaque credential-bound hosted presentation capability that Partners can embed in their own ticket experience.',
     destructive: false,
     security: ['PartnerBearer'],
     parameters: [
@@ -2563,10 +2593,12 @@ export const partnerOperations = [
         example: 'X-Request-ID_example',
       },
     ],
+    successMediaType: 'application/json',
     responses: [
       {
         status: '200',
         description: 'Deterministically recovered current active credential.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'ticket_id',
@@ -2601,7 +2633,7 @@ export const partnerOperations = [
             required: true,
             type: 'string · uri',
             description:
-              'Opaque TktSync-hosted QR presentation URL. It renders the current active credential and is suitable for embedding in Partner-owned HTML, email, PDF, image, or app presentation.',
+              'Opaque credential-bound TktSync-hosted QR presentation URL. Credential reissue invalidates this URL and authenticated retrieval returns a replacement. It is suitable for embedding in Partner-owned HTML, email, PDF, image, or app presentation.',
             children: [],
           },
         ],
@@ -2616,6 +2648,7 @@ export const partnerOperations = [
       {
         status: 'default',
         description: 'Machine-readable error response.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',
@@ -2694,15 +2727,19 @@ export const partnerOperations = [
         example: 'X-Request-ID_example',
       },
     ],
+    successMediaType: 'image/svg+xml',
     responses: [
       {
         status: '200',
         description: 'Generated QR image for the current active credential.',
+        mediaType: 'image/svg+xml',
         fields: [],
+        example: 'response_example',
       },
       {
         status: 'default',
         description: 'Machine-readable error response.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',
@@ -2803,10 +2840,12 @@ export const partnerOperations = [
         reason: 'reason_example',
       },
     },
+    successMediaType: 'application/json',
     responses: [
       {
         status: '200',
         description: 'Ticket voided; credential revoked and inventory remains consumed.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'ticket_id',
@@ -2847,6 +2886,7 @@ export const partnerOperations = [
       {
         status: 'default',
         description: 'Machine-readable error response.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',
@@ -2937,11 +2977,13 @@ export const partnerOperations = [
       fields: [],
       example: {},
     },
+    successMediaType: 'application/json',
     responses: [
       {
         status: '200',
         description:
           'Credential rotated without changing Ticket identity; raw payload is not returned.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'ticket_id',
@@ -2982,6 +3024,7 @@ export const partnerOperations = [
       {
         status: 'default',
         description: 'Machine-readable error response.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',
@@ -3099,11 +3142,13 @@ export const partnerOperations = [
         reason: 'reason_example',
       },
     },
+    successMediaType: 'application/json',
     responses: [
       {
         status: '200',
         description:
           'Voided Ticket capacity explicitly released to the requested safe destination.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'ticket_id',
@@ -3152,6 +3197,7 @@ export const partnerOperations = [
       {
         status: 'default',
         description: 'Machine-readable error response.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',
@@ -3262,10 +3308,12 @@ export const partnerOperations = [
         return_url: 'https://partner.example/checkout/return',
       },
     },
+    successMediaType: 'application/json',
     responses: [
       {
         status: '201',
         description: 'Selection session and opaque bootstrap URL created.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'selection_session_id',
@@ -3298,6 +3346,7 @@ export const partnerOperations = [
       {
         status: 'default',
         description: 'Machine-readable error response.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',
@@ -3375,10 +3424,12 @@ export const partnerOperations = [
         example: 'X-Request-ID_example',
       },
     ],
+    successMediaType: 'application/json',
     responses: [
       {
         status: '200',
         description: "Caller-contextual inventory and the Partner's own obligations only.",
+        mediaType: 'application/json',
         fields: [
           {
             name: 'generated_at',
@@ -3806,6 +3857,7 @@ export const partnerOperations = [
       {
         status: 'default',
         description: 'Machine-readable error response.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',
@@ -3883,10 +3935,12 @@ export const partnerOperations = [
         example: 'X-Request-ID_example',
       },
     ],
+    successMediaType: 'application/json',
     responses: [
       {
         status: '200',
         description: 'Only authoritative Sales owned by the authenticated Partner.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'generated_at',
@@ -4001,6 +4055,7 @@ export const partnerOperations = [
       {
         status: 'default',
         description: 'Machine-readable error response.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',
@@ -4094,10 +4149,12 @@ export const partnerOperations = [
         example: 'cursor_example',
       },
     ],
+    successMediaType: 'application/json',
     responses: [
       {
         status: '200',
         description: 'Partner-owned operational activity with stable pagination.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'items',
@@ -4239,6 +4296,7 @@ export const partnerOperations = [
       {
         status: 'default',
         description: 'Machine-readable error response.',
+        mediaType: 'application/json',
         fields: [
           {
             name: 'error',

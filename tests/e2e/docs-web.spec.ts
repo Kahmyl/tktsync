@@ -81,18 +81,24 @@ test('teaches the complete Selector checkout and ticket-delivery workflows', asy
   await expect(page.getByRole('heading', { name: 'Retrieve a ticket' })).toBeVisible();
 });
 
-test('workflow guide remains readable on a phone viewport', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`${base}/workflows/selector`);
-  await expect(
-    page.getByRole('heading', { name: 'Add ticket selection and checkout' }),
-  ).toBeVisible();
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-    ),
-  ).toBe(true);
-});
+for (const [width, height] of [
+  [360, 800],
+  [390, 844],
+  [430, 932],
+] as const) {
+  test(`workflow guide remains readable at ${width}x${height}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto(`${base}/workflows/selector`);
+    await expect(
+      page.getByRole('heading', { name: 'Add ticket selection and checkout' }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
+  });
+}
 
 test('credential remains memory-only and a mocked request preserves response status', async ({
   page,
@@ -137,6 +143,15 @@ test('code languages share request values and the selection persists across endp
   await expect(page.getByRole('button', { name: 'Node.js' })).toHaveClass(/active/);
   await page.getByRole('button', { name: 'Go' }).click();
   await expect(page.locator('.code-view pre')).toContainText('http.NewRequest');
+});
+
+test('QR samples request and read SVG instead of assuming JSON', async ({ page }) => {
+  await page.goto(`${base}/api/tickets/retrieve-qr`);
+  await page.getByRole('button', { name: 'Code' }).click();
+  await page.getByRole('button', { name: 'Node.js' }).click();
+  await expect(page.locator('.code-view pre')).toContainText('"Accept": "image/svg+xml"');
+  await expect(page.locator('.code-view pre')).toContainText('await response.text()');
+  await expect(page.locator('.code-view pre')).not.toContainText('await response.json()');
 });
 
 test('destructive execution requires explicit confirmation', async ({ page }) => {

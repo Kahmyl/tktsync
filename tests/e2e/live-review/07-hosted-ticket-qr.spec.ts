@@ -57,6 +57,12 @@ test.use({ trace: 'off' });
 
 test('07 TktSync-hosted ticket QR delivery', async ({ page, context }) => {
   test.setTimeout(240_000);
+  await context.addInitScript(() => {
+    const style = document.createElement('style');
+    style.textContent =
+      'video,#ticket-code,input[name="ticket_code"]{filter:blur(18px)!important;user-select:none!important}';
+    document.documentElement.append(style);
+  });
 
   const adminToken = await operatorToken();
   const events = await apiJSON<{
@@ -183,7 +189,6 @@ test('07 TktSync-hosted ticket QR delivery', async ({ page, context }) => {
   expect(issuedCredential.data.id).toMatch(/^pcred_/);
   expect(partnerCredential).toBeTruthy();
   await addEntity('partner_credentials', issuedCredential.data.id);
-  await setSecret('partnerCredential', partnerCredential);
 
   const selection = await apiJSON<SelectionSession>('/api/v1/partner/selection-sessions', {
     method: 'POST',
@@ -275,18 +280,33 @@ test('07 TktSync-hosted ticket QR delivery', async ({ page, context }) => {
     expect(authenticated.headers.get('x-content-type-options')).toBe('nosniff');
   });
 
-  let originalSVG = '';
-  await test.step('Open and visibly verify the buyer-usable hosted QR image', async () => {
-    const response = await page.goto(original.qr_url);
-    expect(response?.status()).toBe(200);
-    expect(response?.headers()['content-type']).toBe('image/svg+xml');
-    expect(response?.headers()['cache-control']).toBe('no-store');
+  const renderMaskedHostedQR = async (url: string) => {
+    const response = await context.request.get(url, {
+      headers: { Accept: 'image/svg+xml' },
+    });
+    expect(response.status()).toBe(200);
+    expect(response.headers()['content-type']).toBe('image/svg+xml');
+    expect(response.headers()['cache-control']).toBe('no-store');
+    const svg = await response.text();
+    const embeddableSVG = svg.replace(/^\s*<\?xml[^>]*>\s*/i, '');
+    await page.setContent(`
+      <style>
+        body { display: grid; min-height: 100vh; margin: 0; place-items: center; }
+        svg { width: 320px; height: 320px; filter: blur(18px); user-select: none; }
+      </style>
+      <main aria-label="Protected hosted QR preview">${embeddableSVG}</main>
+    `);
     await expect(page.locator('svg')).toBeVisible();
     await expect(page.locator('svg path')).toBeVisible();
     const box = await page.locator('svg').boundingBox();
     expect(box?.width ?? 0).toBeGreaterThan(100);
     expect(box?.height ?? 0).toBeGreaterThan(100);
-    originalSVG = await page.content();
+    return svg;
+  };
+
+  let originalSVG = '';
+  await test.step('Open and visibly verify the buyer-usable hosted QR image', async () => {
+    originalSVG = await renderMaskedHostedQR(original.qr_url);
     expect(originalSVG).not.toContain(original.qr_payload);
     await screenshot(page, '07-hosted-qr-rendered');
   });
@@ -323,7 +343,7 @@ test('07 TktSync-hosted ticket QR delivery', async ({ page, context }) => {
     await screenshot(page, '07-hosted-qr-scanner-duplicate');
   });
 
-  await test.step('Reissue while preserving the hosted URL and replacing its QR content', async () => {
+  await test.step('Reissue and revoke both the old credential and hosted capability', async () => {
     await apiJSON(`/api/v1/partner/tickets/${ticketID}/credentials/reissue`, {
       method: 'POST',
       partnerCredential,
@@ -337,7 +357,10 @@ test('07 TktSync-hosted ticket QR delivery', async ({ page, context }) => {
     ).data;
     expect(replacement.credential_id).not.toBe(original.credential_id);
     expect(replacement.qr_payload).not.toBe(original.qr_payload);
-    expect(replacement.qr_url).toBe(original.qr_url);
+    expect(replacement.qr_url).not.toBe(original.qr_url);
+
+    const expiredHosted = await fetch(original.qr_url);
+    expect(expiredHosted.status).toBe(404);
 
     const response = await fetch(replacement.qr_url);
     expect(response.status).toBe(200);
@@ -355,8 +378,7 @@ test('07 TktSync-hosted ticket QR delivery', async ({ page, context }) => {
     await expect(page.getByRole('heading', { name: 'Already checked in' })).toBeVisible();
     await screenshot(page, '07-hosted-qr-reissue-current-valid');
 
-    await page.goto(replacement.qr_url);
-    await expect(page.locator('svg')).toBeVisible();
+    await renderMaskedHostedQR(replacement.qr_url);
     await screenshot(page, '07-hosted-qr-rendered-after-reissue');
   });
 

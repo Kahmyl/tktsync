@@ -347,7 +347,7 @@ func TestVoidAndReissueVersusScanOrdering(t *testing.T) {
 		if scan.Result != "ADMITTED" && scan.Result != "CREDENTIAL_SUPERSEDED" {
 			t.Fatalf("old credential scan result=%s", scan.Result)
 		}
-		active, err := f.reservation.RecoverActiveCredential(ctx, f.partnerID, ticketID)
+		active, err := f.reservation.RecoverActiveCredentialForPartner(ctx, f.partnerID, ticketID)
 		if err != nil {
 			t.Fatal(err)
 		}
