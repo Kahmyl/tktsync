@@ -5,7 +5,7 @@ test('Reviewer Hub presents one complete assessment walkthrough in order', async
   await expect(
     page.getByRole('heading', { name: 'Follow one ticket from setup to the gate.' }),
   ).toBeVisible();
-  await expect(page.getByText('1 of 28').first()).toBeVisible();
+  await expect(page.getByText('1 of 29').first()).toBeVisible();
   await expect(
     page.getByRole('complementary', { name: 'Review phases' }).getByRole('button'),
   ).toHaveCount(7);

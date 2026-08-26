@@ -33,4 +33,14 @@ describe('reviewer walkthrough player', () => {
     expect(create?.instructions.join(' ')).toContain('all six date and time fields');
     expect(create?.instructions.join(' ')).toContain('If any line says Not scheduled');
   });
+
+  it('warns the reviewer to save the one-time Partner credential before closing it', () => {
+    const credential = phases[0]!.actions.find((action) =>
+      action.title.includes('save its credential'),
+    );
+    const instructions = credential?.instructions.join(' ') || '';
+    expect(instructions).toContain('save it somewhere temporary and secure');
+    expect(instructions).toContain('Do not choose I have stored it');
+    expect(credential?.note).toContain('If it is lost, you must issue a new credential');
+  });
 });

@@ -197,15 +197,28 @@ export const phases: ReviewPhase[] = [
         note: 'Blocks and allocations are optional operational controls. They are not prerequisites for opening sales.',
       },
       {
-        title: 'Grant the Demo Partner Event access',
+        title: 'Create the Partner and save its credential',
+        location: 'Partners → Add partner → Partner detail',
+        instructions: [
+          'Open Partners, choose Add partner, enter the storefront Partner name and create it.',
+          'Open the new Partner and choose Issue credential.',
+          'Copy the complete credential immediately and save it somewhere temporary and secure before closing the dialog.',
+          'Do not choose I have stored it until you have saved the credential. TktSync will not display it again.',
+        ],
+        complete:
+          'The Partner is Active and the complete one-time credential is safely available for the Demo Partner setup step.',
+        note: 'You will paste this exact credential into the Demo Partner setup. If it is lost, you must issue a new credential.',
+      },
+      {
+        title: 'Grant your Partner Event access',
         location: 'Event → Partners',
         instructions: [
-          'Find Demo Partner in the table.',
+          'Find the Partner you just created in the table.',
           'Confirm the Partner itself is Active, then choose Grant access.',
           'Wait for Event access to change from No access to Enabled.',
         ],
         complete:
-          'Demo Partner shows Enabled and the Event can be discovered through its Partner API credential.',
+          'Your Partner shows Enabled and the Event can be discovered through its saved Partner API credential.',
       },
       {
         title: 'Run the readiness check and open sales',
@@ -235,12 +248,12 @@ export const phases: ReviewPhase[] = [
         title: 'Choose the Partner storefront',
         location: 'Demo Partner setup',
         instructions: [
-          'To use the Partner you created in Admin, enter its name and paste the one-time credential, then choose Connect and view Events.',
+          'Use the exact Partner name and the credential you saved earlier in Admin, then choose Connect and view Events.',
           'To reuse a previous connection, choose View saved Partners and then Use this Partner.',
           'Confirm the storefront header now shows the selected Partner name.',
         ],
         complete: 'The selected Partner name appears above its live Event catalogue.',
-        note: 'This assessment setup is not Partner onboarding and is not a TktSync Partner portal.',
+        note: 'The credential is the one-time value you saved when it was issued. If it was not saved, return to Admin and issue a new credential.',
       },
       {
         title: 'Confirm the application boundary',
