@@ -44,5 +44,17 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
+    {
+      command: `VITE_ADMIN_PUBLIC_URL=https://admin.example.test VITE_PARTNER_DEMO_PUBLIC_URL=http://127.0.0.1:4180 VITE_SELECTOR_PUBLIC_URL=https://selector.example.test VITE_SCANNER_PUBLIC_URL=https://scanner.example.test VITE_DOCS_PUBLIC_URL=https://docs.example.test pnpm --filter @tktsync/reviewer-web dev --host 127.0.0.1 --port 4177 --strictPort`,
+      url: 'http://127.0.0.1:4177',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      command: `pnpm --filter @tktsync/partner-demo-web exec vite --host 127.0.0.1 --port 4180 --strictPort`,
+      url: 'http://127.0.0.1:4180',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
   ],
 });

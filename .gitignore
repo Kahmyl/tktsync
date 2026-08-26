@@ -17,3 +17,4 @@ tmp/
 test-results/
 playwright-report/
 artifacts/live-e2e-review/
+.review-demo.env
