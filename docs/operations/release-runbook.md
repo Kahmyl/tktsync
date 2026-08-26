@@ -6,8 +6,8 @@ This runbook covers deployment and recovery operations for the authoritative Pos
 
 1. Produce immutable API, worker, Admin, selector, and scanner artifacts from the same revision.
 2. Run `make verify-release` against an isolated PostgreSQL instance before promotion.
-3. Back up PostgreSQL, then apply the ordered migrations once with `migrate ... up`. Never edit an applied migration.
-4. Deploy the API with all required versioned keyrings and encrypted webhook-secret keys available. Keep the preceding verification key during the documented overlap window.
+3. Back up PostgreSQL, then apply the ordered migrations once with `migrate ... up`. For Docker deployments without a pre-deploy phase, including Render Free, the API image performs this step automatically before API startup. Never edit an applied migration.
+4. Deploy the API with all required versioned keyrings and encrypted webhook-secret keys available. Its Docker entrypoint also performs the configured idempotent initial Platform Admin bootstrap after migrations and before API startup. Keep the preceding verification key during the documented overlap window.
 5. Require `/health` and database-backed `/ready` success before routing traffic. Start workers only after schema migration succeeds.
 6. Smoke-test Partner authentication, availability, one reversible hold/release, Admin reporting, and scanner authority.
 

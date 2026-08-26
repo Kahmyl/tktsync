@@ -152,6 +152,8 @@ make certify-partner-integration
 
 Production code never creates schema dynamically. Ordered migrations live in `migrations/`. Never commit `.env`, signing/encryption keys, Partner credentials, database passwords, or other secrets.
 
+For Docker deployments such as Render Free, the API image runs all pending ordered migrations and the idempotent initial Platform Admin bootstrap before starting the API. Supply `DATABASE_URL`; set `LOCAL_OPERATOR_AUTH_SUBJECT` (and optionally `LOCAL_OPERATOR_DISPLAY_NAME` and `LOCAL_OPERATOR_PLATFORM_ADMIN`) to bootstrap an existing Supabase user. Startup stops on migration or bootstrap failure, and normal restarts safely skip applied migrations and preserve the existing role assignment.
+
 ## Repository layout
 
 - `apps/` — four React/Vite applications: Admin, Selector, Scanner, and Partner Docs

@@ -1,6 +1,6 @@
 # Production runtime model
 
-TktSync has two Go process types. The API owns authenticated HTTP requests, authoritative PostgreSQL commands and reads, health endpoints, realtime invalidation streams, and optional telemetry export. The Worker materializes due Reservation state, dispatches committed outbox facts, and delivers webhooks. Neither process runs migrations. Ordered migrations are a controlled release step and must finish before rolling out compatible application artifacts.
+TktSync has two Go process types. The API owns authenticated HTTP requests, authoritative PostgreSQL commands and reads, health endpoints, realtime invalidation streams, and optional telemetry export. The Worker materializes due Reservation state, dispatches committed outbox facts, and delivers webhooks. The Go processes do not create or migrate schema themselves. In Docker deployments such as Render Free, the API container entrypoint applies pending ordered migrations and performs the idempotent initial-admin bootstrap before it starts the Go API. Migration or bootstrap failure prevents API startup.
 
 ## Concurrency and scaling
 
