@@ -33,6 +33,14 @@ export function CreateEventPage() {
   const [admissionOpenAt, setAdmissionOpenAt] = useState('');
   const [admissionCloseAt, setAdmissionCloseAt] = useState('');
   const [error, setError] = useState('');
+  const scheduleRows = [
+    ['Starts', startsAt],
+    ['Ends', endsAt],
+    ['Sales open', salesOpenAt],
+    ['Sales close', salesCloseAt],
+    ['Admission open', admissionOpenAt],
+    ['Admission close', admissionCloseAt],
+  ] as const;
   const mutation = useIntentMutation({
     intent: () => `create-event:${name.trim()}:${venueId}:${startsAt}`,
     mutationFn: (token, key) =>
@@ -55,9 +63,16 @@ export function CreateEventPage() {
       setError('Add an event name and choose a venue to continue.');
       return;
     }
-    if (step === 2 && startsAt && endsAt && new Date(endsAt) < new Date(startsAt)) {
-      setError('End time must be after the event starts.');
-      return;
+    if (step === 2) {
+      const invalidPair = [
+        [startsAt, endsAt, 'Event end time must be after the event starts.'],
+        [salesOpenAt, salesCloseAt, 'Sales close time must be after sales open.'],
+        [admissionOpenAt, admissionCloseAt, 'Admission close time must be after admission opens.'],
+      ].find(([open, close]) => open && close && new Date(close) < new Date(open));
+      if (invalidPair) {
+        setError(invalidPair[2]!);
+        return;
+      }
     }
     setError('');
     setStep((value) => Math.min(3, value + 1));
@@ -234,15 +249,27 @@ export function CreateEventPage() {
                       )}
                     </dd>
                   </div>
-                  <div>
-                    <dt>Starts</dt>
-                    <dd>{startsAt ? new Date(startsAt).toLocaleString() : 'Not scheduled'}</dd>
-                  </div>
+                  {scheduleRows.map(([label, value]) => (
+                    <div key={label}>
+                      <dt>{label}</dt>
+                      <dd>{value ? new Date(value).toLocaleString() : 'Not scheduled'}</dd>
+                    </div>
+                  ))}
                   <div>
                     <dt>Timezone</dt>
                     <dd>{timeZone || 'Not set'}</dd>
                   </div>
                 </dl>
+                {scheduleRows.some(([, value]) => !value) ? (
+                  <InlineNotice tone="warning">
+                    Any line marked Not scheduled will be left empty. Choose Back if you intended to
+                    set it before creating the Event.
+                  </InlineNotice>
+                ) : (
+                  <InlineNotice>
+                    All Event, sales and admission schedule values are ready to save.
+                  </InlineNotice>
+                )}
                 <InlineNotice>
                   Next: configure the sales policy, materialize a published layout, add pricing and
                   grant partner access.

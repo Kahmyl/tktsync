@@ -141,8 +141,8 @@ test('01 Admin platform setup', async ({ page }) => {
         response.url().endsWith(`/api/v1/admin/venue-layouts/${layoutId}/publish`) &&
         response.request().method() === 'POST',
     );
-    page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: 'Publish', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Publish layout' }).click();
     const publishResponse = await publishResponsePromise;
     expect(publishResponse.ok()).toBe(true);
     await expect

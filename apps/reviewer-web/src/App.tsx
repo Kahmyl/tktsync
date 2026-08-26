@@ -1,4 +1,6 @@
+/* eslint-disable react-refresh/only-export-components */
 import { getReviewConfig } from './config';
+import ReviewPlayer from './ReviewPlayer';
 
 const config = getReviewConfig();
 
@@ -80,7 +82,7 @@ function appPath(base: string, path: string) {
   }
 }
 
-const phases: ReviewPhase[] = [
+export const phases: ReviewPhase[] = [
   {
     id: 'admin-setup',
     name: 'Configure an Event in Admin',
@@ -140,8 +142,9 @@ const phases: ReviewPhase[] = [
         title: 'Create the Event draft',
         location: 'Events → Create event',
         instructions: [
-          'Enter the Event name and select the venue you just prepared.',
-          'Set start/end, sales and admission windows when required, and confirm the timezone.',
+          'Use the review Event name shown in this guide, then select the venue you just prepared.',
+          'Set all six date and time fields: Event start/end, sales open/close and admission open/close. Confirm the timezone.',
+          'On Review, verify every schedule value. If any line says Not scheduled, choose Back and enter it again before creating the Event.',
           'Review the summary and choose Create draft event.',
         ],
         complete: 'The Event opens in Draft state with an Event setup checklist.',
@@ -240,8 +243,8 @@ const phases: ReviewPhase[] = [
           'Northstar is identified as a sample external storefront, not a TktSync Partner portal.',
       },
       {
-        title: 'Open the prepared Event',
-        location: 'Events → Championship Night → View event',
+        title: 'Open the Event you created',
+        location: 'Events → your review Event → View event',
         instructions: [
           'Check the Event name, date, venue, sale state and starting price.',
           'Expand Assessment note · How this works.',
@@ -380,8 +383,8 @@ const phases: ReviewPhase[] = [
         title: 'Find the issued Ticket',
         location: 'Admin → Event → Sales, then Tickets',
         instructions: [
-          'Open the prepared Event, choose Sales and find the newly confirmed sale.',
-          'Filter by the prepared Event or search for the public Ticket reference.',
+          'Open the Event you created, choose Sales and find the newly confirmed sale.',
+          'Filter by that Event or search for the public Ticket reference.',
           'Verify the Ticket is Active and the seat/area matches the buyer selection.',
           'Confirm Entry now shows Admitted.',
         ],
@@ -446,7 +449,7 @@ function AccessDetails() {
   );
 }
 
-function App() {
+export function LegacyWalkthrough() {
   const totalActions = phases.reduce((total, phase) => total + phase.actions.length, 0);
 
   return (
@@ -648,4 +651,4 @@ function App() {
   );
 }
 
-export default App;
+export default ReviewPlayer;

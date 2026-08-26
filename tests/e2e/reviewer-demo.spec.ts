@@ -3,34 +3,26 @@ import { expect, test } from '@playwright/test';
 test('Reviewer Hub presents one complete assessment walkthrough in order', async ({ page }) => {
   await page.goto('http://127.0.0.1:4177');
   await expect(
-    page.getByRole('heading', { name: 'Review the complete TktSync workflow in order.' }),
+    page.getByRole('heading', { name: 'Follow one ticket from setup to the gate.' }),
   ).toBeVisible();
-  await expect(page.getByText(/follow Steps 1–6/i)).toBeVisible();
-  await expect(page.getByText(/Quick review|Full review/)).toHaveCount(0);
-
-  const steps = page.locator('.steps > li');
-  await expect(steps).toHaveCount(6);
-  await expect(steps.nth(0)).toContainText('Review Admin Console');
-  await expect(steps.nth(1)).toContainText('Review Demo Partner');
-  await expect(steps.nth(2)).toContainText('Review TktSync Selector');
-  await expect(steps.nth(3)).toContainText('Review Partner Checkout + Ticket');
-  await expect(steps.nth(4)).toContainText('Review Scanner');
-  await expect(steps.nth(5)).toContainText('Developer / Technical Review');
-
-  await expect(steps.nth(1).getByText('Not part of TktSync', { exact: true })).toBeVisible();
+  await expect(page.getByText('1 of 27').first()).toBeVisible();
   await expect(
-    steps.nth(2).getByRole('link', { name: 'Continue through Demo Partner' }),
-  ).toHaveAttribute('href', 'http://127.0.0.1:4180');
+    page.getByRole('complementary', { name: 'Review phases' }).getByRole('button'),
+  ).toHaveCount(7);
   await expect(page.getByRole('link', { name: 'Source code' }).first()).toHaveAttribute(
     'href',
     'https://github.com/Kahmyl/tktsync',
   );
 
-  const adminCTA = steps.nth(0).getByRole('link', { name: 'Open Admin Console' });
+  await page.getByRole('button', { name: '1 Admin setup' }).click();
+  await expect(page.getByRole('heading', { name: 'Review the Dashboard' })).toBeVisible();
+  const adminCTA = page.getByRole('link', { name: 'Open Admin Console' });
   await expect(adminCTA).toHaveAttribute('href', 'https://admin.example.test');
-  expect(await adminCTA.evaluate((element) => getComputedStyle(element).paddingInline)).not.toBe(
-    '0px',
-  );
+  await page.getByRole('button', { name: '2 Partner' }).click();
+  await expect(page.getByText('Not part of TktSync', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Confirm the application boundary' }),
+  ).toBeVisible();
 });
 
 test('Reviewer Hub and Partner Demo have no document overflow at mobile widths', async ({
@@ -38,14 +30,6 @@ test('Reviewer Hub and Partner Demo have no document overflow at mobile widths',
 }) => {
   await page.setViewportSize({ width: 360, height: 800 });
   for (const url of ['http://127.0.0.1:4177', 'http://127.0.0.1:4180']) {
-    if (url.endsWith('4180'))
-      await page.route('**/demo-api/events', (route) =>
-        route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ items: [] }),
-        }),
-      );
     await page.goto(url);
     const width = await page.evaluate(() => ({
       scroll: document.documentElement.scrollWidth,
@@ -64,6 +48,7 @@ test('Demo Partner renders real-contract Events and starts selection through its
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
+        connection: { id: 'ptr_demo', name: 'Demo Partner' },
         items: [
           {
             id: 'evt_demo',
@@ -100,7 +85,7 @@ test('Demo Partner renders real-contract Events and starts selection through its
       body: JSON.stringify({ selection_url: 'https://selector.example.test/s#opaque' }),
     });
   });
-  await page.goto('http://127.0.0.1:4180');
+  await page.goto('http://127.0.0.1:4180/events');
   await expect(page.getByText('Demo Partner Application')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Championship Night' })).toBeVisible();
   await page.getByRole('link', { name: 'View event →' }).click();

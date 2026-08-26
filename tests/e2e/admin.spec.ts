@@ -611,8 +611,8 @@ test('Admin edits a venue, creates a partner, reveals one credential once, grant
   await page.getByLabel('Rows').fill('3');
   await page.getByLabel('Seats per row').fill('6');
   await page.getByLabel('Starting seat number').fill('10');
-  page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Publish layout' }).click();
   await expect(page.locator('tbody').getByText('Published', { exact: true })).toBeVisible();
 
   await page.getByRole('link', { name: 'Partners', exact: true }).first().click();

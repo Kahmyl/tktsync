@@ -28,8 +28,14 @@ access. No destructive public reset endpoint exists.
 
 ## Runtime configuration
 
-The Partner Demo must receive its Partner credential only as a server environment
-secret. `PARTNER_DEMO_RETURN_URL` must exactly match the registered public HTTPS URL.
+Set `PARTNER_DEMO_SESSION_SECRET` to a strong deployment secret. It encrypts the
+HttpOnly cookies that hold saved assessment connections and checkout state, allowing
+the Vercel BFF to remain stateless across function instances. Reviewers can enter the
+one-time credential issued in Admin on the Partner Demo connection screen; it is
+validated server-side and never returned to browser JavaScript. `PARTNER_DEMO_CREDENTIAL`
+remains an optional deployment-managed default connection.
+
+`PARTNER_DEMO_RETURN_URL` must exactly match the registered public HTTPS URL.
 TLS can terminate at the deployment proxy; the application itself listens on `PORT`.
 For a direct local HTTPS callback, set `PARTNER_DEMO_TLS_KEY` and
 `PARTNER_DEMO_TLS_CERT`; the Node BFF then serves HTTPS itself.

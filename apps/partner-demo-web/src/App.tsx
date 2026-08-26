@@ -53,7 +53,7 @@ function Shell({ children }: { children: React.ReactNode }) {
             <small>Demonstration storefront</small>
           </div>
         </a>
-        <a href="/" className="events-link">
+        <a href="/events" className="events-link">
           Events
         </a>
       </header>
@@ -63,6 +63,128 @@ function Shell({ children }: { children: React.ReactNode }) {
         <span>Assessment-only reference implementation</span>
       </footer>
     </>
+  );
+}
+
+type Connection = { id: string; name: string; active: boolean };
+
+function ConnectionSetup() {
+  const issue = new URLSearchParams(location.search).get('connection');
+  return (
+    <section className="connection-setup">
+      <div className="connection-copy">
+        <p className="eyebrow">Assessment connection</p>
+        <h1>Connect the Partner you created in Admin.</h1>
+        <p>
+          Enter the Partner name and the one-time credential shown by TktSync Admin. Northstar will
+          then use that Partner’s real Event access and inventory.
+        </p>
+        <div className="connection-boundary">
+          <strong>This is not Partner onboarding.</strong>
+          <span>It only configures this sample storefront for the assessment.</span>
+        </div>
+      </div>
+      <form className="connection-form" method="post" action="/demo-api/connections">
+        <h2>Add an existing Partner</h2>
+        <p>
+          The credential is sent directly to the Demo Partner server and saved in an encrypted,
+          HttpOnly browser cookie.
+        </p>
+        {issue === 'missing' && (
+          <p className="inline-error" role="alert">
+            Enter both the Partner name and credential.
+          </p>
+        )}
+        {issue === 'invalid' && (
+          <p className="inline-error" role="alert">
+            That credential could not access the Partner API. Copy the one-time credential from
+            Admin and try again.
+          </p>
+        )}
+        <label htmlFor="partner-name">Partner name</label>
+        <input
+          id="partner-name"
+          name="name"
+          autoComplete="organization"
+          required
+          placeholder="Example: Demo Partner"
+        />
+        <label htmlFor="partner-credential">Partner credential</label>
+        <input
+          id="partner-credential"
+          name="credential"
+          type="password"
+          autoComplete="off"
+          required
+          placeholder="Paste the one-time credential from Admin"
+        />
+        <button className="cta" type="submit">
+          Connect and view Events
+        </button>
+        <a className="saved-link" href="/connections">
+          View saved Partner connections →
+        </a>
+      </form>
+    </section>
+  );
+}
+
+function ConnectionsPage() {
+  const [connections, setConnections] = useState<Connection[]>();
+  const [error, setError] = useState('');
+  useEffect(() => {
+    demoAPI<{ items: Connection[] }>('/connections')
+      .then((result) => setConnections(result.items))
+      .catch((reason: Error) => setError(reason.message));
+  }, []);
+  if (error) return <ErrorView message={error} />;
+  if (!connections) return <Loading />;
+  return (
+    <section className="connections-page">
+      <a className="back" href="/">
+        ← Add another connection
+      </a>
+      <div className="page-intro">
+        <p className="eyebrow">Assessment connections</p>
+        <h1>Saved Partners</h1>
+        <p>Choose which Partner Northstar should represent for the next buyer journey.</p>
+      </div>
+      {connections.length === 0 ? (
+        <div className="empty">
+          <h2>No Partner connected yet</h2>
+          <p>Add the Partner created in Admin to begin.</p>
+          <a href="/">Add Partner connection</a>
+        </div>
+      ) : (
+        <div className="connection-list">
+          {connections.map((connection) => (
+            <article key={connection.id}>
+              <div>
+                <span>{connection.active ? 'Active connection' : 'Saved connection'}</span>
+                <h2>{connection.name}</h2>
+                <p>The credential is encrypted and never returned to this page.</p>
+              </div>
+              <div className="connection-actions">
+                {connection.active ? (
+                  <a href="/events">View Events →</a>
+                ) : (
+                  <form method="post" action={`/demo-api/connections/${connection.id}/activate`}>
+                    <button type="submit">Use this Partner</button>
+                  </form>
+                )}
+                {connection.id !== 'deployment' && (
+                  <form method="post" action={`/demo-api/connections/${connection.id}/remove`}>
+                    <button className="remove" type="submit">
+                      Remove
+                    </button>
+                  </form>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 function Loading() {
@@ -80,18 +202,22 @@ function ErrorView({ message, retry }: { message: string; retry?: () => void }) 
       <span>!</span>
       <h1>We couldn’t load this</h1>
       <p>{message}</p>
-      {retry ? <button onClick={retry}>Try again</button> : <a href="/">Back to Events</a>}
+      {retry ? <button onClick={retry}>Try again</button> : <a href="/events">Back to Events</a>}
     </div>
   );
 }
 
 function EventsPage() {
   const [events, setEvents] = useState<Event[]>();
+  const [connection, setConnection] = useState<{ id: string; name: string }>();
   const [error, setError] = useState('');
   const load = () => {
     setError('');
-    demoAPI<{ items: Event[] }>('/events')
-      .then((r) => setEvents(r.items))
+    demoAPI<{ items: Event[]; connection: { id: string; name: string } }>('/events')
+      .then((r) => {
+        setEvents(r.items);
+        setConnection(r.connection);
+      })
       .catch((e: Error) => setError(e.message));
   };
   useEffect(load, []);
@@ -103,6 +229,13 @@ function EventsPage() {
         <p className="eyebrow">Live Events</p>
         <h1>Find your next night out.</h1>
         <p>Every Event below is returned by the real TktSync Partner API.</p>
+        {connection && (
+          <div className="active-connection">
+            <span>Connected as</span>
+            <strong>{connection.name}</strong>
+            <a href="/connections">Switch Partner</a>
+          </div>
+        )}
       </div>
       {events.length === 0 ? (
         <div className="empty">
@@ -182,7 +315,7 @@ function EventPage({ id }: { id: string }) {
   const open = event.state === 'ON_SALE';
   return (
     <section className="detail">
-      <a className="back" href="/">
+      <a className="back" href="/events">
         ← All Events
       </a>
       <div className="detail-layout">
@@ -504,8 +637,12 @@ function App() {
         <TicketPage />
       ) : eventId ? (
         <EventPage id={eventId} />
-      ) : (
+      ) : path === '/connections' ? (
+        <ConnectionsPage />
+      ) : path === '/events' ? (
         <EventsPage />
+      ) : (
+        <ConnectionSetup />
       )}
     </Shell>
   );
