@@ -7,7 +7,7 @@ import {
   ShieldAlert,
   Webhook,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   Button,
@@ -49,6 +49,7 @@ export function PartnerDetailPage() {
   const [revokeId, setRevokeId] = useState('');
   const [stateConfirm, setStateConfirm] = useState(false);
   const [returnURLs, setReturnURLs] = useState('');
+  const returnURLsFormRef = useRef<HTMLFormElement>(null);
   const [returnURLsSaved, setReturnURLsSaved] = useState(false);
   const invalidate = [adminKeys.partner(partnerId), adminKeys.partners(), adminKeys.webhooks];
   const issue = useIntentMutation({
@@ -106,9 +107,30 @@ export function PartnerDetailPage() {
       return true;
     }
   });
-  const saveReturnURLs = async () => {
-    if (invalidReturnURL) return;
-    await checkoutURLs.mutateAsync(parsedReturnURLs);
+  const saveReturnURLs = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = returnURLsFormRef.current ? new FormData(returnURLsFormRef.current) : null;
+    const value = String(form?.get('return_urls') || returnURLs);
+    const urls = value
+      .split(/\r?\n/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    setReturnURLs(value);
+    if (
+      urls.some((entry) => {
+        try {
+          const parsed = new URL(entry);
+          return (
+            parsed.protocol !== 'https:' ||
+            Boolean(parsed.username || parsed.password || parsed.hash)
+          );
+        } catch {
+          return true;
+        }
+      })
+    )
+      return;
+    await checkoutURLs.mutateAsync(urls);
     setReturnURLsSaved(true);
   };
   const issueCredential = async () => {
@@ -243,7 +265,11 @@ export function PartnerDetailPage() {
             />
             <div className="panel-divider" />
             <PanelBody className="checkout-return-body">
-              <div className="checkout-return-form">
+              <form
+                ref={returnURLsFormRef}
+                className="checkout-return-form"
+                onSubmit={(event) => void saveReturnURLs(event)}
+              >
                 <Field
                   label="Allowed HTTPS URLs"
                   hint="Enter one complete URL per line."
@@ -255,6 +281,7 @@ export function PartnerDetailPage() {
                 >
                   <Textarea
                     id="partner-return-urls"
+                    name="return_urls"
                     rows={3}
                     value={returnURLs}
                     placeholder="https://shop.example.com/checkout/tktsync"
@@ -265,11 +292,7 @@ export function PartnerDetailPage() {
                   />
                 </Field>
                 <div className="checkout-return-actions">
-                  <Button
-                    disabled={Boolean(invalidReturnURL)}
-                    busy={checkoutURLs.isPending}
-                    onClick={() => void saveReturnURLs()}
-                  >
+                  <Button type="submit" busy={checkoutURLs.isPending}>
                     Save checkout URLs
                   </Button>
                   {returnURLsSaved ? (
@@ -278,7 +301,7 @@ export function PartnerDetailPage() {
                     </span>
                   ) : null}
                 </div>
-              </div>
+              </form>
               <div className="checkout-return-note">
                 <LockKeyhole size={20} />
                 <div>

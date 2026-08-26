@@ -125,7 +125,7 @@ function SignIn({
   loading: boolean;
   error: string;
   phoneDevice: boolean;
-  onSubmit: () => void;
+  onSubmit: (email: string, password: string) => void;
 }) {
   return (
     <main className="scanner-auth">
@@ -141,13 +141,15 @@ function SignIn({
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            onSubmit();
+            const form = new FormData(event.currentTarget);
+            onSubmit(String(form.get('email') || email), String(form.get('password') || password));
           }}
         >
           <label>
             <span>Email</span>
             <input
               type="email"
+              name="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               autoComplete="username"
@@ -158,6 +160,7 @@ function SignIn({
             <span>Password</span>
             <input
               type="password"
+              name="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               autoComplete="current-password"
@@ -169,11 +172,7 @@ function SignIn({
               <CircleAlert size={17} /> {error}
             </div>
           )}
-          <button
-            className="scanner-primary"
-            type="submit"
-            disabled={loading || !email.trim() || !password}
-          >
+          <button className="scanner-primary" type="submit" disabled={loading}>
             {loading ? (
               <>
                 <LoaderCircle className="spin" size={18} /> Signing in…
@@ -447,7 +446,9 @@ export function ScannerPage() {
         loading={auth.loading}
         error={auth.error}
         phoneDevice={scanner.phoneDevice}
-        onSubmit={() => void auth.signIn(email, password)}
+        onSubmit={(submittedEmail, submittedPassword) =>
+          void auth.signIn(submittedEmail, submittedPassword)
+        }
       />
     );
   }
@@ -638,24 +639,25 @@ export function ScannerPage() {
           className="manual-form"
           onSubmit={(event) => {
             event.preventDefault();
-            void scanner.submit(scanner.manual);
+            const form = new FormData(event.currentTarget);
+            const code = String(form.get('ticket_code') || scanner.manual);
+            if (!code.trim()) return;
+            void scanner.submit(code);
             setManualOpen(false);
           }}
         >
           <label htmlFor="ticket-code">Ticket code</label>
           <input
             id="ticket-code"
+            name="ticket_code"
+            required
             value={scanner.manual}
             onChange={(event) => scanner.setManual(event.target.value)}
             autoComplete="off"
             spellCheck={false}
             placeholder="Enter ticket code"
           />
-          <button
-            className="scanner-primary"
-            type="submit"
-            disabled={scanner.busy || !scanner.manual.trim()}
-          >
+          <button className="scanner-primary" type="submit" disabled={scanner.busy}>
             {scanner.busy ? 'Checking ticket…' : 'Check ticket'}
           </button>
         </form>

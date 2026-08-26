@@ -1,5 +1,5 @@
 import { Plus, Search, ShieldCheck } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import {
   Button,
   Dialog,
@@ -55,8 +55,15 @@ export function UsersPage() {
     setAddOpen(false);
     create.reset();
   };
-  const submitAdd = async () => {
-    const input = { email: email.trim().toLowerCase(), display_name: displayName.trim() };
+  const submitAdd = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const input = {
+      email: String(form.get('email') || email)
+        .trim()
+        .toLowerCase(),
+      display_name: String(form.get('display_name') || displayName).trim(),
+    };
     if (!input.display_name || !isEmailAddress(input.email)) return;
     const created = await create.mutateAsync(input);
     setConfirmation(
@@ -74,12 +81,15 @@ export function UsersPage() {
     setReason('');
     changeState.reset();
   };
-  const submitStateChange = async () => {
-    if (!selected || !reason.trim()) return;
+  const submitStateChange = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const submittedReason = String(form.get('reason') || reason).trim();
+    if (!selected || !submittedReason) return;
     await changeState.mutateAsync({
       user: selected,
       enabled: selected.state === 'DISABLED',
-      reason: reason.trim(),
+      reason: submittedReason,
     });
     closeStateDialog();
   };
@@ -195,48 +205,50 @@ export function UsersPage() {
         description="Invite a trusted person to become a TktSync administrator."
         onClose={closeAdd}
       >
-        <div className="dialog-body form-stack">
-          <InlineNotice tone="warning">
-            Platform Admins can access every event and perform privileged operations. Grant this
-            role only to trusted operators.
-          </InlineNotice>
-          <Field label="Display name">
-            <Input
-              id="admin-display-name"
-              autoComplete="name"
-              value={displayName}
-              onChange={(event) => setDisplayName(event.target.value)}
-              placeholder="e.g. Ada Okafor"
-            />
-          </Field>
-          <Field
-            label="Work email"
-            hint="We’ll send an invitation if they do not already have an account."
-            error={email && !isEmailAddress(email) ? 'Enter a valid email address.' : undefined}
-          >
-            <Input
-              id="admin-email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="ada@example.com"
-            />
-          </Field>
-          {create.error ? <ErrorState error={create.error} /> : null}
-        </div>
-        <DialogActions>
-          <Button variant="secondary" onClick={closeAdd}>
-            Cancel
-          </Button>
-          <Button
-            busy={create.isPending}
-            disabled={!displayName.trim() || !isEmailAddress(email)}
-            onClick={() => void submitAdd()}
-          >
-            Invite administrator
-          </Button>
-        </DialogActions>
+        <form onSubmit={(event) => void submitAdd(event)}>
+          <div className="dialog-body form-stack">
+            <InlineNotice tone="warning">
+              Platform Admins can access every event and perform privileged operations. Grant this
+              role only to trusted operators.
+            </InlineNotice>
+            <Field label="Display name">
+              <Input
+                id="admin-display-name"
+                name="display_name"
+                required
+                autoComplete="name"
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+                placeholder="e.g. Ada Okafor"
+              />
+            </Field>
+            <Field
+              label="Work email"
+              hint="We’ll send an invitation if they do not already have an account."
+              error={email && !isEmailAddress(email) ? 'Enter a valid email address.' : undefined}
+            >
+              <Input
+                id="admin-email"
+                name="email"
+                required
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="ada@example.com"
+              />
+            </Field>
+            {create.error ? <ErrorState error={create.error} /> : null}
+          </div>
+          <DialogActions>
+            <Button type="button" variant="secondary" onClick={closeAdd}>
+              Cancel
+            </Button>
+            <Button type="submit" busy={create.isPending}>
+              Invite administrator
+            </Button>
+          </DialogActions>
+        </form>
       </Dialog>
 
       <Dialog
@@ -249,30 +261,33 @@ export function UsersPage() {
         }
         onClose={closeStateDialog}
       >
-        <div className="dialog-body form-stack">
-          <Field label="Reason" hint="This reason is recorded in the append-only audit history.">
-            <Input
-              id="admin-state-reason"
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-              placeholder="Why is this access changing?"
-            />
-          </Field>
-          {changeState.error ? <ErrorState error={changeState.error} /> : null}
-        </div>
-        <DialogActions>
-          <Button variant="secondary" onClick={closeStateDialog}>
-            Cancel
-          </Button>
-          <Button
-            variant={selected?.state === 'ACTIVE' ? 'danger' : 'primary'}
-            busy={changeState.isPending}
-            disabled={!reason.trim()}
-            onClick={() => void submitStateChange()}
-          >
-            {selected?.state === 'ACTIVE' ? 'Disable access' : 'Enable access'}
-          </Button>
-        </DialogActions>
+        <form onSubmit={(event) => void submitStateChange(event)}>
+          <div className="dialog-body form-stack">
+            <Field label="Reason" hint="This reason is recorded in the append-only audit history.">
+              <Input
+                id="admin-state-reason"
+                name="reason"
+                required
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                placeholder="Why is this access changing?"
+              />
+            </Field>
+            {changeState.error ? <ErrorState error={changeState.error} /> : null}
+          </div>
+          <DialogActions>
+            <Button type="button" variant="secondary" onClick={closeStateDialog}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant={selected?.state === 'ACTIVE' ? 'danger' : 'primary'}
+              busy={changeState.isPending}
+            >
+              {selected?.state === 'ACTIVE' ? 'Disable access' : 'Enable access'}
+            </Button>
+          </DialogActions>
+        </form>
       </Dialog>
     </>
   );

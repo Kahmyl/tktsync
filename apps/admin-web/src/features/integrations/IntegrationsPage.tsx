@@ -1,5 +1,5 @@
 import { KeyRound, Plus, ShieldAlert, Webhook } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import {
   Button,
   Dialog,
@@ -47,9 +47,10 @@ export function IntegrationsPage() {
   const [disableId, setDisableId] = useState('');
   const invalidate = [adminKeys.webhooks, adminKeys.partners()];
   const create = useIntentMutation({
-    intent: () => `${partnerId}:webhook:${url}:${subscriptions.join(',')}`,
-    mutationFn: (token, key) =>
-      adminApi.createWebhook(token, key, partnerId, url.trim(), subscriptions),
+    intent: (values: { partnerId: string; url: string; subscriptions: string[] }) =>
+      `${values.partnerId}:webhook:${values.url}:${values.subscriptions.join(',')}`,
+    mutationFn: (token, key, values) =>
+      adminApi.createWebhook(token, key, values.partnerId, values.url.trim(), values.subscriptions),
     invalidate,
   });
   const disable = useIntentMutation({
@@ -63,9 +64,17 @@ export function IntegrationsPage() {
     mutationFn: (token, key, endpointId) => adminApi.rotateWebhook(token, key, endpointId),
     invalidate,
   });
-  const submit = async () => {
-    if (!partnerId || !url.startsWith('https://') || !subscriptions.length) return;
-    const endpoint = await create.mutateAsync(undefined);
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const values = {
+      partnerId: String(form.get('partner_id') || partnerId),
+      url: String(form.get('url') || url),
+      subscriptions: form.getAll('subscriptions').map(String),
+    };
+    if (!values.partnerId || !values.url.startsWith('https://') || !values.subscriptions.length)
+      return;
+    const endpoint = await create.mutateAsync(values);
     setSecretTitle('Signing secret created');
     setSecret(endpoint.signing_secret);
     setOpen(false);
@@ -196,65 +205,69 @@ export function IntegrationsPage() {
         onClose={() => setOpen(false)}
         className="wide-dialog"
       >
-        <div className="dialog-body form-stack">
-          <Field label="Partner">
-            <Select
-              id="webhook-partner"
-              value={partnerId}
-              onChange={(event) => setPartnerId(event.target.value)}
-            >
-              <option value="">Select a partner</option>
-              {partners.data?.items
-                .filter((partner) => partner.state === 'ACTIVE')
-                .map((partner) => (
-                  <option value={partner.id} key={partner.id}>
-                    {humanName(partner.name, 'Untitled partner')}
-                  </option>
-                ))}
-            </Select>
-          </Field>
-          <Field label="Endpoint URL">
-            <Input
-              id="webhook-url"
-              type="url"
-              value={url}
-              onChange={(event) => setUrl(event.target.value)}
-              placeholder="https://partner.example/hooks/tktsync"
-            />
-          </Field>
-          <fieldset className="checkbox-grid">
-            <legend>Subscriptions</legend>
-            {availableSubscriptions.map((topic) => (
-              <label key={topic}>
-                <input
-                  type="checkbox"
-                  checked={subscriptions.includes(topic)}
-                  onChange={(event) =>
-                    setSubscriptions((items) =>
-                      event.target.checked
-                        ? [...items, topic]
-                        : items.filter((item) => item !== topic),
-                    )
-                  }
-                />
-                {humanDomainLabel(topic)}
-              </label>
-            ))}
-          </fieldset>
-          {create.error ? <ErrorState error={create.error} /> : null}
-        </div>
-        <DialogActions>
-          <Button variant="secondary" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            busy={create.isPending}
-            disabled={!partnerId || !url.startsWith('https://') || !subscriptions.length}
-            onClick={() => void submit()}
-          >
-            Add endpoint
-          </Button>
-        </DialogActions>
+        <form onSubmit={(event) => void submit(event)}>
+          <div className="dialog-body form-stack">
+            <Field label="Partner">
+              <Select
+                id="webhook-partner"
+                name="partner_id"
+                required
+                value={partnerId}
+                onChange={(event) => setPartnerId(event.target.value)}
+              >
+                <option value="">Select a partner</option>
+                {partners.data?.items
+                  .filter((partner) => partner.state === 'ACTIVE')
+                  .map((partner) => (
+                    <option value={partner.id} key={partner.id}>
+                      {humanName(partner.name, 'Untitled partner')}
+                    </option>
+                  ))}
+              </Select>
+            </Field>
+            <Field label="Endpoint URL">
+              <Input
+                id="webhook-url"
+                name="url"
+                required
+                type="url"
+                value={url}
+                onChange={(event) => setUrl(event.target.value)}
+                placeholder="https://partner.example/hooks/tktsync"
+              />
+            </Field>
+            <fieldset className="checkbox-grid">
+              <legend>Subscriptions</legend>
+              {availableSubscriptions.map((topic) => (
+                <label key={topic}>
+                  <input
+                    type="checkbox"
+                    name="subscriptions"
+                    value={topic}
+                    checked={subscriptions.includes(topic)}
+                    onChange={(event) =>
+                      setSubscriptions((items) =>
+                        event.target.checked
+                          ? [...items, topic]
+                          : items.filter((item) => item !== topic),
+                      )
+                    }
+                  />
+                  {humanDomainLabel(topic)}
+                </label>
+              ))}
+            </fieldset>
+            {create.error ? <ErrorState error={create.error} /> : null}
+          </div>
+          <DialogActions>
+            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" busy={create.isPending}>
+              Add endpoint
+            </Button>
+          </DialogActions>
+        </form>
       </Dialog>
       <SecretDialog
         open={Boolean(secret)}

@@ -1,5 +1,5 @@
 import { RotateCcw, Search, ShieldAlert, Ticket as TicketIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import {
   Button,
   Dialog,
@@ -43,10 +43,13 @@ export function TicketsPage() {
           : adminApi.reissueTicket(token, key, variables.ticketId),
     invalidate,
   });
-  const runAction = async () => {
-    if (!selected || !action || ((action === 'void' || action === 'rerelease') && !reason.trim()))
+  const runAction = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const submittedReason = String(form.get('reason') || reason).trim();
+    if (!selected || !action || ((action === 'void' || action === 'rerelease') && !submittedReason))
       return;
-    await mutate.mutateAsync({ ticketId: selected.id, action, reason: reason.trim() });
+    await mutate.mutateAsync({ ticketId: selected.id, action, reason: submittedReason });
     setAction(null);
     setReason('');
     setSelected(null);
@@ -265,39 +268,42 @@ export function TicketsPage() {
           setReason('');
         }}
       >
-        <div className="dialog-body form-stack">
-          <div className="danger-block">
-            <ShieldAlert size={20} />
-            <p>Confirm the selected ticket and authoritative state before continuing.</p>
+        <form onSubmit={(event) => void runAction(event)}>
+          <div className="dialog-body form-stack">
+            <div className="danger-block">
+              <ShieldAlert size={20} />
+              <p>Confirm the selected ticket and authoritative state before continuing.</p>
+            </div>
+            {action !== 'reissue' ? (
+              <Field label="Reason">
+                <Textarea
+                  id="ticket-action-reason"
+                  name="reason"
+                  required
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                />
+              </Field>
+            ) : null}
+            {mutate.error ? <ErrorState error={mutate.error} /> : null}
           </div>
-          {action !== 'reissue' ? (
-            <Field label="Reason">
-              <Textarea
-                id="ticket-action-reason"
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-              />
-            </Field>
-          ) : null}
-          {mutate.error ? <ErrorState error={mutate.error} /> : null}
-        </div>
-        <DialogActions>
-          <Button variant="secondary" onClick={() => setAction(null)}>
-            Cancel
-          </Button>
-          <Button
-            variant={action === 'reissue' ? 'primary' : 'danger'}
-            busy={mutate.isPending}
-            disabled={action !== 'reissue' && !reason.trim()}
-            onClick={() => void runAction()}
-          >
-            {action === 'void'
-              ? 'Void ticket'
-              : action === 'rerelease'
-                ? 'Re-release inventory'
-                : 'Reissue credential'}
-          </Button>
-        </DialogActions>
+          <DialogActions>
+            <Button type="button" variant="secondary" onClick={() => setAction(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant={action === 'reissue' ? 'primary' : 'danger'}
+              busy={mutate.isPending}
+            >
+              {action === 'void'
+                ? 'Void ticket'
+                : action === 'rerelease'
+                  ? 'Re-release inventory'
+                  : 'Reissue credential'}
+            </Button>
+          </DialogActions>
+        </form>
       </Dialog>
     </>
   );

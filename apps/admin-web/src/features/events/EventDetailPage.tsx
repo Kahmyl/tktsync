@@ -248,10 +248,13 @@ export function EventDetailPage() {
     setPriceCode('');
     setPriceAmount('');
   };
-  const runConfirmed = async () => {
+  const runConfirmed = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     if (!confirm) return;
-    if (confirm.action === 'cancel' && !reason.trim()) return;
-    await lifecycle.mutateAsync({ action: confirm.action, reason: reason.trim() });
+    const form = new FormData(event.currentTarget);
+    const submittedReason = String(form.get('reason') || reason).trim();
+    if (confirm.action === 'cancel' && !submittedReason) return;
+    await lifecycle.mutateAsync({ action: confirm.action, reason: submittedReason });
     setConfirm(null);
     setReason('');
   };
@@ -1103,37 +1106,36 @@ export function EventDetailPage() {
           setReason('');
         }}
       >
-        <div className="dialog-body form-stack">
-          {confirm?.action === 'cancel' ? (
-            <Field label="Reason">
-              <Textarea
-                id="cancel-reason"
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                placeholder="Why is this event being cancelled?"
-              />
-            </Field>
-          ) : (
-            <InlineNotice tone="warning">
-              This changes authoritative event state. The page will refetch before showing the
-              result.
-            </InlineNotice>
-          )}
-          {lifecycle.error ? <ErrorState error={lifecycle.error} /> : null}
-        </div>
-        <DialogActions>
-          <Button variant="secondary" onClick={() => setConfirm(null)}>
-            Keep event
-          </Button>
-          <Button
-            variant="danger"
-            busy={lifecycle.isPending}
-            disabled={confirm?.action === 'cancel' && !reason.trim()}
-            onClick={() => void runConfirmed()}
-          >
-            {confirm?.title}
-          </Button>
-        </DialogActions>
+        <form onSubmit={(event) => void runConfirmed(event)}>
+          <div className="dialog-body form-stack">
+            {confirm?.action === 'cancel' ? (
+              <Field label="Reason">
+                <Textarea
+                  id="cancel-reason"
+                  name="reason"
+                  required
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  placeholder="Why is this event being cancelled?"
+                />
+              </Field>
+            ) : (
+              <InlineNotice tone="warning">
+                This changes authoritative event state. The page will refetch before showing the
+                result.
+              </InlineNotice>
+            )}
+            {lifecycle.error ? <ErrorState error={lifecycle.error} /> : null}
+          </div>
+          <DialogActions>
+            <Button type="button" variant="secondary" onClick={() => setConfirm(null)}>
+              Keep event
+            </Button>
+            <Button type="submit" variant="danger" busy={lifecycle.isPending}>
+              {confirm?.title}
+            </Button>
+          </DialogActions>
+        </form>
       </Dialog>
     </>
   );

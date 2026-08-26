@@ -63,7 +63,8 @@ test('01 Admin platform setup', async ({ page }) => {
     if ((await venueLink.count()) === 0) {
       await page.getByRole('button', { name: 'Add venue' }).first().click();
       const dialog = page.getByRole('dialog', { name: 'Add venue' });
-      await expect(dialog.getByRole('button', { name: 'Add venue' })).toBeDisabled();
+      await expect(dialog.getByLabel('Venue name')).toHaveAttribute('required', '');
+      await expect(dialog.getByRole('button', { name: 'Add venue' })).toBeEnabled();
       await dialog.getByLabel('Venue name').fill(reviewNames.venue);
       await dialog.getByLabel('Address').fill('1 Live Review Way, Lagos');
       await dialog.getByRole('button', { name: 'Add venue' }).click();

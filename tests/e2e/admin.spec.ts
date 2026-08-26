@@ -664,7 +664,10 @@ test('Admin edits a venue, creates a partner, reveals one credential once, grant
 
   await page.getByRole('link', { name: 'Partners', exact: true }).first().click();
   await page.getByRole('button', { name: 'Add partner' }).first().click();
-  await page.getByLabel('Partner name').fill('Metro Tickets');
+  await page.locator('#partner-name').evaluate((input: HTMLInputElement) => {
+    input.value = 'Metro Tickets';
+  });
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Add partner' })).toBeEnabled();
   await page.getByRole('dialog').getByRole('button', { name: 'Add partner' }).click();
   await page.getByRole('link', { name: /Metro Tickets/ }).click();
 

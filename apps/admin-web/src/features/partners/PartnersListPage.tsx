@@ -1,5 +1,5 @@
 import { Plus, Search, Users } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Button,
@@ -22,10 +22,11 @@ export function PartnersListPage() {
   const partners = usePartners();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const createFormRef = useRef<HTMLFormElement>(null);
   const [name, setName] = useState('');
   const create = useIntentMutation({
-    intent: () => `partner:${name.trim()}`,
-    mutationFn: (token, key) => adminApi.createPartner(token, key, name.trim()),
+    intent: (value: string) => `partner:${value.trim()}`,
+    mutationFn: (token, key, value) => adminApi.createPartner(token, key, value.trim()),
     invalidate: [adminKeys.partners()],
   });
   const filtered = useMemo(
@@ -35,9 +36,12 @@ export function PartnersListPage() {
       ),
     [partners.data, query],
   );
-  const submit = async () => {
-    if (!name.trim()) return;
-    await create.mutateAsync(undefined);
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = createFormRef.current ? new FormData(createFormRef.current) : null;
+    const value = String(form?.get('name') || name);
+    if (!value.trim()) return;
+    await create.mutateAsync(value);
     setName('');
     setOpen(false);
   };
@@ -125,24 +129,28 @@ export function PartnersListPage() {
         description="Create a partner first, then grant event access and issue credentials deliberately."
         onClose={() => setOpen(false)}
       >
-        <div className="dialog-body form-stack">
-          <Field label="Partner name">
-            <Input
-              id="partner-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </Field>
-          {create.error ? <ErrorState error={create.error} /> : null}
-        </div>
-        <DialogActions>
-          <Button variant="secondary" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button busy={create.isPending} disabled={!name.trim()} onClick={() => void submit()}>
-            Add partner
-          </Button>
-        </DialogActions>
+        <form ref={createFormRef} onSubmit={(event) => void submit(event)}>
+          <div className="dialog-body form-stack">
+            <Field label="Partner name">
+              <Input
+                id="partner-name"
+                name="name"
+                required
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </Field>
+            {create.error ? <ErrorState error={create.error} /> : null}
+          </div>
+          <DialogActions>
+            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" busy={create.isPending}>
+              Add partner
+            </Button>
+          </DialogActions>
+        </form>
       </Dialog>
     </>
   );

@@ -1,5 +1,5 @@
 import { RotateCcw, ScanLine, ShieldCheck } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   Button,
   Dialog,
@@ -50,20 +50,21 @@ export function AdmissionsPage() {
     adminKeys.dashboard,
   ];
   const manual = useIntentMutation({
-    intent: () => `${eventId}:manual:${ticketId}:${reason}`,
-    mutationFn: (token, key) =>
+    intent: (values: { ticketId: string; gate: string; reason: string }) =>
+      `${eventId}:manual:${values.ticketId}:${values.reason}`,
+    mutationFn: (token, key, values) =>
       adminApi.manualAdmission(token, key, {
         event_id: eventId,
-        ticket_id: ticketId.trim(),
-        gate_reference: gate.trim() || undefined,
-        reason: reason.trim(),
+        ticket_id: values.ticketId.trim(),
+        gate_reference: values.gate.trim() || undefined,
+        reason: values.reason.trim(),
       }),
     invalidate,
   });
   const reversal = useIntentMutation({
-    intent: () => `${reverse?.admission_id}:reverse:${reason}`,
-    mutationFn: (token, key) =>
-      adminApi.reverseAdmission(token, key, reverse?.admission_id ?? '', reason.trim()),
+    intent: (submittedReason: string) => `${reverse?.admission_id}:reverse:${submittedReason}`,
+    mutationFn: (token, key, submittedReason) =>
+      adminApi.reverseAdmission(token, key, reverse?.admission_id ?? '', submittedReason.trim()),
     invalidate,
   });
   const counts = useMemo(() => {
@@ -76,17 +77,27 @@ export function AdmissionsPage() {
       ).length,
     };
   }, [entries.data]);
-  const submitManual = async () => {
-    if (!eventId || !ticketId.trim() || !reason.trim()) return;
-    await manual.mutateAsync(undefined);
+  const submitManual = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const values = {
+      ticketId: String(form.get('ticket_id') || ticketId),
+      gate: String(form.get('gate') || gate),
+      reason: String(form.get('reason') || reason),
+    };
+    if (!eventId || !values.ticketId.trim() || !values.reason.trim()) return;
+    await manual.mutateAsync(values);
     setManualOpen(false);
     setTicketId('');
     setGate('');
     setReason('');
   };
-  const submitReverse = async () => {
-    if (!reverse?.admission_id || !reason.trim()) return;
-    await reversal.mutateAsync(undefined);
+  const submitReverse = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const submittedReason = String(form.get('reason') || reason);
+    if (!reverse?.admission_id || !submittedReason.trim()) return;
+    await reversal.mutateAsync(submittedReason);
     setReverse(null);
     setReason('');
   };
@@ -209,43 +220,46 @@ export function AdmissionsPage() {
           setReason('');
         }}
       >
-        <div className="dialog-body form-stack">
-          <Field label="Ticket reference" hint="Paste the ticket reference supplied by TktSync.">
-            <Input
-              id="manual-ticket"
-              value={ticketId}
-              onChange={(event) => setTicketId(event.target.value)}
-              placeholder="tkt_…"
-            />
-          </Field>
-          <Field label="Gate reference">
-            <Input
-              id="manual-gate"
-              value={gate}
-              onChange={(event) => setGate(event.target.value)}
-            />
-          </Field>
-          <Field label="Reason">
-            <Textarea
-              id="manual-reason"
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-            />
-          </Field>
-          {manual.error ? <ErrorState error={manual.error} /> : null}
-        </div>
-        <DialogActions>
-          <Button variant="secondary" onClick={() => setManualOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            busy={manual.isPending}
-            disabled={!ticketId.trim() || !reason.trim()}
-            onClick={() => void submitManual()}
-          >
-            Admit with override
-          </Button>
-        </DialogActions>
+        <form onSubmit={(event) => void submitManual(event)}>
+          <div className="dialog-body form-stack">
+            <Field label="Ticket reference" hint="Paste the ticket reference supplied by TktSync.">
+              <Input
+                id="manual-ticket"
+                name="ticket_id"
+                required
+                value={ticketId}
+                onChange={(event) => setTicketId(event.target.value)}
+                placeholder="tkt_…"
+              />
+            </Field>
+            <Field label="Gate reference">
+              <Input
+                id="manual-gate"
+                name="gate"
+                value={gate}
+                onChange={(event) => setGate(event.target.value)}
+              />
+            </Field>
+            <Field label="Reason">
+              <Textarea
+                id="manual-reason"
+                name="reason"
+                required
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+              />
+            </Field>
+            {manual.error ? <ErrorState error={manual.error} /> : null}
+          </div>
+          <DialogActions>
+            <Button type="button" variant="secondary" onClick={() => setManualOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" busy={manual.isPending}>
+              Admit with override
+            </Button>
+          </DialogActions>
+        </form>
       </Dialog>
       <Dialog
         open={Boolean(reverse)}
@@ -256,29 +270,28 @@ export function AdmissionsPage() {
           setReason('');
         }}
       >
-        <div className="dialog-body form-stack">
-          <Field label="Reason">
-            <Textarea
-              id="reverse-reason"
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-            />
-          </Field>
-          {reversal.error ? <ErrorState error={reversal.error} /> : null}
-        </div>
-        <DialogActions>
-          <Button variant="secondary" onClick={() => setReverse(null)}>
-            Keep admission
-          </Button>
-          <Button
-            variant="danger"
-            busy={reversal.isPending}
-            disabled={!reason.trim()}
-            onClick={() => void submitReverse()}
-          >
-            Reverse admission
-          </Button>
-        </DialogActions>
+        <form onSubmit={(event) => void submitReverse(event)}>
+          <div className="dialog-body form-stack">
+            <Field label="Reason">
+              <Textarea
+                id="reverse-reason"
+                name="reason"
+                required
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+              />
+            </Field>
+            {reversal.error ? <ErrorState error={reversal.error} /> : null}
+          </div>
+          <DialogActions>
+            <Button type="button" variant="secondary" onClick={() => setReverse(null)}>
+              Keep admission
+            </Button>
+            <Button type="submit" variant="danger" busy={reversal.isPending}>
+              Reverse admission
+            </Button>
+          </DialogActions>
+        </form>
       </Dialog>
     </>
   );

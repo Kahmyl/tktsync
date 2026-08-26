@@ -1,5 +1,5 @@
 import { Building2, Plus, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Button,
@@ -21,14 +21,16 @@ export function VenuesListPage() {
   const venues = useVenues();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const createFormRef = useRef<HTMLFormElement>(null);
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const create = useIntentMutation({
-    intent: () => `venue:${name.trim()}:${address.trim()}`,
-    mutationFn: (token, key) =>
+    intent: (values: { name: string; address: string }) =>
+      `venue:${values.name.trim()}:${values.address.trim()}`,
+    mutationFn: (token, key, values) =>
       adminApi.createVenue(token, key, {
-        name: name.trim(),
-        address_text: address.trim() || undefined,
+        name: values.name.trim(),
+        address_text: values.address.trim() || undefined,
       }),
     invalidate: [adminKeys.venues],
   });
@@ -41,9 +43,15 @@ export function VenuesListPage() {
       ),
     [venues.data, query],
   );
-  const submit = async () => {
-    if (!name.trim()) return;
-    await create.mutateAsync(undefined);
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = createFormRef.current ? new FormData(createFormRef.current) : null;
+    const values = {
+      name: String(form?.get('name') || name),
+      address: String(form?.get('address') || address),
+    };
+    if (!values.name.trim()) return;
+    await create.mutateAsync(values);
     setOpen(false);
     setName('');
     setAddress('');
@@ -123,27 +131,36 @@ export function VenuesListPage() {
         description="Create the real venue record first. Layouts are managed from its detail page."
         onClose={() => setOpen(false)}
       >
-        <div className="dialog-body form-stack">
-          <Field label="Venue name">
-            <Input id="venue-name" value={name} onChange={(event) => setName(event.target.value)} />
-          </Field>
-          <Field label="Address">
-            <Input
-              id="venue-address"
-              value={address}
-              onChange={(event) => setAddress(event.target.value)}
-            />
-          </Field>
-          {create.error ? <ErrorState error={create.error} /> : null}
-        </div>
-        <DialogActions>
-          <Button variant="secondary" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button busy={create.isPending} disabled={!name.trim()} onClick={() => void submit()}>
-            Add venue
-          </Button>
-        </DialogActions>
+        <form ref={createFormRef} onSubmit={(event) => void submit(event)}>
+          <div className="dialog-body form-stack">
+            <Field label="Venue name">
+              <Input
+                id="venue-name"
+                name="name"
+                required
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </Field>
+            <Field label="Address">
+              <Input
+                id="venue-address"
+                name="address"
+                value={address}
+                onChange={(event) => setAddress(event.target.value)}
+              />
+            </Field>
+            {create.error ? <ErrorState error={create.error} /> : null}
+          </div>
+          <DialogActions>
+            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" busy={create.isPending}>
+              Add venue
+            </Button>
+          </DialogActions>
+        </form>
       </Dialog>
     </>
   );
