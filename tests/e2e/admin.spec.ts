@@ -575,7 +575,17 @@ test('Admin signs in, reviews authoritative operations, creates an event, and ch
   await page.getByLabel('Venue').selectOption('ven_civic');
   await page.getByRole('button', { name: 'Continue' }).click();
   await page.getByLabel('Starts').fill('2026-09-12T18:00');
+  await page.getByLabel('Ends').fill('2026-09-12T22:00');
+  await page.getByLabel('Sales open').fill('2026-09-01T09:00');
+  await page.getByLabel('Sales close').fill('2026-09-12T17:00');
+  await page.getByLabel('Admission open').fill('2026-09-12T16:30');
+  await page.getByLabel('Admission close').fill('2026-09-12T21:30');
   await page.getByRole('button', { name: 'Continue' }).click();
+  const scheduleReview = page.locator('.definition-grid');
+  await expect(scheduleReview).not.toContainText('Not scheduled');
+  await expect(
+    page.getByText('All Event, sales and admission schedule values are ready to save.'),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Create draft event' }).click({ noWaitAfter: true });
 
   await expect(page.getByRole('heading', { name: 'Harbour Lights' })).toBeVisible();
@@ -590,6 +600,15 @@ test('Admin signs in, reviews authoritative operations, creates an event, and ch
     true,
   );
   expect(state.mutations.every((entry) => entry.idempotencyKey.length > 0)).toBe(true);
+  const createEvent = state.mutations.find((entry) => entry.path === '/api/v1/admin/events');
+  expect(createEvent?.body).toMatchObject({
+    starts_at: expect.any(String),
+    ends_at: expect.any(String),
+    sales_open_at: expect.any(String),
+    sales_close_at: expect.any(String),
+    admission_open_at: expect.any(String),
+    admission_close_at: expect.any(String),
+  });
 });
 
 test('Admin edits a venue, creates a partner, reveals one credential once, grants access, and reissues a ticket', async ({

@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, CalendarPlus, Check } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Button,
@@ -19,6 +19,7 @@ import { adminKeys, useIntentMutation, useVenues } from '../admin/queries';
 
 export function CreateEventPage() {
   const navigate = useNavigate();
+  const formRef = useRef<HTMLFormElement>(null);
   const venues = useVenues();
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
@@ -64,10 +65,31 @@ export function CreateEventPage() {
       return;
     }
     if (step === 2) {
+      const form = formRef.current ? new FormData(formRef.current) : null;
+      const captured = {
+        startsAt: String(form?.get('starts_at') || startsAt),
+        endsAt: String(form?.get('ends_at') || endsAt),
+        salesOpenAt: String(form?.get('sales_open_at') || salesOpenAt),
+        salesCloseAt: String(form?.get('sales_close_at') || salesCloseAt),
+        admissionOpenAt: String(form?.get('admission_open_at') || admissionOpenAt),
+        admissionCloseAt: String(form?.get('admission_close_at') || admissionCloseAt),
+        timeZone: String(form?.get('timezone_name') || timeZone),
+      };
+      setStartsAt(captured.startsAt);
+      setEndsAt(captured.endsAt);
+      setSalesOpenAt(captured.salesOpenAt);
+      setSalesCloseAt(captured.salesCloseAt);
+      setAdmissionOpenAt(captured.admissionOpenAt);
+      setAdmissionCloseAt(captured.admissionCloseAt);
+      setTimeZone(captured.timeZone);
       const invalidPair = [
-        [startsAt, endsAt, 'Event end time must be after the event starts.'],
-        [salesOpenAt, salesCloseAt, 'Sales close time must be after sales open.'],
-        [admissionOpenAt, admissionCloseAt, 'Admission close time must be after admission opens.'],
+        [captured.startsAt, captured.endsAt, 'Event end time must be after the event starts.'],
+        [captured.salesOpenAt, captured.salesCloseAt, 'Sales close time must be after sales open.'],
+        [
+          captured.admissionOpenAt,
+          captured.admissionCloseAt,
+          'Admission close time must be after admission opens.',
+        ],
       ].find(([open, close]) => open && close && new Date(close) < new Date(open));
       if (invalidPair) {
         setError(invalidPair[2]!);
@@ -92,7 +114,7 @@ export function CreateEventPage() {
     return <ErrorState error={venues.error} onRetry={() => void venues.refetch()} />;
 
   return (
-    <form onSubmit={(event) => void submit(event)}>
+    <form ref={formRef} onSubmit={(event) => void submit(event)}>
       <PageHeader
         title="Create event"
         description="Start with the essentials. Add pricing, inventory and partner access before opening sales."
@@ -168,6 +190,7 @@ export function CreateEventPage() {
                   <Field label="Starts">
                     <Input
                       id="event-start"
+                      name="starts_at"
                       type="datetime-local"
                       value={startsAt}
                       onChange={(event) => setStartsAt(event.target.value)}
@@ -176,6 +199,7 @@ export function CreateEventPage() {
                   <Field label="Ends">
                     <Input
                       id="event-end"
+                      name="ends_at"
                       type="datetime-local"
                       value={endsAt}
                       onChange={(event) => setEndsAt(event.target.value)}
@@ -184,6 +208,7 @@ export function CreateEventPage() {
                   <Field label="Sales open">
                     <Input
                       id="sales-open"
+                      name="sales_open_at"
                       type="datetime-local"
                       value={salesOpenAt}
                       onChange={(event) => setSalesOpenAt(event.target.value)}
@@ -192,6 +217,7 @@ export function CreateEventPage() {
                   <Field label="Sales close">
                     <Input
                       id="sales-close"
+                      name="sales_close_at"
                       type="datetime-local"
                       value={salesCloseAt}
                       onChange={(event) => setSalesCloseAt(event.target.value)}
@@ -200,6 +226,7 @@ export function CreateEventPage() {
                   <Field label="Admission open">
                     <Input
                       id="admission-open"
+                      name="admission_open_at"
                       type="datetime-local"
                       value={admissionOpenAt}
                       onChange={(event) => setAdmissionOpenAt(event.target.value)}
@@ -208,6 +235,7 @@ export function CreateEventPage() {
                   <Field label="Admission close">
                     <Input
                       id="admission-close"
+                      name="admission_close_at"
                       type="datetime-local"
                       value={admissionCloseAt}
                       onChange={(event) => setAdmissionCloseAt(event.target.value)}
@@ -216,6 +244,7 @@ export function CreateEventPage() {
                   <Field label="Timezone">
                     <Input
                       id="event-timezone"
+                      name="timezone_name"
                       value={timeZone}
                       onChange={(event) => setTimeZone(event.target.value)}
                     />
