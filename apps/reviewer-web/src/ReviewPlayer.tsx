@@ -169,7 +169,7 @@ export default function ReviewPlayer() {
             </article>
             <article className="demo-boundary">
               <p className="surface-label demo">Demo-only application</p>
-              <h2>Northstar Tickets — Demo</h2>
+              <h2>Connected Partner storefront</h2>
               <p>
                 This sample storefront is not part of TktSync. It demonstrates how an independent
                 ticketing company uses the real Partner API.

@@ -35,7 +35,13 @@ function itemName(item: Order['reservation']['items'][number]) {
     .join(' · ');
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function StorefrontShell({
+  partnerName,
+  children,
+}: {
+  partnerName: string;
+  children: React.ReactNode;
+}) {
   return (
     <>
       <div className="demo-banner">
@@ -46,11 +52,11 @@ function Shell({ children }: { children: React.ReactNode }) {
         </span>
       </div>
       <header>
-        <a href="/" className="northstar">
+        <a href="/events" className="partner-brand">
           <span>✦</span>
           <div>
-            <strong>Northstar Tickets</strong>
-            <small>Demonstration storefront</small>
+            <strong>{partnerName}</strong>
+            <small>Demo ticket storefront</small>
           </div>
         </a>
         <a href="/events" className="events-link">
@@ -59,7 +65,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       </header>
       <main>{children}</main>
       <footer>
-        <strong>Northstar Tickets — Demo</strong>
+        <strong>{partnerName} — Demo storefront</strong>
         <span>Assessment-only reference implementation</span>
       </footer>
     </>
@@ -71,20 +77,13 @@ type Connection = { id: string; name: string; active: boolean };
 function ConnectionSetup() {
   const issue = new URLSearchParams(location.search).get('connection');
   return (
-    <section className="connection-setup">
-      <div className="connection-copy">
-        <p className="eyebrow">Assessment connection</p>
-        <h1>Connect the Partner you created in Admin.</h1>
-        <p>
-          Enter the Partner name and the one-time credential shown by TktSync Admin. Northstar will
-          then use that Partner’s real Event access and inventory.
-        </p>
-        <div className="connection-boundary">
-          <strong>This is not Partner onboarding.</strong>
-          <span>It only configures this sample storefront for the assessment.</span>
-        </div>
-      </div>
+    <section className="connection-setup connection-only">
       <form className="connection-form" method="post" action="/demo-api/connections">
+        <p className="eyebrow">Demo Partner setup</p>
+        <h1>Choose the Partner for this storefront.</h1>
+        <p className="setup-intro">
+          Add the Partner created in Admin, or open a previously saved Partner connection.
+        </p>
         <h2>Add an existing Partner</h2>
         <p>
           The credential is sent directly to the Demo Partner server and saved in an encrypted,
@@ -122,8 +121,12 @@ function ConnectionSetup() {
           Connect and view Events
         </button>
         <a className="saved-link" href="/connections">
-          View saved Partner connections →
+          View saved Partners →
         </a>
+        <div className="connection-boundary">
+          <strong>Assessment setup only</strong>
+          <span>This is not TktSync Partner onboarding or a Partner portal.</span>
+        </div>
       </form>
     </section>
   );
@@ -138,7 +141,13 @@ function ConnectionsPage() {
       .catch((reason: Error) => setError(reason.message));
   }, []);
   if (error) return <ErrorView message={error} />;
-  if (!connections) return <Loading />;
+  if (!connections)
+    return (
+      <Loading
+        title="Loading saved Partners"
+        copy="Reading the secure connections on this device…"
+      />
+    );
   return (
     <section className="connections-page">
       <a className="back" href="/">
@@ -147,7 +156,7 @@ function ConnectionsPage() {
       <div className="page-intro">
         <p className="eyebrow">Assessment connections</p>
         <h1>Saved Partners</h1>
-        <p>Choose which Partner Northstar should represent for the next buyer journey.</p>
+        <p>Choose which Partner should appear as the ticket storefront.</p>
       </div>
       {connections.length === 0 ? (
         <div className="empty">
@@ -187,12 +196,18 @@ function ConnectionsPage() {
     </section>
   );
 }
-function Loading() {
+function Loading({
+  title = 'Loading tickets',
+  copy = 'Connecting to the live TktSync Partner API…',
+}: {
+  title?: string;
+  copy?: string;
+}) {
   return (
     <div className="state">
       <span className="loader" />
-      <h1>Loading tickets</h1>
-      <p>Connecting to the live TktSync Partner API…</p>
+      <h1>{title}</h1>
+      <p>{copy}</p>
     </div>
   );
 }
@@ -287,7 +302,7 @@ function EventsPage() {
   );
 }
 
-function EventPage({ id }: { id: string }) {
+function EventPage({ id, partnerName }: { id: string; partnerName: string }) {
   const [event, setEvent] = useState<Event>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -320,7 +335,7 @@ function EventPage({ id }: { id: string }) {
       </a>
       <div className="detail-layout">
         <div className="event-poster">
-          <span>Northstar presents</span>
+          <span>{partnerName} presents</span>
           <strong>✦</strong>
           <p>{event.name}</p>
         </div>
@@ -368,7 +383,7 @@ function EventPage({ id }: { id: string }) {
           <details className="assessment-note">
             <summary>Assessment note · How this works</summary>
             <p>
-              Ticket selection opens the TktSync-hosted Selector. Northstar never owns the
+              Ticket selection opens the TktSync-hosted Selector. {partnerName} never owns the
               authoritative inventory state, and its Partner credential stays on the server.
             </p>
           </details>
@@ -424,7 +439,7 @@ function Countdown({ end, server }: { end: string; server: string }) {
   );
 }
 
-function CheckoutPage() {
+function CheckoutPage({ partnerName }: { partnerName: string }) {
   const [order, setOrder] = useState<Order>();
   const [stage, setStage] = useState<'review' | 'payment'>('review');
   const [error, setError] = useState('');
@@ -487,6 +502,7 @@ function CheckoutPage() {
             ? 'Your tickets are temporarily held by TktSync.'
             : 'Payment is owned by the ticketing Partner and is intentionally simulated in this assessment environment.'}
         </p>
+        <span className="checkout-partner">Storefront by {partnerName}</span>
       </div>
       <div className="checkout-grid">
         <div className="checkout-main">
@@ -544,7 +560,7 @@ function CheckoutPage() {
   );
 }
 
-function TicketPage() {
+function TicketPage({ partnerName }: { partnerName: string }) {
   const [result, setResult] = useState<TicketResult>();
   const [error, setError] = useState('');
   useEffect(() => {
@@ -560,7 +576,8 @@ function TicketPage() {
       <p className="eyebrow">Order confirmed</p>
       <h1>Your ticket is ready.</h1>
       <p className="success-copy">
-        Northstar has completed the order. TktSync issued the ticket and its admission credential.
+        {partnerName} has completed the order. TktSync issued the ticket and its admission
+        credential.
       </p>
       {result.confirmation.tickets.map((ticket, index) => {
         const credential = result.credentials[index];
@@ -568,7 +585,7 @@ function TicketPage() {
         return (
           <article className="ticket" key={ticket.id}>
             <div className="ticket-info">
-              <span className="ticket-brand">✦ Northstar Tickets</span>
+              <span className="ticket-brand">✦ {partnerName}</span>
               <p>{result.event.name}</p>
               <h2>{item ? itemName(item) : 'Event admission'}</h2>
               <dl>
@@ -615,8 +632,8 @@ function TicketPage() {
       <details className="assessment-note">
         <summary>Assessment note · Product boundary</summary>
         <p>
-          Northstar controls this ticket presentation. TktSync owns the QR credential and admission
-          authority.
+          {partnerName} controls this ticket presentation. TktSync owns the QR credential and
+          admission authority.
         </p>
       </details>
     </section>
@@ -626,25 +643,55 @@ function TicketPage() {
 function App() {
   const path = location.pathname;
   const eventId = path.match(/^\/events\/(evt_[^/]+)$/)?.[1];
+  const setupRoute = path === '/' || path === '/connections';
+  const [activePartner, setActivePartner] = useState<Connection>();
+  const [connectionError, setConnectionError] = useState('');
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [path]);
+  useEffect(() => {
+    if (setupRoute) return;
+    demoAPI<{ items: Connection[] }>('/connections')
+      .then((result) => {
+        const active = result.items.find((connection) => connection.active);
+        if (!active) location.replace('/');
+        else setActivePartner(active);
+      })
+      .catch((error: Error) => setConnectionError(error.message));
+  }, [setupRoute]);
+
+  if (setupRoute) {
+    return (
+      <main className="setup-main">
+        {path === '/connections' ? <ConnectionsPage /> : <ConnectionSetup />}
+      </main>
+    );
+  }
+  if (connectionError)
+    return (
+      <main className="setup-main">
+        <ErrorView message={connectionError} />
+      </main>
+    );
+  if (!activePartner)
+    return (
+      <main className="setup-main">
+        <Loading title="Opening storefront" copy="Loading the selected Partner connection…" />
+      </main>
+    );
+
   return (
-    <Shell>
+    <StorefrontShell partnerName={activePartner.name}>
       {path === '/checkout' ? (
-        <CheckoutPage />
+        <CheckoutPage partnerName={activePartner.name} />
       ) : path === '/ticket' ? (
-        <TicketPage />
+        <TicketPage partnerName={activePartner.name} />
       ) : eventId ? (
-        <EventPage id={eventId} />
-      ) : path === '/connections' ? (
-        <ConnectionsPage />
-      ) : path === '/events' ? (
-        <EventsPage />
+        <EventPage id={eventId} partnerName={activePartner.name} />
       ) : (
-        <ConnectionSetup />
+        <EventsPage />
       )}
-    </Shell>
+    </StorefrontShell>
   );
 }
 export default App;

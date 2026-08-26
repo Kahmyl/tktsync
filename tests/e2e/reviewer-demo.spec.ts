@@ -5,7 +5,7 @@ test('Reviewer Hub presents one complete assessment walkthrough in order', async
   await expect(
     page.getByRole('heading', { name: 'Follow one ticket from setup to the gate.' }),
   ).toBeVisible();
-  await expect(page.getByText('1 of 27').first()).toBeVisible();
+  await expect(page.getByText('1 of 28').first()).toBeVisible();
   await expect(
     page.getByRole('complementary', { name: 'Review phases' }).getByRole('button'),
   ).toHaveCount(7);
@@ -20,9 +20,7 @@ test('Reviewer Hub presents one complete assessment walkthrough in order', async
   await expect(adminCTA).toHaveAttribute('href', 'https://admin.example.test');
   await page.getByRole('button', { name: '2 Partner' }).click();
   await expect(page.getByText('Not part of TktSync', { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Confirm the application boundary' }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Choose the Partner storefront' })).toBeVisible();
 });
 
 test('Reviewer Hub and Partner Demo have no document overflow at mobile widths', async ({
@@ -43,6 +41,15 @@ test('Demo Partner renders real-contract Events and starts selection through its
   page,
 }) => {
   let selectionBody = '';
+  await page.route('**/demo-api/connections', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [{ id: 'ptr_demo', name: 'Demo Partner', active: true }],
+      }),
+    }),
+  );
   await page.route('**/demo-api/events', (route) =>
     route.fulfill({
       status: 200,
@@ -85,8 +92,17 @@ test('Demo Partner renders real-contract Events and starts selection through its
       body: JSON.stringify({ selection_url: 'https://selector.example.test/s#opaque' }),
     });
   });
+  await page.goto('http://127.0.0.1:4180');
+  await expect(
+    page.getByRole('heading', { name: 'Choose the Partner for this storefront.' }),
+  ).toBeVisible();
+  await expect(page.getByText('Demo Partner Application')).toHaveCount(0);
+  await expect(page.getByText(/Northstar/i)).toHaveCount(0);
   await page.goto('http://127.0.0.1:4180/events');
   await expect(page.getByText('Demo Partner Application')).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: /Demo Partner Demo ticket storefront/ }),
+  ).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Championship Night' })).toBeVisible();
   await page.getByRole('link', { name: 'View event →' }).click();
   await expect(page.getByRole('button', { name: 'Choose tickets' })).toBeVisible();
@@ -98,6 +114,15 @@ test('Demo Partner renders checkout, real lifecycle calls, ticket details and ho
   page,
 }) => {
   const calls: string[] = [];
+  await page.route('**/demo-api/connections', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [{ id: 'ptr_demo', name: 'Demo Partner', active: true }],
+      }),
+    }),
+  );
   const order = {
     event: {
       id: 'evt_demo',

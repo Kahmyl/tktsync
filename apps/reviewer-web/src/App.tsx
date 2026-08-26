@@ -226,21 +226,32 @@ export const phases: ReviewPhase[] = [
     shortName: 'Partner',
     surface: 'Demo-only application',
     purpose:
-      'Northstar owns this storefront, buyer journey and branding. TktSync supplies the Event, inventory and ticketing infrastructure underneath it.',
+      'The connected Partner owns this storefront, buyer journey and branding. TktSync supplies the Event, inventory and ticketing infrastructure underneath it.',
     action: 'Open Demo Partner',
     href: config.partner,
     demo: true,
     actions: [
       {
+        title: 'Choose the Partner storefront',
+        location: 'Demo Partner setup',
+        instructions: [
+          'To use the Partner you created in Admin, enter its name and paste the one-time credential, then choose Connect and view Events.',
+          'To reuse a previous connection, choose View saved Partners and then Use this Partner.',
+          'Confirm the storefront header now shows the selected Partner name.',
+        ],
+        complete: 'The selected Partner name appears above its live Event catalogue.',
+        note: 'This assessment setup is not Partner onboarding and is not a TktSync Partner portal.',
+      },
+      {
         title: 'Confirm the application boundary',
-        location: 'Northstar Tickets — Demo',
+        location: 'Connected Partner demo storefront',
         instructions: [
           'Read the Demo Partner Application notice before using the storefront.',
           'Notice that this screen looks intentionally different from TktSync Admin, Selector and Scanner.',
           'Confirm the Event list contains only live Events returned by the real Partner API.',
         ],
         complete:
-          'Northstar is identified as a sample external storefront, not a TktSync Partner portal.',
+          'The storefront is identified as a sample external application, not a TktSync Partner portal.',
       },
       {
         title: 'Open the Event you created',
@@ -251,7 +262,7 @@ export const phases: ReviewPhase[] = [
           'Choose tickets.',
         ],
         complete:
-          'The browser leaves Northstar and opens a TktSync-hosted Selector session for this Event.',
+          'The browser leaves the Partner storefront and opens a TktSync-hosted Selector session for this Event.',
         note: 'The Partner creates the Selection session on its server. Its credential is never sent to browser JavaScript.',
       },
     ],
@@ -284,7 +295,7 @@ export const phases: ReviewPhase[] = [
           'Continue to reserve the inventory.',
           'Wait for the secure return to the Partner checkout; do not copy or edit the return address.',
         ],
-        complete: 'Northstar displays Review your order with a live hold countdown.',
+        complete: 'The Partner storefront displays Review your order with a live hold countdown.',
         note: 'The Reservation token is posted directly to the Partner server. It must not appear in the URL, browser storage or logs.',
       },
     ],
@@ -301,7 +312,7 @@ export const phases: ReviewPhase[] = [
     actions: [
       {
         title: 'Review the held order',
-        location: 'Northstar → Review your order',
+        location: 'Partner storefront → Review your order',
         instructions: [
           'Check Event, selected tickets, quantities, unit prices, total and hold countdown.',
           'Confirm the browser URL contains only the checkout identifier—not a Reservation token.',
@@ -312,7 +323,7 @@ export const phases: ReviewPhase[] = [
       },
       {
         title: 'Simulate payment and confirm the Reservation',
-        location: 'Northstar → Demo payment',
+        location: 'Partner storefront → Demo payment',
         instructions: [
           'Choose Simulate successful payment.',
           'Wait while the Partner begins checkout and then confirms the real Reservation lifecycle.',
@@ -323,11 +334,11 @@ export const phases: ReviewPhase[] = [
       },
       {
         title: 'Inspect the issued ticket and hosted QR',
-        location: 'Northstar → Your ticket',
+        location: 'Partner storefront → Your ticket',
         instructions: [
           'Verify Event, venue, date, section, row and seat or area.',
           'Find the public Ticket ID and Active status.',
-          'Confirm the QR image is hosted by TktSync even though the surrounding ticket design belongs to Northstar.',
+          'Confirm the QR image is hosted by TktSync even though the surrounding ticket design belongs to the Partner.',
         ],
         complete:
           'You can distinguish Partner-owned presentation from the TktSync-owned ticket and admission credential.',
@@ -359,7 +370,7 @@ export const phases: ReviewPhase[] = [
         title: 'Prove admission and duplicate protection',
         location: 'Scanner → scan',
         instructions: [
-          'Scan the QR from the Northstar ticket.',
+          'Scan the QR from the Partner ticket.',
           'Read the ADMITTED result and verify the expected ticket/seat details.',
           'Scan the same QR again.',
         ],
@@ -508,7 +519,7 @@ export function LegacyWalkthrough() {
             </article>
             <article className="demo-boundary">
               <p className="surface-label demo">Demo-only surface</p>
-              <h3>Northstar Tickets</h3>
+              <h3>Connected Partner storefront</h3>
               <p>
                 This sample storefront is not part of TktSync. It only demonstrates how an
                 independent ticketing platform uses the real Partner API.

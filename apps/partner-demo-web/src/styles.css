@@ -49,13 +49,13 @@ header {
   border-bottom: 1px solid #ded9ce;
   background: #fffdf8;
 }
-.northstar {
+.partner-brand {
   display: flex;
   align-items: center;
   gap: 11px;
   text-decoration: none;
 }
-.northstar > span {
+.partner-brand > span {
   display: grid;
   place-items: center;
   width: 34px;
@@ -64,15 +64,15 @@ header {
   background: #d87542;
   color: #fff;
 }
-.northstar strong,
-.northstar small {
+.partner-brand strong,
+.partner-brand small {
   display: block;
 }
-.northstar strong {
+.partner-brand strong {
   font-family: Georgia, serif;
   font-size: 18px;
 }
-.northstar small {
+.partner-brand small {
   margin-top: 2px;
   color: #857d70;
   font-size: 10px;
@@ -98,6 +98,24 @@ main > section {
   grid-template-columns: minmax(0, 1fr) minmax(340px, 0.78fr);
   gap: 70px;
   align-items: center;
+}
+.setup-main {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  background: #f6f3eb;
+}
+.setup-main > section {
+  width: 100%;
+}
+.connection-only {
+  display: block;
+  max-width: 620px;
+  padding-block: 48px;
+}
+.connection-only .connection-form {
+  width: 100%;
+  padding: clamp(28px, 5vw, 46px);
 }
 .connection-copy h1,
 .connections-page .page-intro h1 {
@@ -125,6 +143,9 @@ main > section {
 .connection-boundary span {
   color: #71695d;
 }
+.connection-form .connection-boundary {
+  margin-top: 24px;
+}
 .connection-form {
   display: grid;
   padding: 30px;
@@ -138,6 +159,18 @@ main > section {
   font-family: Georgia, serif;
   font-size: 28px;
   font-weight: 500;
+}
+.connection-form h1 {
+  margin: 0 0 13px;
+  font-family: Georgia, serif;
+  font-size: clamp(34px, 5vw, 48px);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+}
+.connection-form .setup-intro {
+  margin: 0 0 30px;
+  font-size: 14px;
 }
 .connection-form > p {
   margin: 9px 0 21px;
@@ -539,6 +572,13 @@ main > section {
 .checkout-head {
   max-width: 680px;
 }
+.checkout-partner {
+  display: inline-flex;
+  margin-top: 9px;
+  color: #8a7e70;
+  font-size: 11px;
+  font-weight: 750;
+}
 .checkout-grid {
   display: grid;
   grid-template-columns: 1fr 260px;
@@ -871,7 +911,7 @@ footer {
     height: 68px;
     padding-inline: 17px;
   }
-  .northstar small {
+  .partner-brand small {
     display: none;
   }
   .connection-form {
