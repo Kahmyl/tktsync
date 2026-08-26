@@ -58,6 +58,8 @@ type GuideAction = {
   instructions: string[];
   complete: string;
   note?: string;
+  href?: string;
+  cta?: string;
 };
 
 type ReviewPhase = {
@@ -108,6 +110,8 @@ export const phases: ReviewPhase[] = [
       {
         title: 'Create the venue',
         location: 'Venues → Add venue',
+        href: appPath(config.admin, '/venues'),
+        cta: 'Open Venues',
         instructions: [
           'Open Venues from the left navigation, then choose Add venue.',
           'Enter a recognizable venue name and address, then create it.',
@@ -118,6 +122,8 @@ export const phases: ReviewPhase[] = [
       {
         title: 'Create a layout draft',
         location: 'Venue → New layout version',
+        href: appPath(config.admin, '/venues'),
+        cta: 'Open Venues',
         instructions: [
           'Choose New layout version, then Edit draft.',
           'Add at least one Reserved section and set its row and seat counts.',
@@ -130,6 +136,8 @@ export const phases: ReviewPhase[] = [
       {
         title: 'Save, preview and publish the layout',
         location: 'Visual floor-plan builder → Venue detail',
+        href: appPath(config.admin, '/venues'),
+        cta: 'Open Venues',
         instructions: [
           'Save the draft, then open Preview buyer view and verify labels and orientation.',
           'Return to the venue and choose Publish.',
@@ -141,6 +149,8 @@ export const phases: ReviewPhase[] = [
       {
         title: 'Create the Event draft',
         location: 'Events → Create event',
+        href: appPath(config.admin, '/events/new'),
+        cta: 'Open Create Event',
         instructions: [
           'Use the review Event name shown in this guide, then select the venue you just prepared.',
           'Set all six date and time fields: Event start/end, sales open/close and admission open/close. Confirm the timezone.',
@@ -153,6 +163,8 @@ export const phases: ReviewPhase[] = [
       {
         title: 'Materialize the published layout',
         location: 'Event → Layout & seats',
+        href: appPath(config.admin, '/events'),
+        cta: 'Open Events',
         instructions: [
           'Choose the published venue layout version.',
           'Select Materialize layout.',
@@ -164,6 +176,8 @@ export const phases: ReviewPhase[] = [
       {
         title: 'Create price tiers',
         location: 'Event → Pricing → Add price tier',
+        href: appPath(config.admin, '/events'),
+        cta: 'Open Events',
         instructions: [
           'Add a customer-facing name, short code, currency and price for each tier.',
           'Create separate tiers for the areas you want to price differently—for example VIP, Table and GA.',
@@ -176,6 +190,8 @@ export const phases: ReviewPhase[] = [
       {
         title: 'Assign pricing to inventory',
         location: 'Event → Pricing → Assign pricing',
+        href: appPath(config.admin, '/events'),
+        cta: 'Open Events',
         instructions: [
           'Choose a price tier, then choose whether it applies to the entire Event, one area, or specific seats.',
           'For area pricing, select the matching section and choose Review pricing assignment.',
@@ -187,6 +203,8 @@ export const phases: ReviewPhase[] = [
       {
         title: 'Review inventory controls',
         location: 'Event → Inventory',
+        href: appPath(config.admin, '/events'),
+        cta: 'Open Events',
         instructions: [
           'Reconcile Available, Held, Sold and Blocked totals with the materialized layout.',
           'Confirm the inventory table includes both reserved units and the GA pool.',
@@ -199,6 +217,8 @@ export const phases: ReviewPhase[] = [
       {
         title: 'Create the Partner and save its credential',
         location: 'Partners → Add partner → Partner detail',
+        href: appPath(config.admin, '/partners'),
+        cta: 'Open Partners',
         instructions: [
           'Open Partners, choose Add partner, enter the storefront Partner name and create it.',
           'Open the new Partner and choose Issue credential.',
@@ -212,6 +232,8 @@ export const phases: ReviewPhase[] = [
       {
         title: 'Grant your Partner Event access',
         location: 'Event → Partners',
+        href: appPath(config.admin, '/events'),
+        cta: 'Open Events',
         instructions: [
           'Find the Partner you just created in the table.',
           'Confirm the Partner itself is Active, then choose Grant access.',
@@ -223,6 +245,8 @@ export const phases: ReviewPhase[] = [
       {
         title: 'Run the readiness check and open sales',
         location: 'Event → Overview',
+        href: appPath(config.admin, '/events'),
+        cta: 'Open Events',
         instructions: [
           'Confirm Sales policy, Layout & seats, Pricing and Inventory all show Configured.',
           'Check that Partner access is 1 or more.',
@@ -247,6 +271,8 @@ export const phases: ReviewPhase[] = [
       {
         title: 'Choose the Partner storefront',
         location: 'Demo Partner setup',
+        href: config.partner,
+        cta: 'Open Partner setup',
         instructions: [
           'Use the exact Partner name and the credential you saved earlier in Admin, then choose Connect and view Events.',
           'To reuse a previous connection, choose View saved Partners and then Use this Partner.',
@@ -258,6 +284,8 @@ export const phases: ReviewPhase[] = [
       {
         title: 'Confirm the application boundary',
         location: 'Connected Partner demo storefront',
+        href: appPath(config.partner, '/events'),
+        cta: 'Open Partner Events',
         instructions: [
           'Read the Demo Partner Application notice before using the storefront.',
           'Notice that this screen looks intentionally different from TktSync Admin, Selector and Scanner.',
@@ -269,6 +297,8 @@ export const phases: ReviewPhase[] = [
       {
         title: 'Open the Event you created',
         location: 'Events → your review Event → View event',
+        href: appPath(config.partner, '/events'),
+        cta: 'Open Partner Events',
         instructions: [
           'Check the Event name, date, venue, sale state and starting price.',
           'Expand Assessment note · How this works.',

@@ -18,6 +18,12 @@ test('Reviewer Hub presents one complete assessment walkthrough in order', async
   await expect(page.getByRole('heading', { name: 'Review the Dashboard' })).toBeVisible();
   const adminCTA = page.getByRole('link', { name: 'Open Admin Console' });
   await expect(adminCTA).toHaveAttribute('href', 'https://admin.example.test');
+  await page.getByRole('button', { name: 'Next →' }).click();
+  await expect(page.getByRole('heading', { name: 'Create the venue' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Open Venues' })).toHaveAttribute(
+    'href',
+    'https://admin.example.test/venues',
+  );
   await page.getByRole('button', { name: '2 Partner' }).click();
   await expect(page.getByText('Not part of TktSync', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Choose the Partner storefront' })).toBeVisible();

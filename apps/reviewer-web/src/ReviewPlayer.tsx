@@ -291,8 +291,8 @@ export default function ReviewPlayer() {
             )}
           </aside>
         </div>
-        <a className="phase-cta" href={phase.href} target="_blank" rel="noreferrer">
-          {phase.action} <span aria-hidden="true">↗</span>
+        <a className="phase-cta" href={action.href || phase.href} target="_blank" rel="noreferrer">
+          {action.cta || phase.action} <span aria-hidden="true">↗</span>
         </a>
       </section>
     );

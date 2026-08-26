@@ -43,4 +43,17 @@ describe('reviewer walkthrough player', () => {
     expect(instructions).toContain('Do not choose I have stored it');
     expect(credential?.note).toContain('If it is lost, you must issue a new credential');
   });
+
+  it('routes stable guide actions directly to their named application screens', () => {
+    const admin = phases[0]!;
+    expect(admin.actions.find((action) => action.title === 'Create the venue')?.href).toMatch(
+      /\/venues$/,
+    );
+    expect(admin.actions.find((action) => action.title === 'Create the Event draft')?.href).toMatch(
+      /\/events\/new$/,
+    );
+    expect(
+      admin.actions.find((action) => action.title.includes('save its credential'))?.href,
+    ).toMatch(/\/partners$/);
+  });
 });
