@@ -7,7 +7,7 @@ import {
   Plus,
   ShieldCheck,
 } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useOperator } from '../../auth/OperatorSession';
 import {
@@ -79,6 +79,7 @@ export function EventDetailPage() {
   const tickets = useTickets('', eventId);
   const admissions = useAdmissions(eventId);
   const [priceOpen, setPriceOpen] = useState(false);
+  const priceFormRef = useRef<HTMLFormElement>(null);
   const [priceName, setPriceName] = useState('');
   const [priceCode, setPriceCode] = useState('');
   const [priceAmount, setPriceAmount] = useState('');
@@ -122,13 +123,14 @@ export function EventDetailPage() {
     invalidate,
   });
   const price = useIntentMutation({
-    intent: () => `${eventId}:price:${priceCode}:${priceAmount}:${currency}`,
-    mutationFn: (token, key) =>
+    intent: (values: { name: string; code: string; amount: string; currency: string }) =>
+      `${eventId}:price:${values.code}:${values.amount}:${values.currency}`,
+    mutationFn: (token, key, values) =>
       adminApi.createPriceTier(token, key, eventId, {
-        code: priceCode.trim().toUpperCase(),
-        name: priceName.trim(),
-        amount_minor: Math.round(Number(priceAmount) * 100),
-        currency: currency.trim().toUpperCase(),
+        code: values.code.trim().toUpperCase(),
+        name: values.name.trim(),
+        amount_minor: Math.round(Number(values.amount) * 100),
+        currency: values.currency.trim().toUpperCase(),
       }),
     invalidate,
   });
@@ -219,16 +221,28 @@ export function EventDetailPage() {
         description: primary.description,
       });
   };
-  const submitPrice = async () => {
+  const submitPrice = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = priceFormRef.current ? new FormData(priceFormRef.current) : null;
+    const values = {
+      name: String(form?.get('name') || priceName),
+      code: String(form?.get('code') || priceCode),
+      amount: String(form?.get('amount') || priceAmount),
+      currency: String(form?.get('currency') || currency),
+    };
     if (
-      !priceName.trim() ||
-      !priceCode.trim() ||
-      !Number.isFinite(Number(priceAmount)) ||
-      Number(priceAmount) < 0 ||
-      currency.trim().length !== 3
+      !values.name.trim() ||
+      !values.code.trim() ||
+      !Number.isFinite(Number(values.amount)) ||
+      Number(values.amount) < 0 ||
+      values.currency.trim().length !== 3
     )
       return;
-    await price.mutateAsync(undefined);
+    setPriceName(values.name);
+    setPriceCode(values.code);
+    setPriceAmount(values.amount);
+    setCurrency(values.currency);
+    await price.mutateAsync(values);
     setPriceOpen(false);
     setPriceName('');
     setPriceCode('');
@@ -968,60 +982,67 @@ export function EventDetailPage() {
       <Dialog
         open={priceOpen}
         title="Add price tier"
-        description="Create a real event price tier in minor currency units."
+        description="Enter the customer-facing ticket price. TktSync stores it in minor currency units."
         onClose={() => setPriceOpen(false)}
       >
-        <div className="dialog-body form-stack">
-          <Field label="Name">
-            <Input
-              id="price-name"
-              value={priceName}
-              onChange={(event) => setPriceName(event.target.value)}
-              placeholder="Standard admission"
-            />
-          </Field>
-          <div className="form-grid two">
-            <Field label="Code">
+        <form ref={priceFormRef} onSubmit={(event) => void submitPrice(event)}>
+          <div className="dialog-body form-stack">
+            <Field label="Name">
               <Input
-                id="price-code"
-                value={priceCode}
-                onChange={(event) => setPriceCode(event.target.value)}
-                placeholder="STD"
+                id="price-name"
+                name="name"
+                required
+                value={priceName}
+                onChange={(event) => setPriceName(event.target.value)}
+                placeholder="Standard admission"
               />
             </Field>
-            <Field label="Currency">
+            <div className="form-grid two">
+              <Field label="Code">
+                <Input
+                  id="price-code"
+                  name="code"
+                  required
+                  value={priceCode}
+                  onChange={(event) => setPriceCode(event.target.value)}
+                  placeholder="STD"
+                />
+              </Field>
+              <Field label="Currency">
+                <Input
+                  id="price-currency"
+                  name="currency"
+                  required
+                  maxLength={3}
+                  minLength={3}
+                  value={currency}
+                  onChange={(event) => setCurrency(event.target.value)}
+                />
+              </Field>
+            </div>
+            <Field label="Price">
               <Input
-                id="price-currency"
-                maxLength={3}
-                value={currency}
-                onChange={(event) => setCurrency(event.target.value)}
+                id="price-amount"
+                name="amount"
+                required
+                type="number"
+                min="0"
+                step="0.01"
+                value={priceAmount}
+                onChange={(event) => setPriceAmount(event.target.value)}
               />
             </Field>
+            {price.error ? <ErrorState error={price.error} /> : null}
           </div>
-          <Field label="Price">
-            <Input
-              id="price-amount"
-              type="number"
-              min="0"
-              step="0.01"
-              value={priceAmount}
-              onChange={(event) => setPriceAmount(event.target.value)}
-            />
-          </Field>
-          {price.error ? <ErrorState error={price.error} /> : null}
-        </div>
-        <DialogActions>
-          <Button variant="secondary" onClick={() => setPriceOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            busy={price.isPending}
-            disabled={!priceName.trim() || !priceCode.trim() || priceAmount === ''}
-            onClick={() => void submitPrice()}
-          >
-            Add tier
-          </Button>
-        </DialogActions>
+          <DialogActions>
+            <Button type="button" variant="secondary" onClick={() => setPriceOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" busy={price.isPending}>
+              Add tier
+            </Button>
+          </DialogActions>
+        </form>
       </Dialog>
       <Dialog
         open={assignConfirm}

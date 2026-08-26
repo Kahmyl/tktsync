@@ -316,6 +316,10 @@ async function mockAdminApi(page: Page) {
       });
       return;
     }
+    if (method === 'POST' && /\/events\/[^/]+\/price-tiers$/.test(path)) {
+      await json(route, 201, { id: 'price_created' });
+      return;
+    }
     if (method === 'GET' && /\/events\/[^/]+\/inventory$/.test(path)) {
       await json(route, 200, {
         event_id: eventId,
@@ -590,6 +594,23 @@ test('Admin signs in, reviews authoritative operations, creates an event, and ch
 
   await expect(page.getByRole('heading', { name: 'Harbour Lights' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Pricing' })).toBeVisible();
+  await page.getByRole('tab', { name: 'Pricing' }).click();
+  await page.getByRole('button', { name: 'Add price tier' }).click();
+  await page.locator('#price-name').evaluate((input: HTMLInputElement) => {
+    input.value = 'General Admission';
+  });
+  await page.locator('#price-code').evaluate((input: HTMLInputElement) => {
+    input.value = 'GA';
+  });
+  await page.locator('#price-currency').evaluate((input: HTMLInputElement) => {
+    input.value = 'NGN';
+  });
+  await page.locator('#price-amount').evaluate((input: HTMLInputElement) => {
+    input.value = '25000';
+  });
+  await expect(page.getByRole('button', { name: 'Add tier' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Add tier' }).click();
+  await expect(page.getByRole('dialog', { name: 'Add price tier' })).not.toBeVisible();
   await page.getByRole('button', { name: 'Open sales' }).click();
   await expect(page.getByText('On sale', { exact: true }).first()).toBeVisible();
 
@@ -608,6 +629,13 @@ test('Admin signs in, reviews authoritative operations, creates an event, and ch
     sales_close_at: expect.any(String),
     admission_open_at: expect.any(String),
     admission_close_at: expect.any(String),
+  });
+  const createPrice = state.mutations.find((entry) => entry.path.endsWith('/price-tiers'));
+  expect(createPrice?.body).toEqual({
+    name: 'General Admission',
+    code: 'GA',
+    currency: 'NGN',
+    amount_minor: 2_500_000,
   });
 });
 
