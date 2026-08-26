@@ -1,265 +1,326 @@
-import { useState } from 'react';
 import { getReviewConfig } from './config';
 
 const config = getReviewConfig();
 
-const steps = [
+type ReviewStep = {
+  id: string;
+  name: string;
+  surface: string;
+  description: string;
+  review: string[];
+  verify: string[];
+  action: string;
+  href: string;
+  demo?: boolean;
+  access?: boolean;
+};
+
+const steps: ReviewStep[] = [
   {
+    id: 'admin',
     name: 'Admin Console',
-    title: 'See how an Event is configured',
-    what: 'The TktSync operations interface for venues, Events, pricing and inventory.',
-    try: 'Open the prepared demo Event and inspect its layout, pricing and inventory.',
-    notice: 'The published layout becomes the same ticket map buyers use later.',
-    href: config.admin,
+    surface: 'TktSync product surface',
+    description:
+      'The operational workspace used to configure venues, Events, inventory, pricing and Partner access.',
+    review: [
+      'Sign in with the configured reviewer access.',
+      'Open Venues → Meridian Arena and inspect its published layout.',
+      'Open Events → Championship Night.',
+      'Review Overview, Layout & seats, Pricing, Inventory and Partners.',
+      'Confirm the Event is on sale and the Demo Partner has access.',
+    ],
+    verify: [
+      'The published venue layout has been materialized into reserved, table and general-admission inventory.',
+      'Price tiers are assigned and availability is managed centrally by TktSync.',
+    ],
     action: 'Open Admin Console',
-    full: true,
+    href: config.admin,
+    access: true,
   },
   {
-    name: 'Demo Partner Storefront',
-    title: 'Experience an independent ticket seller',
-    what: 'A sample external storefront built only for this assessment.',
-    try: 'Open the live Event, read its details and choose tickets.',
-    notice: 'The Partner owns the storefront; its Event data comes from TktSync.',
-    href: config.partner,
+    id: 'partner',
+    name: 'Demo Partner',
+    surface: 'Demo-only application',
+    description:
+      'A sample external ticketing storefront. It is not part of TktSync; it demonstrates an independent Partner using the real TktSync Partner API.',
+    review: [
+      'Open the prepared Event in the storefront.',
+      'Check the Event, venue, sale state and starting price.',
+      'Choose tickets to begin the buyer journey.',
+    ],
+    verify: [
+      'The storefront branding belongs to the Partner while its Event and ticket availability come from TktSync.',
+      'Choosing tickets creates a real selection session before opening the TktSync Selector.',
+    ],
     action: 'Open Demo Partner',
-    full: false,
+    href: config.partner,
     demo: true,
   },
   {
+    id: 'selector',
     name: 'TktSync Selector',
-    title: 'Select tickets as a buyer',
-    what: 'The TktSync-hosted ticket picker opened by the Partner.',
-    try: 'Choose an available seat or ticket quantity, then hold it.',
-    notice: 'TktSync checks and holds the authoritative inventory.',
+    surface: 'TktSync product surface',
+    description:
+      'The TktSync-hosted buyer selection surface. Enter it from the Demo Partner so it receives a valid Partner-created selection session.',
+    review: [
+      'Continue from the prepared Event in the Demo Partner.',
+      'Choose reserved seating or a general-admission quantity.',
+      'Place the inventory on hold, then continue back to Partner checkout.',
+    ],
+    verify: [
+      'Available and unavailable inventory are clearly distinguished.',
+      'TktSync authoritatively checks and holds inventory; the Demo Partner does not maintain its own inventory truth.',
+    ],
+    action: 'Continue through Demo Partner',
     href: config.partner,
-    action: 'Start from Demo Partner',
-    full: false,
   },
   {
-    name: 'Partner ticket',
-    title: 'Complete checkout and view the ticket',
-    what: 'The Demo Partner’s checkout and ticket presentation around a TktSync ticket.',
-    try: 'Simulate payment success, then view the issued ticket and hosted QR.',
-    notice: 'Payment belongs to the Partner; ticket identity and QR authority remain with TktSync.',
+    id: 'checkout',
+    name: 'Partner Checkout + Ticket',
+    surface: 'Partner presentation + TktSync authority',
+    description:
+      'Checkout and the surrounding ticket design belong to the Demo Partner. Reservation confirmation, ticket identity and QR authority belong to TktSync.',
+    review: [
+      'Review the held tickets, prices, total and hold countdown.',
+      'Continue to the explicit Demo payment step and simulate a successful payment.',
+      'Inspect the issued ticket details and TktSync-hosted QR.',
+    ],
+    verify: [
+      'The Partner begins checkout before confirming the Reservation through the real API lifecycle.',
+      'The resulting ticket has an authoritative public ID, status and admission credential.',
+    ],
+    action: 'Continue in Demo Partner',
     href: config.partner,
-    action: 'Continue ticket journey',
-    full: false,
   },
   {
+    id: 'scanner',
     name: 'Scanner',
-    title: 'Validate entry',
-    what: 'The TktSync admission interface used at the venue.',
-    try: 'Open Scanner and scan the QR on the ticket you just created.',
-    notice: 'The first valid scan is admitted; a duplicate is rejected.',
-    href: config.scanner,
+    surface: 'TktSync product surface',
+    description:
+      'The venue admission interface that checks every ticket against TktSync’s authoritative admission state.',
+    review: [
+      'Sign in with the configured reviewer access and select Championship Night.',
+      'Scan the ticket QR from Step 4, or use the supported manual code entry.',
+      'Submit the same credential a second time.',
+    ],
+    verify: [
+      'The first valid scan is admitted.',
+      'The distinct repeat scan is rejected as already checked in.',
+    ],
     action: 'Open Scanner',
-    full: false,
-  },
-  {
-    name: 'Partner Developer Docs',
-    title: 'Explore the integration',
-    what: 'The API guide an external ticketing company uses to integrate.',
-    try: 'Read the guided workflow and inspect the Partner endpoints.',
-    notice: 'Partner credentials remain server-side throughout the journey.',
-    href: config.docs,
-    action: 'Open Developer Docs',
-    full: true,
+    href: config.scanner,
+    access: true,
   },
 ];
 
-function App() {
-  const [mode, setMode] = useState<'quick' | 'full'>('quick');
-  const visible = mode === 'full' ? steps : steps.filter((step) => !step.full);
-  const credentialsShown = Boolean(config.accessEmail && config.accessPassword);
+function AccessDetails() {
+  const hasCredentials = Boolean(config.accessEmail || config.accessPassword);
+  if (!hasCredentials && !config.accessLabel && !config.accessInstructions) return null;
 
+  return (
+    <aside className="access-card" aria-label="Reviewer access">
+      <div>
+        <p className="access-title">Reviewer access</p>
+        {config.accessLabel && <p>{config.accessLabel}</p>}
+        {config.accessInstructions && <p>{config.accessInstructions}</p>}
+      </div>
+      {hasCredentials && (
+        <dl>
+          {config.accessEmail && (
+            <div>
+              <dt>Email</dt>
+              <dd>
+                <code>{config.accessEmail}</code>
+              </dd>
+            </div>
+          )}
+          {config.accessPassword && (
+            <div>
+              <dt>Password</dt>
+              <dd>
+                <code>{config.accessPassword}</code>
+              </dd>
+            </div>
+          )}
+        </dl>
+      )}
+    </aside>
+  );
+}
+
+function App() {
   return (
     <>
       <header className="top">
-        <a className="brand" href="#top">
-          <span>T</span>TktSync <small>review</small>
+        <a className="brand" href="#top" aria-label="TktSync Review Guide home">
+          <span aria-hidden="true">T</span>
+          <strong>TktSync Review Guide</strong>
         </a>
-        <a href={config.source} target="_blank" rel="noreferrer">
-          Source code ↗
+        <a className="source-link" href={config.source} target="_blank" rel="noreferrer">
+          Source code <span aria-hidden="true">↗</span>
         </a>
       </header>
+
       <main id="top">
-        <section className="hero" aria-labelledby="hero-title">
-          <p className="kicker">Assessment walkthrough</p>
-          <h1 id="hero-title">One inventory truth across multiple ticketing platforms.</h1>
+        <section className="intro" aria-labelledby="intro-title">
+          <p className="eyebrow">Assessment walkthrough</p>
+          <h1 id="intro-title">Review the complete TktSync workflow in order.</h1>
           <p>
-            TktSync coordinates Event inventory across independent ticketing Partners so the same
-            seat or ticket cannot be sold twice.
+            Each step explains what to inspect and verify before you open the corresponding
+            application. Start with Event configuration, then follow one ticket through purchase and
+            admission.
           </p>
-          <div className="hero-actions">
-            <a className="primary" href="#guided">
-              Start guided review
-            </a>
-            <a className="secondary" href={config.source} target="_blank" rel="noreferrer">
-              View source code
-            </a>
-          </div>
-          <p className="time">No technical background required · 3–15 minutes</p>
+          <nav aria-label="Review progression">
+            <ol className="progression">
+              <li>
+                <a href="#admin">
+                  <span>1</span>Admin Console
+                </a>
+              </li>
+              <li>
+                <a href="#partner">
+                  <span>2</span>Demo Partner
+                </a>
+              </li>
+              <li>
+                <a href="#selector">
+                  <span>3</span>Selector
+                </a>
+              </li>
+              <li>
+                <a href="#checkout">
+                  <span>4</span>Checkout + Ticket
+                </a>
+              </li>
+              <li>
+                <a href="#scanner">
+                  <span>5</span>Scanner
+                </a>
+              </li>
+              <li>
+                <a href="#technical">
+                  <span>6</span>Technical Review
+                </a>
+              </li>
+            </ol>
+          </nav>
         </section>
 
-        <section className="flow-section" aria-labelledby="flow-title">
-          <p className="section-label">What you’re about to see</p>
-          <h2 id="flow-title">One complete ticket journey</h2>
-          <ol className="flow">
-            <li>Event setup</li>
-            <li>Partner storefront</li>
-            <li>Buyer selects tickets</li>
-            <li>Partner checkout</li>
-            <li>TktSync issues ticket + QR</li>
-            <li>Scanner validates admission</li>
-          </ol>
-          <p className="flow-note">
-            TktSync sits underneath the Partner experience and remains the authoritative source for
-            inventory, tickets and admission.
-          </p>
-        </section>
-
-        <section id="guided" className="guide" aria-labelledby="guide-title">
-          <div className="guide-head">
-            <div>
-              <p className="section-label">Guided review</p>
-              <h2 id="guide-title">Follow these steps in order</h2>
-              <p>Each step tells you what to try and what the result demonstrates.</p>
-            </div>
-            <div className="mode" aria-label="Review length">
-              <button className={mode === 'quick' ? 'active' : ''} onClick={() => setMode('quick')}>
-                <strong>Quick review</strong>
-                <span>3–5 min · 4 steps</span>
-              </button>
-              <button className={mode === 'full' ? 'active' : ''} onClick={() => setMode('full')}>
-                <strong>Full review</strong>
-                <span>10–15 min · 6 steps</span>
-              </button>
-            </div>
+        <section className="walkthrough" aria-labelledby="walkthrough-title">
+          <div className="walkthrough-heading">
+            <p className="eyebrow">Review checklist</p>
+            <h2 id="walkthrough-title">Follow Steps 1–6</h2>
+            <p>Complete each functional step before moving to the next one.</p>
           </div>
+
           <ol className="steps">
-            {visible.map((step, index) => (
-              <li key={step.name}>
-                <div className="step-number">{index + 1}</div>
-                <div className="step-body">
-                  <div className="step-title">
-                    <div>
-                      <p>
-                        {step.name}
-                        {step.demo && <span className="demo-label">Demo only</span>}
-                      </p>
-                      <h3>{step.title}</h3>
-                    </div>
-                  </div>
-                  <dl>
-                    <div>
-                      <dt>What it is</dt>
-                      <dd>{step.what}</dd>
-                    </div>
-                    <div>
-                      <dt>Try</dt>
-                      <dd>{step.try}</dd>
-                    </div>
-                    <div>
-                      <dt>You should notice</dt>
-                      <dd>{step.notice}</dd>
-                    </div>
-                  </dl>
-                  <a className="step-link" href={step.href} target="_blank" rel="noreferrer">
-                    {step.action} <span>→</span>
-                  </a>
+            {steps.map((step, index) => (
+              <li id={step.id} key={step.id} className="review-step">
+                <div className="step-marker" aria-hidden="true">
+                  {index + 1}
                 </div>
+                <article className="step-content">
+                  <header className="step-header">
+                    <div>
+                      <p className={step.demo ? 'surface-label demo' : 'surface-label'}>
+                        {step.surface}
+                      </p>
+                      <h3>Review {step.name}</h3>
+                    </div>
+                    {step.demo && <span className="demo-badge">Not part of TktSync</span>}
+                  </header>
+                  <p className="step-description">{step.description}</p>
+                  <div className="instruction-grid">
+                    <section aria-labelledby={`${step.id}-do`}>
+                      <h4 id={`${step.id}-do`}>What to do</h4>
+                      <ul>
+                        {step.review.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </section>
+                    <section className="verify" aria-labelledby={`${step.id}-verify`}>
+                      <h4 id={`${step.id}-verify`}>What to verify</h4>
+                      <ul>
+                        {step.verify.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </section>
+                  </div>
+                  {step.access && <AccessDetails />}
+                  <a className="step-link" href={step.href} target="_blank" rel="noreferrer">
+                    {step.action} <span aria-hidden="true">→</span>
+                  </a>
+                </article>
               </li>
             ))}
+
+            <li id="technical" className="review-step">
+              <div className="step-marker" aria-hidden="true">
+                6
+              </div>
+              <article className="step-content">
+                <header className="step-header">
+                  <div>
+                    <p className="surface-label">TktSync product and implementation</p>
+                    <h3>Developer / Technical Review</h3>
+                  </div>
+                </header>
+                <p className="step-description">
+                  Complete the functional walkthrough first, then review the API contract and the
+                  implementation decisions that protect inventory, confirmation and admission.
+                </p>
+                <div className="instruction-grid">
+                  <section aria-labelledby="technical-do">
+                    <h4 id="technical-do">What to do</h4>
+                    <ul>
+                      <li>Open Developer Docs and follow the Partner integration workflow.</li>
+                      <li>Review the repository structure and system architecture.</li>
+                      <li>Inspect the security and production runtime models.</li>
+                    </ul>
+                  </section>
+                  <section className="verify" aria-labelledby="technical-verify">
+                    <h4 id="technical-verify">What to verify</h4>
+                    <ul>
+                      <li>Partner credentials and Reservation tokens remain server-side.</li>
+                      <li>
+                        Inventory, ticket issuance and admission share one authoritative model.
+                      </li>
+                    </ul>
+                  </section>
+                </div>
+                <div className="technical-links">
+                  <a
+                    className="step-link primary-link"
+                    href={config.docs}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open Developer Docs <span aria-hidden="true">→</span>
+                  </a>
+                  <a href={config.source} target="_blank" rel="noreferrer">
+                    Source code ↗
+                  </a>
+                  <a href={config.architecture} target="_blank" rel="noreferrer">
+                    Architecture ↗
+                  </a>
+                  <a href={config.security} target="_blank" rel="noreferrer">
+                    Security ↗
+                  </a>
+                  <a href={config.runtime} target="_blank" rel="noreferrer">
+                    Runtime &amp; concurrency ↗
+                  </a>
+                </div>
+              </article>
+            </li>
           </ol>
         </section>
-
-        <section className="boundary" aria-labelledby="boundary-title">
-          <div>
-            <p className="section-label">Product boundary</p>
-            <h2 id="boundary-title">What is part of TktSync?</h2>
-            <p>The walkthrough includes one intentionally separate reference application.</p>
-          </div>
-          <div className="boundary-grid">
-            <div>
-              <h3>TktSync product surfaces</h3>
-              <ul>
-                <li>Admin Console</li>
-                <li>Buyer Selector</li>
-                <li>Scanner</li>
-                <li>Partner API</li>
-                <li>Developer Documentation</li>
-              </ul>
-            </div>
-            <div className="demo-box">
-              <p>◇ Demo-only surface</p>
-              <h3>Demo Partner Storefront</h3>
-              <p>
-                This sample storefront is not part of TktSync. It exists only to show how an
-                independent ticketing platform uses the real TktSync Partner API.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {(credentialsShown || config.accessInstructions) && (
-          <section className="access" aria-labelledby="access-title">
-            <p className="section-label">Reviewer access</p>
-            <h2 id="access-title">Ready-to-use assessment access</h2>
-            {config.accessLabel && <p>{config.accessLabel}</p>}
-            {credentialsShown && (
-              <div className="credentials">
-                <div>
-                  <span>Email</span>
-                  <code>{config.accessEmail}</code>
-                </div>
-                <div>
-                  <span>Password</span>
-                  <code>{config.accessPassword}</code>
-                </div>
-              </div>
-            )}
-            {config.accessInstructions && (
-              <p className="access-note">{config.accessInstructions}</p>
-            )}
-            <p className="safety">
-              These values are deployment configuration for a limited review account; no credentials
-              are stored in this source code.
-            </p>
-          </section>
-        )}
-
-        <section className="technical" aria-labelledby="technical-title">
-          <p className="section-label">Technical review</p>
-          <h2 id="technical-title">Continue into the implementation</h2>
-          <div className="tech-links">
-            <a href={config.source} target="_blank" rel="noreferrer">
-              <strong>Source code</strong>
-              <span>Repository and setup ↗</span>
-            </a>
-            <a href={config.architecture} target="_blank" rel="noreferrer">
-              <strong>Architecture</strong>
-              <span>System design ↗</span>
-            </a>
-            <a href={config.docs} target="_blank" rel="noreferrer">
-              <strong>API documentation</strong>
-              <span>Partner integration ↗</span>
-            </a>
-            <a href={config.security} target="_blank" rel="noreferrer">
-              <strong>Security model</strong>
-              <span>Trust boundaries ↗</span>
-            </a>
-            <a href={config.runtime} target="_blank" rel="noreferrer">
-              <strong>Runtime & concurrency</strong>
-              <span>Correctness model ↗</span>
-            </a>
-          </div>
-        </section>
       </main>
+
       <footer>
         <span>TktSync assessment review</span>
-        <a href={config.source} target="_blank" rel="noreferrer">
-          github.com/Kahmyl/tktsync
-        </a>
+        <span>Admin → Partner → Selector → Ticket → Scanner → Technical review</span>
       </footer>
     </>
   );

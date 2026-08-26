@@ -24,11 +24,10 @@ test('Reviewer Hub to real Partner checkout, hosted QR, Scanner and Docs', async
     await page.goto(urls.reviewer);
     await expect(
       page.getByRole('heading', {
-        name: 'One inventory truth across multiple ticketing platforms.',
+        name: 'Review the complete TktSync workflow in order.',
       }),
     ).toBeVisible();
-    await page.getByRole('link', { name: 'Start guided review' }).click();
-    const partnerLink = page.getByRole('link', { name: 'Open Demo Partner →' });
+    const partnerLink = page.getByRole('link', { name: 'Open Demo Partner' });
     await expect(partnerLink).toHaveAttribute('href', urls.partner);
     await page.goto(urls.partner);
   });
@@ -98,8 +97,7 @@ test('Reviewer Hub to real Partner checkout, hosted QR, Scanner and Docs', async
 
   await test.step('Return to the Hub and open Developer Docs', async () => {
     await page.goto(urls.reviewer);
-    await page.getByRole('button', { name: /Full review/ }).click();
-    const docsLink = page.getByRole('link', { name: 'Open Developer Docs →' });
+    const docsLink = page.getByRole('link', { name: 'Open Developer Docs' });
     await expect(docsLink).toHaveAttribute('href', urls.docs);
     await page.goto(urls.docs);
     await expect(page.getByText('Partner API', { exact: true }).first()).toBeVisible();
