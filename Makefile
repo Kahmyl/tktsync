@@ -3,7 +3,7 @@ SHELL := /bin/sh
 
 LOAD_ENV = set -a; [ ! -f "$(CURDIR)/.env" ] || . "$(CURDIR)/.env"; set +a;
 
-.PHONY: setup dev dev-api dev-worker dev-admin dev-selector dev-scanner dev-docs build test lint typecheck format-check benchmark-runtime local-up local-down local-logs local-ps local-seed local-reset db-up db-down db-migrate db-reset verify-schema verify-platform-foundation verify-event-configuration verify-inventory-allocation verify-api-contract verify-reservations verify-ticketing verify-admissions verify-async-delivery verify-selection verify-reporting verify-fresh-database certify-partner-integration verify-release
+.PHONY: setup dev dev-api dev-worker dev-admin dev-selector dev-scanner dev-docs dev-partner-demo dev-reviewer seed-review-demo reset-review-demo build test lint typecheck format-check benchmark-runtime local-up local-down local-logs local-ps local-seed local-reset db-up db-down db-migrate db-reset verify-schema verify-platform-foundation verify-event-configuration verify-inventory-allocation verify-api-contract verify-reservations verify-ticketing verify-admissions verify-async-delivery verify-selection verify-reporting verify-fresh-database certify-partner-integration verify-release
 
 setup:
 	pnpm install --frozen-lockfile
@@ -29,6 +29,19 @@ dev-scanner:
 
 dev-docs:
 	pnpm --filter @tktsync/docs-web dev
+
+dev-partner-demo:
+	$(LOAD_ENV) pnpm --filter @tktsync/partner-demo-web dev
+
+dev-reviewer:
+	pnpm --filter @tktsync/reviewer-web dev
+
+seed-review-demo:
+	$(LOAD_ENV) node scripts/seed-review-demo.mjs
+
+reset-review-demo:
+	@echo "Create a fresh generation without deleting assessment history"
+	$(LOAD_ENV) REVIEW_DEMO_GENERATION=$$(date -u +%Y%m%d-%H%M%S) node scripts/seed-review-demo.mjs
 
 build:
 	cd backend && go build -o bin/api ./cmd/api && go build -o bin/worker ./cmd/worker

@@ -1,0 +1,22 @@
+{
+  "name": "@tktsync/partner-demo-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n web,bff \"vite --host 127.0.0.1 --port 4180 --strictPort\" \"PARTNER_DEMO_PUBLIC_URL=http://127.0.0.1:4180 PARTNER_DEMO_RETURN_URL=http://127.0.0.1:4181/checkout/return node server.mjs\"",
+    "serve": "node server.mjs",
+    "build": "tsc -b && vite build",
+    "test": "vitest run",
+    "lint": "eslint . server.mjs",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.2",
+    "vite": "^7.1.3"
+  }
+}

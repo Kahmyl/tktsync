@@ -64,6 +64,19 @@ x-frontend-build: &frontend-build
     VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
     VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
     VITE_BROWSER_TELEMETRY_ENDPOINT: ${VITE_BROWSER_TELEMETRY_ENDPOINT:-}
+    VITE_ADMIN_PUBLIC_URL: ${ADMIN_PUBLIC_URL:-http://localhost:${ADMIN_HOST_PORT:-54470}}
+    VITE_PARTNER_DEMO_PUBLIC_URL: ${PARTNER_DEMO_PUBLIC_URL:-http://localhost:${PARTNER_DEMO_HOST_PORT:-54474}}
+    VITE_SELECTOR_PUBLIC_URL: ${SELECTOR_PUBLIC_URL:-http://localhost:${SELECTOR_HOST_PORT:-54471}}
+    VITE_SCANNER_PUBLIC_URL: ${SCANNER_PUBLIC_URL:-http://localhost:${SCANNER_HOST_PORT:-54472}}
+    VITE_DOCS_PUBLIC_URL: ${DOCS_PUBLIC_URL:-http://localhost:${DOCS_HOST_PORT:-54473}}
+    VITE_SOURCE_URL: ${SOURCE_URL:-https://github.com/Kahmyl/tktsync}
+    VITE_ARCHITECTURE_URL: ${ARCHITECTURE_URL:-https://github.com/Kahmyl/tktsync/tree/main/docs/architecture}
+    VITE_SECURITY_URL: ${SECURITY_URL:-https://github.com/Kahmyl/tktsync/blob/main/docs/architecture/security.md}
+    VITE_RUNTIME_URL: ${RUNTIME_URL:-https://github.com/Kahmyl/tktsync/blob/main/docs/operations/runtime-model.md}
+    VITE_REVIEW_ACCESS_LABEL: ${REVIEW_ACCESS_LABEL:-}
+    VITE_REVIEW_ACCESS_EMAIL: ${REVIEW_ACCESS_EMAIL:-}
+    VITE_REVIEW_ACCESS_PASSWORD: ${REVIEW_ACCESS_PASSWORD:-}
+    VITE_REVIEW_ACCESS_INSTRUCTIONS: ${REVIEW_ACCESS_INSTRUCTIONS:-}
 
 x-frontend-healthcheck: &frontend-healthcheck
   test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/healthz]
@@ -212,6 +225,38 @@ services:
         condition: service_healthy
     ports:
       - ${DOCS_HOST_PORT:-54473}:8080
+    healthcheck: *frontend-healthcheck
+    restart: no
+
+  partner-demo:
+    build:
+      context: .
+      dockerfile: Dockerfile.partner-demo
+    environment:
+      PORT: 8080
+      API_PUBLIC_URL: http://api:8080
+      PARTNER_DEMO_PUBLIC_URL: ${PARTNER_DEMO_PUBLIC_URL:-http://localhost:${PARTNER_DEMO_HOST_PORT:-54474}}
+      PARTNER_DEMO_RETURN_URL: ${PARTNER_DEMO_RETURN_URL:-http://localhost:${PARTNER_DEMO_HOST_PORT:-54474}/checkout/return}
+      PARTNER_DEMO_CREDENTIAL: ${PARTNER_DEMO_CREDENTIAL:-}
+      SCANNER_PUBLIC_URL: ${SCANNER_PUBLIC_URL:-http://localhost:${SCANNER_HOST_PORT:-54472}}
+      REVIEWER_PUBLIC_URL: ${REVIEWER_PUBLIC_URL:-http://localhost:${REVIEWER_HOST_PORT:-54475}}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - ${PARTNER_DEMO_HOST_PORT:-54474}:8080
+    healthcheck: *frontend-healthcheck
+    restart: no
+
+  reviewer:
+    build:
+      <<: *frontend-build
+      args:
+        <<: *frontend-build-args
+        APP_PACKAGE: '@tktsync/reviewer-web'
+        APP_DIRECTORY: reviewer-web
+    ports:
+      - ${REVIEWER_HOST_PORT:-54475}:8080
     healthcheck: *frontend-healthcheck
     restart: no
 
