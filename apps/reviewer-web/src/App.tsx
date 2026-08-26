@@ -2,6 +2,54 @@ import { getReviewConfig } from './config';
 
 const config = getReviewConfig();
 
+function TktSyncLogo() {
+  return (
+    <span className="tkt-logo" aria-hidden="true">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <rect x="1" y="6" width="30" height="20" rx="5" className="tkt-logo-fill" />
+        <path
+          d="M12 6v3.2M12 14.2v3.6M12 22.8V26"
+          className="tkt-logo-stroke"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          opacity=".85"
+        />
+        <path
+          d="M25 14.4a5.2 5.2 0 0 0-9.4-1.7"
+          className="tkt-logo-stroke"
+          strokeWidth="1.9"
+          strokeLinecap="round"
+        />
+        <path
+          d="M15.6 17.6a5.2 5.2 0 0 0 9.4 1.7"
+          className="tkt-logo-stroke"
+          strokeWidth="1.9"
+          strokeLinecap="round"
+          opacity=".6"
+        />
+        <path
+          d="M25.4 11.4v3.2h-3.2"
+          className="tkt-logo-stroke"
+          strokeWidth="1.9"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M15.2 20.6v-3.2h3.2"
+          className="tkt-logo-stroke"
+          strokeWidth="1.9"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity=".6"
+        />
+      </svg>
+      <span className="tkt-logo-word">
+        Tkt<span>Sync</span>
+      </span>
+    </span>
+  );
+}
+
 type GuideAction = {
   title: string;
   location: string;
@@ -405,8 +453,8 @@ function App() {
     <>
       <header className="top">
         <a className="brand" href="#top" aria-label="TktSync Review Guide home">
-          <span aria-hidden="true">T</span>
-          <strong>TktSync Review Guide</strong>
+          <TktSyncLogo />
+          <strong>Review Guide</strong>
         </a>
         <a className="source-link" href={config.source} target="_blank" rel="noreferrer">
           Source code <span aria-hidden="true">↗</span>
