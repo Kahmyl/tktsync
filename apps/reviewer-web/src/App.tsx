@@ -45,15 +45,14 @@ const phases: ReviewPhase[] = [
     access: true,
     actions: [
       {
-        title: 'Orient yourself on the Dashboard',
+        title: 'Review the Dashboard',
         location: 'Dashboard',
         instructions: [
           'Sign in with the Reviewer access shown at the start of this phase. Use the email exactly as displayed.',
           'Read the four headline metrics: Active events, Tickets sold, Reservations today and Check-ins today.',
           'Scan Upcoming events, Attention needed and Recent activity. These are summaries—not the setup order.',
         ],
-        complete:
-          'You understand what the Dashboard reports and are ready to create the venue prerequisite.',
+        complete: 'Dashboard metrics and setup summaries have been reviewed. Continue to Venues.',
         note: 'Do not start with “Create event” for a brand-new setup. An Event needs a venue with a published layout first.',
       },
       {
@@ -73,7 +72,7 @@ const phases: ReviewPhase[] = [
           'Choose New layout version, then Edit draft.',
           'Add at least one Reserved section and set its row and seat counts.',
           'Add a General admission area and set its standing capacity.',
-          'Optionally add a Table area, then add Stage, Ring or Field orientation so the buyer can understand the plan.',
+          'Optionally add a Table area, then add Stage, Ring or Field orientation to the layout.',
         ],
         complete:
           'The builder totals match the sections, reserved seats and GA capacity you intended.',
@@ -140,7 +139,7 @@ const phases: ReviewPhase[] = [
         instructions: [
           'Reconcile Available, Held, Sold and Blocked totals with the materialized layout.',
           'Confirm the inventory table includes both reserved units and the GA pool.',
-          'Open Block inventory and Create allocation to understand the controls, then cancel without saving unless you deliberately need them.',
+          'Open Block inventory and Create allocation to review the available controls, then cancel without saving unless you deliberately need them.',
         ],
         complete:
           'All sellable units are priced and available; no accidental block or allocation restricts the demo.',
@@ -176,7 +175,7 @@ const phases: ReviewPhase[] = [
     shortName: 'Partner',
     surface: 'Demo-only application',
     purpose:
-      'See what an independent ticketing company builds around TktSync. Northstar owns this storefront and its branding; TktSync remains underneath it.',
+      'Northstar owns this storefront, buyer journey and branding. TktSync supplies the Event, inventory and ticketing infrastructure underneath it.',
     action: 'Open Demo Partner',
     href: config.partner,
     demo: true,
@@ -190,7 +189,7 @@ const phases: ReviewPhase[] = [
           'Confirm the Event list contains only live Events returned by the real Partner API.',
         ],
         complete:
-          'It is clear that Northstar is a sample external storefront, not a TktSync Partner portal.',
+          'Northstar is identified as a sample external storefront, not a TktSync Partner portal.',
       },
       {
         title: 'Open the prepared Event',
@@ -217,7 +216,7 @@ const phases: ReviewPhase[] = [
     href: config.partner,
     actions: [
       {
-        title: 'Understand the seat map',
+        title: 'Review the seat map',
         location: 'TktSync Selector',
         instructions: [
           'Confirm the same sections and orientation created in the venue layout are visible here.',
@@ -314,7 +313,7 @@ const phases: ReviewPhase[] = [
           'Scan the same QR again.',
         ],
         complete: 'The first scan is admitted and the second is rejected as Already admitted.',
-        note: 'Do not expect a second green result. Duplicate rejection is the security behavior being demonstrated.',
+        note: 'The second scan must return Already admitted. A second successful admission would be incorrect.',
       },
     ],
   },
@@ -419,8 +418,8 @@ function App() {
           <p className="eyebrow">Assessment walkthrough</p>
           <h1 id="intro-title">Follow one ticket from setup to the gate.</h1>
           <p className="intro-copy">
-            This guide assumes no ticketing or technical knowledge. Complete the phases in order;
-            every action tells you where to go, what to do and how to know it worked.
+            Complete the phases in order. Each action identifies the screen, the required steps and
+            the result to verify before continuing.
           </p>
           <div className="hero-actions">
             <a className="hero-primary" href="#admin-setup">
@@ -448,7 +447,7 @@ function App() {
 
         <section className="boundary" aria-labelledby="boundary-title">
           <div>
-            <p className="eyebrow">Know what you are looking at</p>
+            <p className="eyebrow">Product boundaries</p>
             <h2 id="boundary-title">One infrastructure product. One sample storefront.</h2>
           </div>
           <div className="boundary-grid">
@@ -531,7 +530,7 @@ function App() {
                         </ol>
                         {action.note && (
                           <aside className="action-note">
-                            <strong>Important</strong>
+                            <strong>Check</strong>
                             <p>{action.note}</p>
                           </aside>
                         )}
@@ -558,7 +557,7 @@ function App() {
                 <header className="phase-header">
                   <div>
                     <p className="surface-label">Technical review</p>
-                    <h3>Understand the implementation</h3>
+                    <h3>Review the implementation</h3>
                   </div>
                 </header>
                 <p className="phase-purpose">
