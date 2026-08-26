@@ -4,11 +4,9 @@ import { Link, useParams } from 'react-router-dom';
 import { useOperator } from '../../auth/OperatorSession';
 import {
   Button,
-  Dialog,
-  DialogActions,
+  ConfirmationDialog,
   EmptyState,
   ErrorState,
-  InlineNotice,
   LoadingState,
   PageHeader,
   Panel,
@@ -84,7 +82,6 @@ export function VenueDetailPage() {
           await replace.mutateAsync(body);
         }}
         onPublish={async (body) => {
-          if (!window.confirm('Publish this layout? Published layouts cannot be edited.')) return;
           await replace.mutateAsync(body);
           await publish.mutateAsync(editLayout.id);
           setEditLayout(null);
@@ -225,27 +222,19 @@ export function VenueDetailPage() {
           />
         )}
       </Panel>
-      <Dialog
+      <ConfirmationDialog
         open={Boolean(publishId)}
         title="Publish layout"
         description="Publishing makes this immutable version available for event materialization."
-        onClose={() => setPublishId('')}
+        confirmLabel="Publish layout"
+        cancelLabel="Keep draft"
+        busy={publish.isPending}
+        onCancel={() => setPublishId('')}
+        onConfirm={publishConfirmed}
       >
-        <div className="dialog-body">
-          <InlineNotice tone="warning">
-            Review the structured draft first. Publishing cannot be undone.
-          </InlineNotice>
-          {publish.error ? <ErrorState error={publish.error} /> : null}
-        </div>
-        <DialogActions>
-          <Button variant="secondary" onClick={() => setPublishId('')}>
-            Keep draft
-          </Button>
-          <Button busy={publish.isPending} onClick={() => void publishConfirmed()}>
-            Publish layout
-          </Button>
-        </DialogActions>
-      </Dialog>
+        <p>Review the structured draft first. Publishing cannot be undone.</p>
+        {publish.error ? <ErrorState error={publish.error} /> : null}
+      </ConfirmationDialog>
     </>
   );
 }

@@ -1741,6 +1741,46 @@ td small.table-subline,
 .dialog-body {
   padding: 20px;
 }
+.confirmation-dialog {
+  width: min(100%, 440px);
+}
+.confirmation-body {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.confirmation-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 12px;
+  background: color-mix(in oklch, var(--warning) 14%, var(--surface));
+  color: color-mix(in oklch, var(--warning) 78%, var(--foreground));
+}
+.confirmation-danger .confirmation-icon {
+  background: color-mix(in oklch, var(--destructive) 11%, var(--surface));
+  color: var(--destructive);
+}
+.confirmation-body strong {
+  display: block;
+  padding-top: 2px;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+.confirmation-detail {
+  margin-top: 5px;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+.confirmation-detail > :first-child {
+  margin-top: 0;
+}
+.confirmation-detail > :last-child {
+  margin-bottom: 0;
+}
 .dialog-actions {
   min-height: 62px;
   display: flex;

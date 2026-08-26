@@ -2,6 +2,8 @@ import {
   Children,
   cloneElement,
   useEffect,
+  useId,
+  useRef,
   useState,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
@@ -10,7 +12,7 @@ import {
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from 'react';
-import { AlertCircle, Check, Copy, LoaderCircle } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Check, Copy, LoaderCircle } from 'lucide-react';
 import { AdminApiError } from '../features/admin/api';
 import { eventStateMeta, formatNumber } from '../lib/format';
 import type { EventState } from '../features/admin/types';
@@ -324,12 +326,54 @@ export function Dialog({
   onClose: () => void;
   className?: string;
 }) {
+  const titleId = useId();
+  const descriptionId = useId();
+  const dialogRef = useRef<HTMLElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
     if (!open) return;
-    const close = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
-    window.addEventListener('keydown', close);
-    return () => window.removeEventListener('keydown', close);
-  }, [open, onClose]);
+    const previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusableSelector =
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusDialog = window.requestAnimationFrame(() => {
+      const preferred = dialogRef.current?.querySelector<HTMLElement>('[data-autofocus]');
+      const first = dialogRef.current?.querySelector<HTMLElement>(focusableSelector);
+      (preferred ?? first ?? dialogRef.current)?.focus();
+    });
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(focusableSelector),
+      );
+      if (!focusable.length) {
+        event.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => {
+      window.cancelAnimationFrame(focusDialog);
+      window.removeEventListener('keydown', handleKey);
+      previousFocus?.focus();
+    };
+  }, [open]);
   if (!open) return null;
   return (
     <div
@@ -338,14 +382,17 @@ export function Dialog({
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
       <section
+        ref={dialogRef}
         className={`dialog ${className}`}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="dialog-title"
+        aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
+        tabIndex={-1}
       >
         <div className="dialog-header">
-          <h2 id="dialog-title">{title}</h2>
-          {description ? <p>{description}</p> : null}
+          <h2 id={titleId}>{title}</h2>
+          {description ? <p id={descriptionId}>{description}</p> : null}
         </div>
         {children}
       </section>
@@ -355,6 +402,67 @@ export function Dialog({
 
 export function DialogActions({ children }: { children: ReactNode }) {
   return <div className="dialog-actions">{Children.toArray(children)}</div>;
+}
+
+export function ConfirmationDialog({
+  open,
+  title,
+  description,
+  confirmLabel,
+  cancelLabel = 'Cancel',
+  tone = 'warning',
+  busy = false,
+  children,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  cancelLabel?: string;
+  tone?: 'warning' | 'danger';
+  busy?: boolean;
+  children?: ReactNode;
+  onConfirm: () => void | Promise<void>;
+  onCancel: () => void;
+}) {
+  const close = () => {
+    if (!busy) onCancel();
+  };
+  return (
+    <Dialog
+      open={open}
+      title={title}
+      description={description}
+      onClose={close}
+      className={`confirmation-dialog confirmation-${tone}`}
+    >
+      <div className="dialog-body confirmation-body">
+        <span className="confirmation-icon" aria-hidden="true">
+          <AlertTriangle size={20} />
+        </span>
+        <div>
+          <strong>
+            {tone === 'danger' ? 'This action has an immediate effect' : 'Review before continuing'}
+          </strong>
+          {children ? <div className="confirmation-detail">{children}</div> : null}
+        </div>
+      </div>
+      <DialogActions>
+        <Button variant="secondary" data-autofocus onClick={close} disabled={busy}>
+          {cancelLabel}
+        </Button>
+        <Button
+          variant={tone === 'danger' ? 'danger' : 'primary'}
+          busy={busy}
+          onClick={() => void onConfirm()}
+        >
+          {confirmLabel}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
 }
 
 export function SecretDialog({

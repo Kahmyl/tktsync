@@ -1,6 +1,13 @@
 import { Eye, Plus, Save, Send, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Field, InlineNotice, Input, Select } from '../../../components/ui';
+import {
+  Button,
+  ConfirmationDialog,
+  Field,
+  InlineNotice,
+  Input,
+  Select,
+} from '../../../components/ui';
 import type { VenueLayoutDetail } from '../../admin/types';
 import { LayoutCanvas } from './LayoutCanvas';
 import { fromLayout, stableKey, toLayout, type BuilderObject } from './model';
@@ -37,6 +44,7 @@ export function LayoutBuilder({
   const [selectedKey, setSelectedKey] = useState(objects[0]?.object_key ?? '');
   const [preview, setPreview] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [confirmation, setConfirmation] = useState<'publish' | 'discard' | null>(null);
   const selected = objects.find((item) => item.object_key === selectedKey);
   const totals = useMemo(() => toLayout(objects), [objects]);
   useEffect(() => {
@@ -85,8 +93,8 @@ export function LayoutBuilder({
     setDirty(true);
   };
   const close = () => {
-    if (!dirty || window.confirm('You have unsaved layout changes. Leave without saving?'))
-      onClose();
+    if (dirty) setConfirmation('discard');
+    else onClose();
   };
   return (
     <div
@@ -117,7 +125,7 @@ export function LayoutBuilder({
           <Button
             busy={publishing}
             disabled={!totals.sections.length}
-            onClick={() => void onPublish(totals)}
+            onClick={() => setConfirmation('publish')}
           >
             <Send size={16} />
             Publish
@@ -329,6 +337,32 @@ export function LayoutBuilder({
           </aside>
         )}
       </div>
+      <ConfirmationDialog
+        open={confirmation === 'publish'}
+        title="Publish layout"
+        description="This saves the current floor plan and publishes it as an immutable venue layout."
+        confirmLabel="Publish layout"
+        cancelLabel="Continue editing"
+        busy={publishing}
+        onCancel={() => setConfirmation(null)}
+        onConfirm={() => onPublish(totals)}
+      >
+        <p>
+          Check the section names, capacities, seat numbering and orientation before publishing.
+        </p>
+      </ConfirmationDialog>
+      <ConfirmationDialog
+        open={confirmation === 'discard'}
+        title="Discard unsaved changes?"
+        description="The changes made since the last save will be lost."
+        confirmLabel="Discard changes"
+        cancelLabel="Continue editing"
+        tone="danger"
+        onCancel={() => setConfirmation(null)}
+        onConfirm={onClose}
+      >
+        <p>Save the draft first if you want to keep the current floor-plan changes.</p>
+      </ConfirmationDialog>
     </div>
   );
 }

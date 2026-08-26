@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   Button,
+  ConfirmationDialog,
   Dialog,
   DialogActions,
   EmptyState,
@@ -45,6 +46,7 @@ export function RestrictionsPanel({
   const [partner, setPartner] = useState('');
   const [targets, setTargets] = useState<InventoryTargets>(emptyTargets());
   const [reclassify, setReclassify] = useState<InventoryRestriction | null>(null);
+  const [releaseTarget, setReleaseTarget] = useState<InventoryRestriction | null>(null);
   const invalidate = [
     adminKeys.restrictions(eventId),
     adminKeys.inventory(eventId),
@@ -178,12 +180,8 @@ export function RestrictionsPanel({
                     variant="secondary"
                     busy={release.isPending && release.variables?.id === item.id}
                     onClick={() => {
-                      if (
-                        window.confirm(
-                          `Release this ${item.kind === 'BLOCK' ? 'block' : 'allocation'}?`,
-                        )
-                      )
-                        void release.mutateAsync(item);
+                      release.reset();
+                      setReleaseTarget(item);
                     }}
                   >
                     Release
@@ -199,6 +197,31 @@ export function RestrictionsPanel({
           description="Available inventory has no active operational restrictions."
         />
       )}
+      <ConfirmationDialog
+        open={Boolean(releaseTarget)}
+        title={`Release ${releaseTarget?.kind === 'BLOCK' ? 'inventory block' : 'allocation'}?`}
+        description="The controlled inventory will return to shared availability immediately."
+        confirmLabel="Release inventory"
+        cancelLabel="Keep restriction"
+        tone="danger"
+        busy={release.isPending}
+        onCancel={() => {
+          setReleaseTarget(null);
+          release.reset();
+        }}
+        onConfirm={async () => {
+          if (!releaseTarget) return;
+          await release.mutateAsync(releaseTarget);
+          setReleaseTarget(null);
+        }}
+      >
+        <p>
+          {releaseTarget
+            ? `${releaseTarget.reserved_quantity} reserved and ${releaseTarget.ga_quantity} standing ticket${releaseTarget.reserved_quantity + releaseTarget.ga_quantity === 1 ? '' : 's'} will no longer be protected by this restriction.`
+            : ''}
+        </p>
+        {release.error ? <ErrorState error={release.error} /> : null}
+      </ConfirmationDialog>
       <Dialog
         open={Boolean(kind)}
         title={kind === 'BLOCK' ? 'Block inventory' : 'Create allocation'}
