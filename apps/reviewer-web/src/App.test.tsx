@@ -30,6 +30,8 @@ describe('reviewer walkthrough player', () => {
 
   it('includes schedule verification and recovery before Event creation', () => {
     const create = phases[0]!.actions.find((action) => action.title === 'Create the Event draft');
+    expect(create?.instructions.join(' ')).toContain('any Event name you want');
+    expect(create?.instructions.join(' ')).not.toContain('Reviewer Walkthrough Event');
     expect(create?.instructions.join(' ')).toContain('all six date and time fields');
     expect(create?.instructions.join(' ')).toContain('10 minutes before the current time');
     expect(create?.instructions.join(' ')).toContain('do not use a future Sales open time');

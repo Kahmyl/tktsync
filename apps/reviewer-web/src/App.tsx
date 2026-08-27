@@ -152,7 +152,7 @@ export const phases: ReviewPhase[] = [
         href: appPath(config.admin, '/events/new'),
         cta: 'Open Create Event',
         instructions: [
-          'Use the review Event name shown in this guide, then select the venue you just prepared.',
+          'Enter any Event name you want. Choose a name you can recognize later, then select the venue you just prepared.',
           'Set Event start to a future date and Event end to a later time on that date.',
           'Set Sales open to at least 10 minutes before the current time. This is essential: do not use a future Sales open time.',
           'Set Sales close after the current time. Set Admission open to at least 10 minutes before the current time and Admission close after the review—preferably after the Event ends. Admission must already be open for the Scanner proof.',

@@ -56,6 +56,14 @@ test('Reviewer Hub and Partner Demo have no document overflow at mobile widths',
   }
 });
 
+test('Reviewer Hub lets the reviewer choose any Event name', async ({ page }) => {
+  await page.goto('http://127.0.0.1:4177/#admin-setup-5');
+  await expect(page.getByRole('heading', { name: 'Create the Event draft' })).toBeVisible();
+  await expect(page.getByText(/Enter any Event name you want/)).toBeVisible();
+  await expect(page.getByLabel('Use this Event name throughout the review')).toHaveCount(0);
+  await expect(page.getByText('Reviewer Walkthrough Event')).toHaveCount(0);
+});
+
 test('Demo Partner distinguishes deployment configuration from invalid credentials', async ({
   page,
 }) => {

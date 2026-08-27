@@ -4,8 +4,6 @@ import { phases } from './App';
 import { getReviewConfig } from './config';
 
 const config = getReviewConfig();
-const eventKey = 'tktsync-review-event-name';
-const defaultEventName = 'Reviewer Walkthrough Event';
 
 type ActionSlide = {
   kind: 'action';
@@ -92,11 +90,6 @@ export default function ReviewPlayer() {
     return found < 0 ? 0 : found;
   });
   const [direction, setDirection] = useState<'forward' | 'back'>('forward');
-  const [eventName, setEventName] = useState(() =>
-    typeof window === 'undefined'
-      ? defaultEventName
-      : window.localStorage.getItem(eventKey) || defaultEventName,
-  );
   const slide = slides[index]!;
 
   const move = useCallback(
@@ -119,12 +112,6 @@ export default function ReviewPlayer() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [index, move]);
-
-  const changeEventName = (value: string) => {
-    const next = value.slice(0, 80);
-    setEventName(next);
-    window.localStorage.setItem(eventKey, next);
-  };
 
   const content = () => {
     if (slide.kind === 'welcome')
@@ -249,7 +236,6 @@ export default function ReviewPlayer() {
       );
 
     const { phase, phaseIndex, action, actionIndex } = slide;
-    const isEventCreation = action.title === 'Create the Event draft';
     return (
       <section className="action-slide">
         <div className="action-heading">
@@ -267,32 +253,12 @@ export default function ReviewPlayer() {
           {action.location}
         </p>
         {phase.access && actionIndex === 0 && <AccessDetails />}
-        {isEventCreation && (
-          <div className="review-context">
-            <label htmlFor="review-event-name">Use this Event name throughout the review</label>
-            <input
-              id="review-event-name"
-              value={eventName}
-              onChange={(event) => changeEventName(event.target.value)}
-            />
-            <p>
-              The guide remembers this name on this device and refers to it in every later phase.
-            </p>
-          </div>
-        )}
         <div className="instruction-layout">
           <div>
             <p className="section-label">Do this</p>
             <ol className="action-instructions">
               {action.instructions.map((instruction) => (
-                <li key={instruction}>
-                  {isEventCreation && instruction.includes('review Event name shown')
-                    ? instruction.replace(
-                        'the review Event name shown in this guide',
-                        `“${eventName || defaultEventName}”`,
-                      )
-                    : instruction}
-                </li>
+                <li key={instruction}>{instruction}</li>
               ))}
             </ol>
           </div>
