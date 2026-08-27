@@ -33,11 +33,16 @@ describe('reviewer walkthrough player', () => {
     expect(create?.instructions.join(' ')).toContain('any Event name you want');
     expect(create?.instructions.join(' ')).not.toContain('Reviewer Walkthrough Event');
     expect(create?.instructions.join(' ')).toContain('all six date and time fields');
-    expect(create?.instructions.join(' ')).toContain('10 minutes before the current time');
-    expect(create?.instructions.join(' ')).toContain('Partner storefront can sell a ticket now');
-    expect(create?.instructions.join(' ')).toContain('blocks the purchase journey until then');
-    expect(create?.instructions.join(' ')).toContain('Scanner can admit the issued ticket now');
-    expect(create?.instructions.join(' ')).toContain('correctly returns Entry is not open');
+    expect(create?.instructions.join(' ')).toContain('Review timing');
+    expect(create?.instructions.join(' ')).toContain(
+      'both Sales open and Admission open to at least 10 minutes before the current time',
+    );
+    expect(create?.instructions.join(' ')).toContain('let you buy a ticket and test Scanner');
+    expect(create?.instructions.join(' ')).toContain('26 October');
+    expect(create?.instructions.join(' ')).toContain('Entry is not open until 26 October arrives');
+    expect(create?.instructions.join(' ')).toContain(
+      'wait until that time before the Partner storefront can sell the ticket',
+    );
     expect(create?.instructions.join(' ')).toContain('If any line says Not scheduled');
   });
 
@@ -55,7 +60,7 @@ describe('reviewer walkthrough player', () => {
     expect(create?.instructions.join(' ')).toContain(
       'Admission open to at least 10 minutes before the current time',
     );
-    expect(create?.note).toContain('admission window controls when active tickets may enter');
+    expect(create?.note).toContain('complete the purchase and Scanner proof now');
 
     const scanner = phases.find((phase) => phase.id === 'scanner');
     expect(JSON.stringify(scanner)).toContain('Manual admission code');
