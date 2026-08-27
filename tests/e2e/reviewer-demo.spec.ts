@@ -131,7 +131,11 @@ test('Demo Partner renders real-contract Events and starts selection through its
 
 test('Demo Partner renders checkout, real lifecycle calls, ticket details and hosted QR', async ({
   page,
+  context,
 }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], {
+    origin: 'http://127.0.0.1:4180',
+  });
   const calls: string[] = [];
   await page.route('**/demo-api/connections', (route) =>
     route.fulfill({
@@ -204,7 +208,12 @@ test('Demo Partner renders checkout, real lifecycle calls, ticket details and ho
           tickets: [{ id: 'tkt_demo', status: 'ACTIVE' }],
         },
         credentials: [
-          { ticket_id: 'tkt_demo', status: 'ACTIVE', qr_url: 'https://api.example.test/qr' },
+          {
+            ticket_id: 'tkt_demo',
+            status: 'ACTIVE',
+            qr_payload: 'qr1.demo-admission-code',
+            qr_url: 'https://api.example.test/qr',
+          },
         ],
         scanner_url: 'https://scanner.example.test',
       }),
@@ -221,6 +230,9 @@ test('Demo Partner renders checkout, real lifecycle calls, ticket details and ho
   await expect(page.getByText('VIP Reserved · Row A · Seat 12')).toBeVisible();
   await expect(page.getByText('Meridian Arena')).toBeVisible();
   await expect(page.getByText('DEMO', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Manual admission code')).toHaveValue('qr1.demo-admission-code');
+  await page.getByRole('button', { name: 'Copy manual code' }).click();
+  await expect(page.getByRole('button', { name: 'Manual code copied' })).toBeVisible();
   await expect(page.getByText('tkt_demo')).toBeVisible();
   await expect(page.getByRole('img', { name: /Entry QR code/ })).toHaveAttribute(
     'src',

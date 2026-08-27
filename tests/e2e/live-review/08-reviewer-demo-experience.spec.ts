@@ -13,7 +13,7 @@ const partnerCredential = process.env.PARTNER_DEMO_CREDENTIAL ?? '';
 async function manualScan(page: Page, payload: string) {
   await page.getByRole('button', { name: 'Enter code manually' }).first().click();
   const dialog = page.getByRole('dialog', { name: 'Enter code manually' });
-  await dialog.getByLabel('Ticket code').fill(payload);
+  await dialog.getByLabel('Manual admission code').fill(payload);
   await dialog.getByRole('button', { name: 'Check ticket' }).click();
 }
 

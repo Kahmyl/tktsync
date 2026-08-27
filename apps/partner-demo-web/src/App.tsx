@@ -583,6 +583,7 @@ function CheckoutPage({ partnerName }: { partnerName: string }) {
 function TicketPage({ partnerName }: { partnerName: string }) {
   const [result, setResult] = useState<TicketResult>();
   const [error, setError] = useState('');
+  const [copiedTicket, setCopiedTicket] = useState('');
   useEffect(() => {
     demoAPI<TicketResult>('/ticket')
       .then(setResult)
@@ -639,6 +640,39 @@ function TicketPage({ partnerName }: { partnerName: string }) {
               <img src={credential?.qr_url} alt={`Entry QR code for ticket ${ticket.id}`} />
               <strong>QR generated and validated by TktSync</strong>
               <span>Present this code at entry</span>
+              {credential?.qr_payload && (
+                <div className="manual-admission">
+                  <label htmlFor={`manual-code-${ticket.id}`}>Manual admission code</label>
+                  <textarea
+                    id={`manual-code-${ticket.id}`}
+                    value={credential.qr_payload}
+                    readOnly
+                    rows={2}
+                    spellCheck={false}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard
+                        .writeText(credential.qr_payload)
+                        .then(() => setCopiedTicket(ticket.id))
+                        .catch(() => {
+                          const field = document.getElementById(
+                            `manual-code-${ticket.id}`,
+                          ) as HTMLTextAreaElement | null;
+                          field?.focus();
+                          field?.select();
+                        });
+                    }}
+                  >
+                    {copiedTicket === ticket.id ? 'Manual code copied' : 'Copy manual code'}
+                  </button>
+                  <small>
+                    Use this only with Scanner’s desktop manual-entry option. This is different from
+                    the public Ticket ID.
+                  </small>
+                </div>
+              )}
             </div>
           </article>
         );
@@ -647,8 +681,9 @@ function TicketPage({ partnerName }: { partnerName: string }) {
         <div>
           <h2>Ready to test admission?</h2>
           <p>
-            Open Scanner and scan the QR above. The first scan should be admitted; a second scan
-            should be rejected as a duplicate.
+            On a phone, scan the QR above. On desktop, copy the labelled Manual admission code and
+            paste it into Scanner. The first check should be admitted; a second should be rejected
+            as a duplicate.
           </p>
         </div>
         <a href={result.scanner_url} target="_blank" rel="noreferrer">

@@ -49,7 +49,7 @@ async function chooseEvent(page: Page, eventName: string) {
 async function manualScan(page: Page, credential: string) {
   await page.getByRole('button', { name: 'Enter code manually' }).first().click();
   const sheet = page.getByRole('dialog', { name: 'Enter code manually' });
-  await sheet.getByLabel('Ticket code').fill(credential);
+  await sheet.getByLabel('Manual admission code').fill(credential);
   await sheet.getByRole('button', { name: 'Check ticket' }).click();
 }
 

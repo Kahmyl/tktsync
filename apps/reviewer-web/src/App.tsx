@@ -155,13 +155,13 @@ export const phases: ReviewPhase[] = [
           'Use the review Event name shown in this guide, then select the venue you just prepared.',
           'Set Event start to a future date and Event end to a later time on that date.',
           'Set Sales open to at least 10 minutes before the current time. This is essential: do not use a future Sales open time.',
-          'Set Sales close after the current time, then set Admission open before the Event starts and Admission close after admission opens.',
+          'Set Sales close after the current time. Set Admission open to at least 10 minutes before the current time and Admission close after the review—preferably after the Event ends. Admission must already be open for the Scanner proof.',
           'Confirm that all six date and time fields are filled and the timezone is correct.',
           'On Review, verify every schedule value. If any line says Not scheduled, choose Back and enter it again before creating the Event.',
           'Review the summary and choose Create draft event.',
         ],
         complete: 'The Event opens in Draft state with an Event setup checklist.',
-        note: 'Sales open must be in the past so Step 14 presents Open sales. Creating the draft still does not put tickets on sale until you deliberately choose that action.',
+        note: 'Sales open and Admission open must both be in the past. Sales controls whether tickets can be bought; Admission controls whether Scanner can admit the issued ticket. Creating the draft still does not put tickets on sale until you deliberately choose Open sales.',
       },
       {
         title: 'Materialize the published layout',
@@ -388,6 +388,7 @@ export const phases: ReviewPhase[] = [
         instructions: [
           'Verify Event, venue, date, section, row and seat or area.',
           'Find the Event reference, public Ticket ID and Active status. Keep the Event reference visible for Scanner.',
+          'For desktop Scanner testing, find the clearly labelled Manual admission code and use Copy manual code. The public Ticket ID is not the admission code.',
           'Confirm the QR image is hosted by TktSync even though the surrounding ticket design belongs to the Partner.',
         ],
         complete:
@@ -412,7 +413,7 @@ export const phases: ReviewPhase[] = [
         instructions: [
           'Sign in with the Reviewer access shown at the start of this phase. Use the email exactly as displayed.',
           'Choose the Event whose Event reference matches the reference printed on the issued ticket. This distinguishes Events even when their names, dates and venues match.',
-          'On a phone, allow rear-camera access only when prompted. On desktop, use the supported manual credential entry when available.',
+          'On a phone, allow rear-camera access only when prompted. On desktop, choose Enter code manually and paste the Manual admission code copied from the ticket page—not the public Ticket ID.',
         ],
         complete: 'Scanner shows the selected Event and is ready to validate a credential.',
       },
@@ -420,12 +421,12 @@ export const phases: ReviewPhase[] = [
         title: 'Prove admission and duplicate protection',
         location: 'Scanner → scan',
         instructions: [
-          'Scan the QR from the Partner ticket.',
+          'On a phone, scan the QR from the Partner ticket. On desktop, submit the copied Manual admission code.',
           'Read the ADMITTED result and verify the expected ticket/seat details.',
           'Scan the same QR again.',
         ],
         complete: 'The first scan is admitted and the second is rejected as Already admitted.',
-        note: 'The second scan must return Already admitted. A second successful admission would be incorrect.',
+        note: 'If Scanner says Entry is not open, return to Admin and verify that Admission open is in the past and Admission close is still in the future. The second scan must return Already admitted; a second successful admission would be incorrect.',
       },
     ],
   },

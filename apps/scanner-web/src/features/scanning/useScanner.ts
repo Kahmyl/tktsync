@@ -187,7 +187,7 @@ export function useScanner(token: string, selectedEvent?: ScannerEvent) {
     if (!phoneDevice) {
       setCameraState('phone-required');
       setCameraMessage(
-        'Open TktSync Scanner on a phone with a rear camera. You can enter a ticket code manually on this device.',
+        'Open TktSync Scanner on a phone with a rear camera. You can enter a manual admission code on this device.',
       );
       return;
     }
@@ -213,7 +213,7 @@ export function useScanner(token: string, selectedEvent?: ScannerEvent) {
         nextStream.getTracks().forEach((streamTrack) => streamTrack.stop());
         setCameraState('rear-camera-missing');
         setCameraMessage(
-          'A rear camera was not found. Use a phone with a rear camera or enter the ticket code manually.',
+          'A rear camera was not found. Use a phone with a rear camera or enter the manual admission code.',
         );
         return;
       }
@@ -224,7 +224,7 @@ export function useScanner(token: string, selectedEvent?: ScannerEvent) {
       setCameraState('active');
     } catch {
       setCameraState('denied');
-      setCameraMessage('Camera access is off. Allow access or enter the ticket code manually.');
+      setCameraMessage('Camera access is off. Allow access or enter the manual admission code.');
     }
   }, [phoneDevice]);
 
@@ -257,7 +257,7 @@ export function useScanner(token: string, selectedEvent?: ScannerEvent) {
     if (!Detector) {
       setCameraState('unsupported');
       setCameraMessage(
-        'Automatic QR scanning is not available here. Enter the ticket code manually.',
+        'Automatic QR scanning is not available here. Enter the manual admission code.',
       );
       return;
     }

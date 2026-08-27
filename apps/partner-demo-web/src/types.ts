@@ -34,6 +34,6 @@ export type TicketResult = Order & {
     sale: { id: string; confirmed_at: string; partner_order_ref: string };
     tickets: { id: string; status: string }[];
   };
-  credentials: { ticket_id: string; status: string; qr_url: string }[];
+  credentials: { ticket_id: string; status: string; qr_payload: string; qr_url: string }[];
   scanner_url: string;
 };

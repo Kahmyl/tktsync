@@ -269,7 +269,7 @@ test('04 Admin support and reporting', async ({ page }) => {
     await scanner.getByRole('button', { name: new RegExp(`Select ${reviewNames.event}`) }).click();
     await scanner.getByRole('button', { name: 'Enter code manually' }).first().click();
     const manual = scanner.getByRole('dialog', { name: 'Enter code manually' });
-    await manual.getByLabel('Ticket code').fill(await getSecret('ticketBQRBeforeVoid'));
+    await manual.getByLabel('Manual admission code').fill(await getSecret('ticketBQRBeforeVoid'));
     await manual.getByRole('button', { name: 'Check ticket' }).click();
     await expect(scanner.getByRole('heading', { name: 'Ticket not valid' })).toBeVisible();
     await expect(scanner.getByRole('heading', { name: 'Admit guest' })).toHaveCount(0);

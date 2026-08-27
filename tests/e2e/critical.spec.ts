@@ -358,7 +358,7 @@ async function openScanner(page: Page) {
 
 async function manualScan(page: Page, code: string) {
   await page.getByRole('button', { name: 'Enter code manually' }).first().click();
-  await page.getByLabel('Ticket code').fill(code);
+  await page.getByLabel('Manual admission code').fill(code);
   await page.getByRole('button', { name: 'Check ticket' }).click();
 }
 
@@ -758,7 +758,7 @@ test('Scanner camera denial remains usable and mobile layout has no body overflo
   await openScanner(page);
   await page.getByRole('button', { name: 'Open camera' }).click();
   await expect(
-    page.getByText('Camera access is off. Allow access or enter the ticket code manually.'),
+    page.getByText('Camera access is off. Allow access or enter the manual admission code.'),
   ).toBeVisible();
   await manualScan(page, 'manual-after-denial');
   await expect(page.getByRole('heading', { name: 'Ticket not valid' })).toBeVisible();
@@ -788,7 +788,7 @@ test('Scanner rejects a front camera and asks for a phone with a rear camera', a
   await expect(page.getByText('Rear camera not found', { exact: true })).toBeVisible();
   await expect(
     page.getByText(
-      'A rear camera was not found. Use a phone with a rear camera or enter the ticket code manually.',
+      'A rear camera was not found. Use a phone with a rear camera or enter the manual admission code.',
     ),
   ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Enter code manually' }).first()).toBeVisible();

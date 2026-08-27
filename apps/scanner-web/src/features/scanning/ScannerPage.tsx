@@ -275,7 +275,7 @@ function EventPicker({
             <Smartphone size={21} />
             <span>
               <strong>Continue on a phone for camera scanning</strong>
-              This device can still be used to enter ticket codes manually.
+              This device can still be used to enter a manual admission code.
             </span>
           </div>
         )}
@@ -520,7 +520,7 @@ export function ScannerPage() {
                 </strong>
                 <p>
                   {!scanner.phoneDevice
-                    ? 'Open TktSync Scanner on a phone with a rear camera. You can enter a ticket code manually on this device.'
+                    ? 'Open TktSync Scanner on a phone with a rear camera. You can enter a manual admission code on this device.'
                     : scanner.cameraMessage ||
                       'Open the rear camera, then hold the code steady inside the frame.'}
                 </p>
@@ -649,7 +649,7 @@ export function ScannerPage() {
             setManualOpen(false);
           }}
         >
-          <label htmlFor="ticket-code">Ticket code</label>
+          <label htmlFor="ticket-code">Manual admission code</label>
           <input
             id="ticket-code"
             name="ticket_code"
@@ -658,7 +658,7 @@ export function ScannerPage() {
             onChange={(event) => scanner.setManual(event.target.value)}
             autoComplete="off"
             spellCheck={false}
-            placeholder="Enter ticket code"
+            placeholder="Paste manual admission code"
           />
           <button className="scanner-primary" type="submit" disabled={scanner.busy}>
             {scanner.busy ? 'Checking ticket…' : 'Check ticket'}

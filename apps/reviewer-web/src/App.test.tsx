@@ -45,6 +45,19 @@ describe('reviewer walkthrough player', () => {
     expect(readiness?.complete).toContain('On sale');
   });
 
+  it('keeps admission open for the live Scanner proof and identifies the desktop code', () => {
+    const create = phases[0]!.actions.find((action) => action.title === 'Create the Event draft');
+    expect(create?.instructions.join(' ')).toContain(
+      'Admission open to at least 10 minutes before the current time',
+    );
+    expect(create?.note).toContain('Admission controls whether Scanner can admit');
+
+    const scanner = phases.find((phase) => phase.id === 'scanner');
+    expect(JSON.stringify(scanner)).toContain('Manual admission code');
+    expect(JSON.stringify(scanner)).toContain('not the public Ticket ID');
+    expect(JSON.stringify(scanner)).toContain('Entry is not open');
+  });
+
   it('warns the reviewer to save the one-time Partner credential before closing it', () => {
     const credential = phases[0]!.actions.find((action) =>
       action.title.includes('save its credential'),

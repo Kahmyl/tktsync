@@ -24,7 +24,7 @@ type ScanResponse = {
 async function manualScan(page: Page, ticketCode: string) {
   await page.getByRole('button', { name: 'Enter code manually' }).first().click();
   const sheet = page.getByRole('dialog', { name: 'Enter code manually' });
-  await sheet.getByLabel('Ticket code').fill(ticketCode);
+  await sheet.getByLabel('Manual admission code').fill(ticketCode);
   await sheet.getByRole('button', { name: 'Check ticket' }).click();
 }
 
