@@ -254,7 +254,7 @@ export const phases: ReviewPhase[] = [
         instructions: [
           'Confirm Sales policy, Layout & seats, Pricing and Inventory all show Configured.',
           'Check that Partner access is 1 or more.',
-          'Confirm the primary action says Open sales. If it says Schedule sales, the Sales open time was set in the future: do not continue to the Partner storefront; recreate the review Event with Sales open at least 10 minutes in the past.',
+          'Confirm the primary action says Open sales. If it says Schedule sales, the Sales open time was set in the future: do not continue to the Partner storefront; create a replacement Event with Sales open at least 10 minutes in the past and add a short unique suffix such as “Retry 2” to its name.',
           'Choose Open sales only after those checks pass.',
           'Wait for the Event badge to say On sale before leaving Admin.',
         ],
@@ -387,7 +387,7 @@ export const phases: ReviewPhase[] = [
         location: 'Partner storefront → Your ticket',
         instructions: [
           'Verify Event, venue, date, section, row and seat or area.',
-          'Find the public Ticket ID and Active status.',
+          'Find the Event reference, public Ticket ID and Active status. Keep the Event reference visible for Scanner.',
           'Confirm the QR image is hosted by TktSync even though the surrounding ticket design belongs to the Partner.',
         ],
         complete:
@@ -411,7 +411,7 @@ export const phases: ReviewPhase[] = [
         location: 'Scanner → sign in',
         instructions: [
           'Sign in with the Reviewer access shown at the start of this phase. Use the email exactly as displayed.',
-          'Choose the same Event used for the purchase.',
+          'Choose the Event whose Event reference matches the reference printed on the issued ticket. This distinguishes Events even when their names, dates and venues match.',
           'On a phone, allow rear-camera access only when prompted. On desktop, use the supported manual credential entry when available.',
         ],
         complete: 'Scanner shows the selected Event and is ready to validate a credential.',

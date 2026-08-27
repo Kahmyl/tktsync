@@ -517,13 +517,14 @@ input:focus-visible {
   background: var(--scan-success);
 }
 .event-card-status em {
-  padding: 3px 7px;
+  padding: 4px 8px;
   border-radius: 99px;
   color: #667476;
   background: #f0f4f3;
-  font-size: 8px;
+  font-size: 10px;
   font-style: normal;
   font-weight: 750;
+  white-space: nowrap;
 }
 .event-card-copy .event-card-title {
   display: block;

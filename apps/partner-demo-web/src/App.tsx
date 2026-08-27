@@ -21,6 +21,10 @@ function date(value?: string | null) {
     minute: '2-digit',
   }).format(new Date(value));
 }
+function eventReference(id: string) {
+  const readable = id.replace(/^evt_/i, '').replace(/[^a-z0-9]/gi, '');
+  return (readable.slice(-8) || 'EVENT').toUpperCase();
+}
 function itemName(item: Order['reservation']['items'][number]) {
   const d = item.display;
   if (item.inventory_kind === 'GA')
@@ -611,7 +615,13 @@ function TicketPage({ partnerName }: { partnerName: string }) {
                 </div>
                 <div>
                   <dt>Venue</dt>
-                  <dd>{result.event.venue_name}</dd>
+                  <dd>{result.event.venue_name || 'Venue to be announced'}</dd>
+                </div>
+                <div>
+                  <dt>Event reference</dt>
+                  <dd>
+                    <code>{eventReference(result.event.id)}</code>
+                  </dd>
                 </div>
                 <div>
                   <dt>Ticket public ID</dt>

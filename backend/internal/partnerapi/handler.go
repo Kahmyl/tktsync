@@ -348,6 +348,8 @@ func (h *Handler) getEvent(
 		admissionOpenAt  any
 		admissionCloseAt any
 		timezoneName     *string
+		venueName        string
+		addressText      *string
 		serverTime       any
 	)
 
@@ -355,18 +357,21 @@ func (h *Handler) getEvent(
 		r.Context(),
 		`
 			SELECT
-				name,
-				state,
-				starts_at,
-				ends_at,
-				sales_open_at,
-				sales_close_at,
-				admission_open_at,
-				admission_close_at,
-				timezone_name,
+				e.name,
+				e.state,
+				e.starts_at,
+				e.ends_at,
+				e.sales_open_at,
+				e.sales_close_at,
+				e.admission_open_at,
+				e.admission_close_at,
+				e.timezone_name,
+				v.name,
+				v.address_text,
 				clock_timestamp()
-			FROM events
-			WHERE id = $1
+			FROM events e
+			JOIN venues v ON v.id = e.venue_id
+			WHERE e.id = $1
 		`,
 		eventID,
 	).Scan(
@@ -379,6 +384,8 @@ func (h *Handler) getEvent(
 		&admissionOpenAt,
 		&admissionCloseAt,
 		&timezoneName,
+		&venueName,
+		&addressText,
 		&serverTime,
 	)
 	if err != nil {
@@ -403,6 +410,8 @@ func (h *Handler) getEvent(
 			"admission_open_at":  admissionOpenAt,
 			"admission_close_at": admissionCloseAt,
 			"timezone_name":      timezoneName,
+			"venue_name":         venueName,
+			"address_text":       addressText,
 			"server_time":        serverTime,
 		},
 	)
@@ -578,6 +587,7 @@ func (h *Handler) layoutReserved(
 			SELECT
 				riu.id,
 				riu.event_section_id,
+				es.name,
 				riu.snapshot_object_key,
 				COALESCE(riu.row_label, ''),
 				riu.seat_label,
@@ -614,6 +624,7 @@ func (h *Handler) layoutReserved(
 		var (
 			id          uuid.UUID
 			sectionID   uuid.UUID
+			sectionName string
 			objectKey   string
 			row         string
 			seat        string
@@ -626,6 +637,7 @@ func (h *Handler) layoutReserved(
 		if err := rows.Scan(
 			&id,
 			&sectionID,
+			&sectionName,
 			&objectKey,
 			&row,
 			&seat,
@@ -648,6 +660,7 @@ func (h *Handler) layoutReserved(
 					publicid.EventSection,
 					sectionID,
 				),
+				"section_name":  sectionName,
 				"object_key":    objectKey,
 				"row":           row,
 				"seat":          seat,
@@ -674,12 +687,15 @@ func (h *Handler) layoutGA(
 			SELECT
 				gp.id,
 				gp.event_section_id,
+				es.name,
 				gp.snapshot_object_key,
 				gp.name,
 				gp.capacity,
 				pt.amount_minor,
 				pt.currency
 			FROM ga_inventory_pools gp
+			JOIN event_sections es
+			  ON es.id = gp.event_section_id
 			JOIN event_price_tiers pt
 			  ON pt.id = gp.price_tier_id
 			WHERE gp.event_id = $1
@@ -701,6 +717,7 @@ func (h *Handler) layoutGA(
 		var (
 			id          uuid.UUID
 			sectionID   uuid.UUID
+			sectionName string
 			objectKey   string
 			name        string
 			capacity    int
@@ -711,6 +728,7 @@ func (h *Handler) layoutGA(
 		if err := rows.Scan(
 			&id,
 			&sectionID,
+			&sectionName,
 			&objectKey,
 			&name,
 			&capacity,
@@ -731,9 +749,10 @@ func (h *Handler) layoutGA(
 					publicid.EventSection,
 					sectionID,
 				),
-				"object_key": objectKey,
-				"name":       name,
-				"capacity":   capacity,
+				"section_name": sectionName,
+				"object_key":   objectKey,
+				"name":         name,
+				"capacity":     capacity,
 				"price": map[string]any{
 					"amount_minor": amountMinor,
 					"currency":     currency,

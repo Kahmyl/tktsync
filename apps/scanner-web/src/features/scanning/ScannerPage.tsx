@@ -48,6 +48,11 @@ function formatEventTime(value?: string | null) {
   }).format(new Date(value));
 }
 
+function eventReference(id: string) {
+  const readable = id.replace(/^evt_/i, '').replace(/[^a-z0-9]/gi, '');
+  return (readable.slice(-8) || 'EVENT').toUpperCase();
+}
+
 function eventDateParts(value?: string | null) {
   if (!value) {
     return { month: 'TBA', day: '—', timing: 'Date to be announced' };
@@ -225,18 +230,16 @@ function EventPicker({
       venue: humanLabel(event.venue_name, 'Venue to be announced'),
       address: humanLabel(event.address_text, ''),
       date: eventDateParts(event.starts_at),
+      reference: eventReference(event.id),
     }));
     const totals = readable.reduce((counts, item) => {
       counts.set(item.name, (counts.get(item.name) ?? 0) + 1);
       return counts;
     }, new Map<string, number>());
-    const seen = new Map<string, number>();
-    return readable.map((item) => {
-      const position = (seen.get(item.name) ?? 0) + 1;
-      seen.set(item.name, position);
-      const total = totals.get(item.name) ?? 1;
-      return { ...item, option: total > 1 ? `Option ${position} of ${total}` : '' };
-    });
+    return readable.map((item) => ({
+      ...item,
+      duplicate: (totals.get(item.name) ?? 1) > 1,
+    }));
   }, [events]);
 
   return (
@@ -309,11 +312,11 @@ function EventPicker({
               <span>Ready to scan</span>
             </div>
             <ul className="event-list">
-              {displayEvents.map(({ event, name, venue, address, date, option }) => (
+              {displayEvents.map(({ event, name, venue, address, date, reference, duplicate }) => (
                 <li key={event.id}>
                   <button
                     type="button"
-                    aria-label={`Select ${name}, ${formatEventTime(event.starts_at)}, ${venue}`}
+                    aria-label={`Select ${name}, Event reference ${reference}, ${formatEventTime(event.starts_at)}, ${venue}`}
                     onClick={() => onSelect(event)}
                   >
                     <span className="event-date" aria-hidden="true">
@@ -325,7 +328,7 @@ function EventPicker({
                         <span>
                           <i /> Ready to scan
                         </span>
-                        {option && <em>{option}</em>}
+                        {duplicate && <em>Event reference {reference}</em>}
                       </span>
                       <strong className="event-card-title">{name}</strong>
                       <span className="event-card-time">

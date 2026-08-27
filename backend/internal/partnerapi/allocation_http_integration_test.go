@@ -649,6 +649,17 @@ func TestAdminAndPartnerAllocationHTTP(
 		)
 	}
 
+	var eventReadBody struct {
+		VenueName   string  `json:"venue_name"`
+		AddressText *string `json:"address_text"`
+	}
+	if err := json.Unmarshal(eventRead.Body.Bytes(), &eventReadBody); err != nil {
+		t.Fatalf("decode Partner Event read: %v", err)
+	}
+	if !strings.HasPrefix(eventReadBody.VenueName, "Allocation HTTP Venue ") {
+		t.Fatalf("Partner Event venue_name=%q", eventReadBody.VenueName)
+	}
+
 	layoutRead := partnerRequest(
 		t,
 		handler,
@@ -673,6 +684,24 @@ func TestAdminAndPartnerAllocationHTTP(
 		t.Fatal(
 			"Partner layout leaked Venue layout UUID",
 		)
+	}
+
+	var layoutReadBody struct {
+		ReservedUnits []struct {
+			SectionName string `json:"section_name"`
+		} `json:"reserved_units"`
+		GAPools []struct {
+			SectionName string `json:"section_name"`
+		} `json:"ga_pools"`
+	}
+	if err := json.Unmarshal(layoutRead.Body.Bytes(), &layoutReadBody); err != nil {
+		t.Fatalf("decode Partner layout: %v", err)
+	}
+	if len(layoutReadBody.ReservedUnits) != 1 || layoutReadBody.ReservedUnits[0].SectionName != "Reserved" {
+		t.Fatalf("Partner reserved section names=%+v", layoutReadBody.ReservedUnits)
+	}
+	if len(layoutReadBody.GAPools) != 1 || layoutReadBody.GAPools[0].SectionName != "GA" {
+		t.Fatalf("Partner GA section names=%+v", layoutReadBody.GAPools)
 	}
 
 	availabilityA := partnerRequest(

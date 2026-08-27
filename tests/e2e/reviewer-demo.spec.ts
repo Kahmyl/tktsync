@@ -218,6 +218,9 @@ test('Demo Partner renders checkout, real lifecycle calls, ticket details and ho
   await expect(page.getByRole('heading', { name: 'Demo payment' })).toBeVisible();
   await page.getByRole('button', { name: 'Simulate successful payment' }).click();
   await expect(page.getByRole('heading', { name: 'Your ticket is ready.' })).toBeVisible();
+  await expect(page.getByText('VIP Reserved · Row A · Seat 12')).toBeVisible();
+  await expect(page.getByText('Meridian Arena')).toBeVisible();
+  await expect(page.getByText('DEMO', { exact: true })).toBeVisible();
   await expect(page.getByText('tkt_demo')).toBeVisible();
   await expect(page.getByRole('img', { name: /Entry QR code/ })).toHaveAttribute(
     'src',

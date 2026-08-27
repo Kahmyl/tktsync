@@ -661,7 +661,7 @@ test('Scanner signs in with Supabase, selects an authorized Event, and signs out
   await signIn(page);
   await expect(page.getByRole('heading', { name: 'Your events' })).toBeVisible();
   await expect(page.getByText('2 events assigned to you')).toBeVisible();
-  await expect(page.getByText('Option 1 of 2')).toBeVisible();
+  await expect(page.getByText(/Event reference/)).toHaveCount(2);
   await page
     .getByRole('button', { name: /Reservation Event/ })
     .first()
