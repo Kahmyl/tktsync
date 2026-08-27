@@ -224,13 +224,14 @@ export const phases: ReviewPhase[] = [
         cta: 'Open Partners',
         instructions: [
           'Open Partners, choose Add partner, enter the storefront Partner name and create it.',
+          `On the new Partner Overview, enter ${appPath(config.partner, '/checkout/return')} under Checkout return URLs and choose Save checkout URLs. Wait for Saved to appear.`,
           'Open the new Partner and choose Issue credential.',
           'Copy the complete credential immediately and save it somewhere temporary and secure before closing the dialog.',
           'Do not choose I have stored it until you have saved the credential. TktSync will not display it again.',
         ],
         complete:
-          'The Partner is Active and the complete one-time credential is safely available for the Demo Partner setup step.',
-        note: 'You will paste this exact credential into the Demo Partner setup. If it is lost, you must issue a new credential.',
+          'The Partner is Active, the exact Demo Partner checkout-return URL is saved, and the complete one-time credential is safely available for the Demo Partner setup step.',
+        note: `The required return URL is ${appPath(config.partner, '/checkout/return')}. You will paste the saved credential into Demo Partner setup. If it is lost, you must issue a new credential.`,
       },
       {
         title: 'Grant your Partner Event access',
@@ -280,11 +281,12 @@ export const phases: ReviewPhase[] = [
         cta: 'Open Partner setup',
         instructions: [
           'Use the exact Partner name and the credential you saved earlier in Admin, then choose Connect and view Events.',
+          'The name labels this sample storefront; the credential is what securely identifies the Partner to the TktSync API.',
           'To reuse a previous connection, choose View saved Partners and then Use this Partner.',
           'Confirm the storefront header now shows the selected Partner name.',
         ],
         complete: 'The selected Partner name appears above its live Event catalogue.',
-        note: 'The credential is the one-time value you saved when it was issued. If it was not saved, return to Admin and issue a new credential.',
+        note: 'The credential is the one-time value you saved when it was issued. If the page reports a deployment configuration problem, do not replace the credential—the Demo Partner server must be connected to the deployed API first.',
       },
       {
         title: 'Confirm the application boundary',

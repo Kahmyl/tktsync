@@ -8,11 +8,13 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID }
 
 const port = Number(process.env.PORT || 8080);
 const host = process.env.HOST || '0.0.0.0';
-const apiBase = (process.env.API_PUBLIC_URL || 'http://localhost:58480').replace(/\/$/, '');
-const publicURL = (process.env.PARTNER_DEMO_PUBLIC_URL || `http://localhost:${port}`).replace(
-  /\/$/,
-  '',
-);
+const configuredAPIBase = process.env.API_PUBLIC_URL || process.env.VITE_API_BASE_URL || '';
+const apiBase = (configuredAPIBase || 'http://localhost:58480').replace(/\/$/, '');
+const vercelHost = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || '';
+const publicURL = (
+  process.env.PARTNER_DEMO_PUBLIC_URL ||
+  (vercelHost ? `https://${vercelHost}` : `http://localhost:${port}`)
+).replace(/\/$/, '');
 const returnURL = process.env.PARTNER_DEMO_RETURN_URL || `${publicURL}/checkout/return`;
 const partnerCredential = process.env.PARTNER_DEMO_CREDENTIAL || '';
 const sessionSecret = process.env.PARTNER_DEMO_SESSION_SECRET || '';
@@ -147,6 +149,25 @@ async function partner(path, options = {}, credential = partnerCredential) {
   return data;
 }
 
+async function validatePartnerCredential(credential) {
+  const result = await partner('/api/v1/partner/events', {}, credential);
+  if (!result || !Array.isArray(result.items)) {
+    const error = new Error('PARTNER_API_MISCONFIGURED');
+    error.status = 502;
+    throw error;
+  }
+}
+
+function connectionIssue(error) {
+  if (error?.status === 401 || error?.status === 403) return 'invalid';
+  if (
+    error instanceof Error &&
+    ['DEMO_NOT_CONFIGURED', 'PARTNER_API_MISCONFIGURED'].includes(error.message)
+  )
+    return 'configuration';
+  return 'unavailable';
+}
+
 function friendlyError(error) {
   const code = error instanceof Error ? error.message : '';
   if (['HOLD_EXPIRED', 'RESERVATION_EXPIRED'].includes(code))
@@ -256,7 +277,13 @@ async function orderView(session) {
 async function api(request, response, url) {
   try {
     if (request.method === 'GET' && url.pathname === '/demo-api/config')
-      return json(response, 200, { scanner_url: scannerURL, reviewer_url: reviewerURL });
+      return json(response, 200, {
+        scanner_url: scannerURL,
+        reviewer_url: reviewerURL,
+        return_url: returnURL,
+        api_configured: Boolean(configuredAPIBase),
+        session_configured: Boolean(sessionSecret),
+      });
     if (request.method === 'GET' && url.pathname === '/demo-api/connections') {
       const saved = savedConnections(request);
       const items = saved.items.map(({ id, name }) => ({
@@ -274,9 +301,10 @@ async function api(request, response, url) {
       const credential = (form.get('credential') || '').trim();
       if (!name || !credential) return redirect(response, '/?connection=missing');
       try {
-        await partner('/api/v1/partner/events', {}, credential);
-      } catch {
-        return redirect(response, '/?connection=invalid');
+        encryptionKey();
+        await validatePartnerCredential(credential);
+      } catch (error) {
+        return redirect(response, `/?connection=${connectionIssue(error)}`);
       }
       const saved = savedConnections(request);
       const id = randomUUID();

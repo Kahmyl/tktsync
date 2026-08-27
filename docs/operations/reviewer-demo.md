@@ -28,6 +28,25 @@ access. No destructive public reset endpoint exists.
 
 ## Runtime configuration
 
+The Partner Demo is a server-rendered BFF on Vercel, so its runtime variables must be configured
+on the **partner-demo-web project itself**, for Production as well as any assessment Preview
+deployment:
+
+| Variable | Required value |
+| --- | --- |
+| `API_PUBLIC_URL` | Public HTTPS origin of the deployed Go API; do not point this at Reviewer Hub or Admin |
+| `PARTNER_DEMO_PUBLIC_URL` | Public Partner Demo origin, with no trailing slash |
+| `PARTNER_DEMO_RETURN_URL` | The same origin followed by `/checkout/return` |
+| `PARTNER_DEMO_SESSION_SECRET` | Random server-only secret of at least 32 characters |
+| `SCANNER_PUBLIC_URL` | Public Scanner origin |
+| `REVIEWER_PUBLIC_URL` | Public Reviewer Hub origin |
+
+`API_PUBLIC_URL`, `PARTNER_DEMO_RETURN_URL`, and `PARTNER_DEMO_SESSION_SECRET` are server-only
+runtime values. A `VITE_` variable in another Vercel project does not configure this BFF. After
+changing them, redeploy Partner Demo and inspect `GET /demo-api/config`: `api_configured` and
+`session_configured` must both be `true`, and `return_url` must be the exact URL registered on the
+Partner in Admin.
+
 Set `PARTNER_DEMO_SESSION_SECRET` to a strong deployment secret. It encrypts the
 HttpOnly cookies that hold saved assessment connections and checkout state, allowing
 the Vercel BFF to remain stateless across function instances. Reviewers can enter the

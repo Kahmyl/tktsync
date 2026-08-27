@@ -96,8 +96,20 @@ function ConnectionSetup() {
         )}
         {issue === 'invalid' && (
           <p className="inline-error" role="alert">
-            That credential could not access the Partner API. Copy the one-time credential from
-            Admin and try again.
+            The TktSync API rejected that credential. Copy the complete one-time credential from the
+            same Partner in Admin, or issue a replacement credential and try again.
+          </p>
+        )}
+        {issue === 'configuration' && (
+          <p className="inline-error" role="alert">
+            The Demo Partner deployment is not connected to the TktSync API. This is a deployment
+            configuration issue, not a problem with your Partner credential.
+          </p>
+        )}
+        {issue === 'unavailable' && (
+          <p className="inline-error" role="alert">
+            The Demo Partner server cannot reach the TktSync API right now. Keep the credential safe
+            and retry after the deployment is available.
           </p>
         )}
         <label htmlFor="partner-name">Partner name</label>
@@ -108,6 +120,10 @@ function ConnectionSetup() {
           required
           placeholder="Example: Demo Partner"
         />
+        <p className="field-note">
+          This name labels the sample storefront. The credential securely determines which Partner
+          and Events the TktSync API permits.
+        </p>
         <label htmlFor="partner-credential">Partner credential</label>
         <input
           id="partner-credential"

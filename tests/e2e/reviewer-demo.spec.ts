@@ -43,6 +43,19 @@ test('Reviewer Hub and Partner Demo have no document overflow at mobile widths',
   }
 });
 
+test('Demo Partner distinguishes deployment configuration from invalid credentials', async ({
+  page,
+}) => {
+  await page.goto('http://127.0.0.1:4180/?connection=configuration');
+  await expect(
+    page.getByText(
+      'This is a deployment configuration issue, not a problem with your Partner credential.',
+    ),
+  ).toBeVisible();
+  await page.goto('http://127.0.0.1:4180/?connection=invalid');
+  await expect(page.getByText('The TktSync API rejected that credential.')).toBeVisible();
+});
+
 test('Demo Partner renders real-contract Events and starts selection through its BFF', async ({
   page,
 }) => {

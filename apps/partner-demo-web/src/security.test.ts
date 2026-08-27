@@ -22,6 +22,13 @@ describe('checkout security boundary', () => {
     expect(server).toContain('const items = saved.items.map(({ id, name })');
     expect(server).not.toContain('localStorage');
   });
+  it('distinguishes invalid credentials from deployment connectivity failures', () => {
+    expect(server).toContain('error?.status === 401 || error?.status === 403');
+    expect(server).toContain("return 'configuration'");
+    expect(server).toContain("return 'unavailable'");
+    expect(server).toContain('Array.isArray(result.items)');
+    expect(server).toContain('process.env.API_PUBLIC_URL || process.env.VITE_API_BASE_URL');
+  });
   it('calls checkout before confirmation and retrieves hosted QR credentials', () => {
     expect(server.indexOf('}/checkout`')).toBeLessThan(server.indexOf('}/confirm`'));
     expect(server).toContain('/credential`');

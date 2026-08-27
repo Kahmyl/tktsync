@@ -52,7 +52,19 @@ describe('reviewer walkthrough player', () => {
     const instructions = credential?.instructions.join(' ') || '';
     expect(instructions).toContain('save it somewhere temporary and secure');
     expect(instructions).toContain('Do not choose I have stored it');
+    expect(instructions).toContain('/checkout/return');
+    expect(instructions).toContain('Save checkout URLs');
     expect(credential?.note).toContain('If it is lost, you must issue a new credential');
+  });
+
+  it('explains the Partner display-name and credential boundary', () => {
+    const connection = phases[1]!.actions.find((action) =>
+      action.title.includes('Partner storefront'),
+    );
+    expect(connection?.instructions.join(' ')).toContain(
+      'credential is what securely identifies the Partner',
+    );
+    expect(connection?.note).toContain('deployment configuration problem');
   });
 
   it('routes stable guide actions directly to their named application screens', () => {
