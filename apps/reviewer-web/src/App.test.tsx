@@ -31,7 +31,18 @@ describe('reviewer walkthrough player', () => {
   it('includes schedule verification and recovery before Event creation', () => {
     const create = phases[0]!.actions.find((action) => action.title === 'Create the Event draft');
     expect(create?.instructions.join(' ')).toContain('all six date and time fields');
+    expect(create?.instructions.join(' ')).toContain('10 minutes before the current time');
+    expect(create?.instructions.join(' ')).toContain('do not use a future Sales open time');
     expect(create?.instructions.join(' ')).toContain('If any line says Not scheduled');
+  });
+
+  it('prevents scheduled sales from blocking the Partner journey', () => {
+    const readiness = phases[0]!.actions.find((action) => action.title.includes('readiness check'));
+    const instructions = readiness?.instructions.join(' ') || '';
+    expect(instructions).toContain('primary action says Open sales');
+    expect(instructions).toContain('If it says Schedule sales');
+    expect(instructions).toContain('do not continue to the Partner storefront');
+    expect(readiness?.complete).toContain('On sale');
   });
 
   it('warns the reviewer to save the one-time Partner credential before closing it', () => {

@@ -153,12 +153,15 @@ export const phases: ReviewPhase[] = [
         cta: 'Open Create Event',
         instructions: [
           'Use the review Event name shown in this guide, then select the venue you just prepared.',
-          'Set all six date and time fields: Event start/end, sales open/close and admission open/close. Confirm the timezone.',
+          'Set Event start to a future date and Event end to a later time on that date.',
+          'Set Sales open to at least 10 minutes before the current time. This is essential: do not use a future Sales open time.',
+          'Set Sales close after the current time, then set Admission open before the Event starts and Admission close after admission opens.',
+          'Confirm that all six date and time fields are filled and the timezone is correct.',
           'On Review, verify every schedule value. If any line says Not scheduled, choose Back and enter it again before creating the Event.',
           'Review the summary and choose Create draft event.',
         ],
         complete: 'The Event opens in Draft state with an Event setup checklist.',
-        note: 'Creating the draft does not put tickets on sale. Finish every setup item before opening sales.',
+        note: 'Sales open must be in the past so Step 14 presents Open sales. Creating the draft still does not put tickets on sale until you deliberately choose that action.',
       },
       {
         title: 'Materialize the published layout',
@@ -250,7 +253,9 @@ export const phases: ReviewPhase[] = [
         instructions: [
           'Confirm Sales policy, Layout & seats, Pricing and Inventory all show Configured.',
           'Check that Partner access is 1 or more.',
+          'Confirm the primary action says Open sales. If it says Schedule sales, the Sales open time was set in the future: do not continue to the Partner storefront; recreate the review Event with Sales open at least 10 minutes in the past.',
           'Choose Open sales only after those checks pass.',
+          'Wait for the Event badge to say On sale before leaving Admin.',
         ],
         complete:
           'The Event status changes from Draft to On sale and Pause sales replaces Open sales.',
