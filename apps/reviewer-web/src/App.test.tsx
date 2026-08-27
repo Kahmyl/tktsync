@@ -54,7 +54,9 @@ describe('reviewer walkthrough player', () => {
 
     const scanner = phases.find((phase) => phase.id === 'scanner');
     expect(JSON.stringify(scanner)).toContain('Manual admission code');
-    expect(JSON.stringify(scanner)).toContain('not the public Ticket ID');
+    expect(JSON.stringify(scanner)).toContain('desktop or laptop cannot use the QR camera scanner');
+    expect(JSON.stringify(scanner)).toContain('scan the ticket QR displayed on another screen');
+    expect(JSON.stringify(scanner)).toContain('Do not enter the public Ticket ID');
     expect(JSON.stringify(scanner)).toContain('Entry is not open');
   });
 

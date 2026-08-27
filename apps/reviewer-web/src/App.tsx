@@ -413,7 +413,9 @@ export const phases: ReviewPhase[] = [
         instructions: [
           'Sign in with the Reviewer access shown at the start of this phase. Use the email exactly as displayed.',
           'Choose the Event whose Event reference matches the reference printed on the issued ticket. This distinguishes Events even when their names, dates and venues match.',
-          'On a phone, allow rear-camera access only when prompted. On desktop, choose Enter code manually and paste the Manual admission code copied from the ticket page—not the public Ticket ID.',
+          'Choose your device path: Scanner camera scanning requires a mobile phone with a rear camera. A desktop or laptop cannot use the QR camera scanner.',
+          'Phone: open the Scanner link on your phone, sign in, choose the matching Event, allow rear-camera access when prompted, and scan the ticket QR displayed on another screen.',
+          'Desktop or laptop: choose Enter code manually and paste the Manual admission code copied from the ticket page. Do not enter the public Ticket ID—the Ticket ID is not an admission credential.',
         ],
         complete: 'Scanner shows the selected Event and is ready to validate a credential.',
       },
@@ -421,9 +423,9 @@ export const phases: ReviewPhase[] = [
         title: 'Prove admission and duplicate protection',
         location: 'Scanner → scan',
         instructions: [
-          'On a phone, scan the QR from the Partner ticket. On desktop, submit the copied Manual admission code.',
+          'Phone: scan the QR displayed on another screen. Desktop or laptop: submit the copied Manual admission code.',
           'Read the ADMITTED result and verify the expected ticket/seat details.',
-          'Scan the same QR again.',
+          'Repeat the same action: scan the same QR again on phone, or submit the same Manual admission code again on desktop.',
         ],
         complete: 'The first scan is admitted and the second is rejected as Already admitted.',
         note: 'If Scanner says Entry is not open, return to Admin and verify that Admission open is in the past and Admission close is still in the future. The second scan must return Already admitted; a second successful admission would be incorrect.',
