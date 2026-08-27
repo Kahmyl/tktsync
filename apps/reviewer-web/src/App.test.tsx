@@ -94,4 +94,13 @@ describe('reviewer walkthrough player', () => {
       admin.actions.find((action) => action.title.includes('save its credential'))?.href,
     ).toMatch(/\/partners$/);
   });
+
+  it('keeps the required final review inside public Developer Docs', () => {
+    const markup = renderToStaticMarkup(<App />);
+    expect(markup).toContain('Developer Docs');
+    expect(markup).not.toContain('Source code');
+
+    const technical = buildSlides().find((slide) => slide.kind === 'technical');
+    expect(technical?.kind).toBe('technical');
+  });
 });

@@ -181,33 +181,49 @@ export default function ReviewPlayer() {
     if (slide.kind === 'technical')
       return (
         <section>
-          <p className="eyebrow">Technical review</p>
-          <h1>Inspect the implementation.</h1>
+          <p className="eyebrow">Public documentation review</p>
+          <h1>Review the public Partner integration guide.</h1>
           <p className="lead-copy">
-            Open the supporting material after completing the visible ticket journey.
+            Complete this step using only the deployed Developer Docs. Do not inspect source code or
+            internal repository documents as part of this guided assessment.
           </p>
-          <div className="technical-grid">
-            <a href={config.docs} target="_blank" rel="noreferrer">
-              <strong>Developer Docs</strong>
-              <span>Partner workflow and API reference →</span>
-            </a>
-            <a href={config.architecture} target="_blank" rel="noreferrer">
-              <strong>Architecture</strong>
-              <span>System structure and boundaries →</span>
-            </a>
-            <a href={config.security} target="_blank" rel="noreferrer">
-              <strong>Security model</strong>
-              <span>Credentials, tokens and fail-closed rules →</span>
-            </a>
-            <a href={config.runtime} target="_blank" rel="noreferrer">
-              <strong>Runtime model</strong>
-              <span>Concurrency and operational behavior →</span>
-            </a>
-            <a href={config.source} target="_blank" rel="noreferrer">
-              <strong>Source code</strong>
-              <span>github.com/Kahmyl/tktsync →</span>
-            </a>
+          <div className="instruction-layout">
+            <div>
+              <p className="section-label">Do this</p>
+              <ol className="action-instructions">
+                <li>Open the public Developer Docs using the button below.</li>
+                <li>
+                  Read the Partner workflow from Event discovery through Selector, Reservation,
+                  checkout confirmation, ticket issuance and admission.
+                </li>
+                <li>
+                  Confirm that Partner credentials stay server-side and the Reservation token
+                  returns to Partner checkout through a secure form POST rather than the URL.
+                </li>
+                <li>
+                  Review how hosted QR credentials and Scanner validation complete the same
+                  authoritative ticket lifecycle.
+                </li>
+              </ol>
+            </div>
+            <aside className="result-card">
+              <p className="section-label">Done when</p>
+              <p>
+                The public docs explain every handoff you just completed in the visible journey,
+                without requiring source-code or internal-document inspection.
+              </p>
+              <div className="action-note">
+                <strong>Review boundary</strong>
+                <p>
+                  Developer Docs are required. Do not open repository or source-code material during
+                  this guided assessment.
+                </p>
+              </div>
+            </aside>
           </div>
+          <a className="phase-cta" href={config.docs} target="_blank" rel="noreferrer">
+            Open Developer Docs <span aria-hidden="true">↗</span>
+          </a>
         </section>
       );
     if (slide.kind === 'finish')
@@ -306,8 +322,8 @@ export default function ReviewPlayer() {
           <Logo />
           <strong>Review Guide</strong>
         </button>
-        <a className="source-link" href={config.source} target="_blank" rel="noreferrer">
-          Source code ↗
+        <a className="source-link" href={config.docs} target="_blank" rel="noreferrer">
+          Developer Docs ↗
         </a>
       </header>
       <div className="progress-track">
@@ -337,7 +353,7 @@ export default function ReviewPlayer() {
                 onClick={() => move(slides.findIndex((item) => item.kind === 'technical'))}
               >
                 <span>7</span>
-                <b>Technical</b>
+                <b>Docs</b>
               </button>
             </li>
           </ol>

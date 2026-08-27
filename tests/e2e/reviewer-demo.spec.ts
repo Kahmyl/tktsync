@@ -9,9 +9,9 @@ test('Reviewer Hub presents one complete assessment walkthrough in order', async
   await expect(
     page.getByRole('complementary', { name: 'Review phases' }).getByRole('button'),
   ).toHaveCount(7);
-  await expect(page.getByRole('link', { name: 'Source code' }).first()).toHaveAttribute(
+  await expect(page.getByRole('link', { name: 'Developer Docs' }).first()).toHaveAttribute(
     'href',
-    'https://github.com/Kahmyl/tktsync',
+    'https://docs.example.test',
   );
 
   await page.getByRole('button', { name: '1 Admin setup' }).click();
@@ -27,6 +27,19 @@ test('Reviewer Hub presents one complete assessment walkthrough in order', async
   await page.getByRole('button', { name: '2 Partner' }).click();
   await expect(page.getByText('Not part of TktSync', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Choose the Partner storefront' })).toBeVisible();
+
+  await page.getByRole('button', { name: '7 Docs' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Review the public Partner integration guide.' }),
+  ).toBeVisible();
+  await expect(page.getByText('Do this', { exact: true })).toBeVisible();
+  await expect(page.getByText('Done when', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Do not inspect source code/)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Open Developer Docs' })).toHaveAttribute(
+    'href',
+    'https://docs.example.test',
+  );
+  await expect(page.getByRole('link', { name: /Source code/i })).toHaveCount(0);
 });
 
 test('Reviewer Hub and Partner Demo have no document overflow at mobile widths', async ({

@@ -424,11 +424,12 @@ export const phases: ReviewPhase[] = [
         location: 'Scanner → scan',
         instructions: [
           'Phone: scan the QR displayed on another screen. Desktop or laptop: submit the copied Manual admission code.',
-          'Read the ADMITTED result and verify the expected ticket/seat details.',
+          'Read the Admit guest result and verify the expected ticket/seat details.',
           'Repeat the same action: scan the same QR again on phone, or submit the same Manual admission code again on desktop.',
         ],
-        complete: 'The first scan is admitted and the second is rejected as Already admitted.',
-        note: 'If Scanner says Entry is not open, return to Admin and verify that Admission open is in the past and Admission close is still in the future. The second scan must return Already admitted; a second successful admission would be incorrect.',
+        complete:
+          'The first scan shows Admit guest and the duplicate attempt shows Already checked in.',
+        note: 'If Scanner says Entry is not open, return to Admin and verify that Admission open is in the past and Admission close is still in the future. The duplicate attempt must show Already checked in; a second successful admission would be incorrect.',
       },
     ],
   },
@@ -460,7 +461,7 @@ export const phases: ReviewPhase[] = [
         instructions: [
           'Select the same Event.',
           'Find the Admitted record for the first scan.',
-          'Find the separate Already admitted outcome created by the duplicate scan.',
+          'Find the separate duplicate outcome created when Scanner showed Already checked in.',
         ],
         complete: 'Both the successful admission and duplicate attempt are auditable.',
       },
